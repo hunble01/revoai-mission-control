@@ -1,0 +1,13 @@
+{
+  "name": "revoai-mission-control",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run -w apps/api dev & npm run -w apps/web dev",
+    "dev:api": "npm run -w apps/api dev",
+    "dev:web": "npm run -w apps/web dev"
+  }
+}

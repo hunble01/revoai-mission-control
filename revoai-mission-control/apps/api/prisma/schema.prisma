@@ -1,0 +1,199 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role { ADMIN OPERATOR CLOSER VIEWER }
+enum AgentStatus { IDLE RUNNING PAUSED BLOCKED }
+enum TaskColumn { BACKLOG DOING NEEDS_APPROVAL DONE }
+enum LeadScore { A B C }
+enum LeadStatus { NEW ENRICHED DRAFTED APPROVED CONTACTED REPLIED BOOKED LOST }
+enum DraftStatus { DRAFT NEEDS_APPROVAL APPROVED REJECTED }
+enum ApprovalAction { APPROVE REJECT REQUEST_CHANGES EDIT_INLINE_APPROVE APPROVE_WITH_NOTES }
+enum Channel { EMAIL FACEBOOK INSTAGRAM LINKEDIN }
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  role         Role     @default(ADMIN)
+  passwordHash String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Campaign {
+  id                String   @id @default(uuid())
+  name              String
+  niche             String
+  geography         String
+  minScore          LeadScore @default(B)
+  outreachTemplates Json
+  contentThemes     Json
+  metrics           Json
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  leads             Lead[]
+  drafts            Draft[]
+  tasks             Task[]
+  schedulerJobs     SchedulerJob[]
+}
+
+model Lead {
+  id                  String     @id @default(uuid())
+  campaignId          String
+  campaign            Campaign   @relation(fields: [campaignId], references: [id])
+  businessName        String
+  niche               String?
+  region              String?
+  website             String?
+  contactName         String?
+  contactRole         String?
+  email               String?
+  phone               String?
+  source              String?
+  leadScore           LeadScore?
+  scoreOverride       LeadScore?
+  scoreOverrideReason String?
+  status              LeadStatus @default(NEW)
+  lastActionAt        DateTime?
+  nextStep            String?
+  notes               Json       @default("[]")
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  drafts              Draft[]
+}
+
+model Draft {
+  id              String      @id @default(uuid())
+  campaignId      String
+  campaign        Campaign    @relation(fields: [campaignId], references: [id])
+  leadId          String?
+  lead            Lead?       @relation(fields: [leadId], references: [id])
+  channel         Channel
+  draftType       String
+  status          DraftStatus @default(DRAFT)
+  currentVersion  Int         @default(1)
+  approverId      String?
+  scheduledSendAt DateTime?
+  createdBy       String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  versions        DraftVersion[]
+  approvals       Approval[]
+}
+
+model DraftVersion {
+  id            String   @id @default(uuid())
+  draftId       String
+  draft         Draft    @relation(fields: [draftId], references: [id])
+  versionNumber Int
+  content       String
+  changeNote    String?
+  createdBy     String?
+  createdAt     DateTime @default(now())
+
+  @@unique([draftId, versionNumber])
+}
+
+model Task {
+  id            String      @id @default(uuid())
+  campaignId    String?
+  campaign      Campaign?   @relation(fields: [campaignId], references: [id])
+  title         String
+  description   String?
+  columnName    TaskColumn  @default(BACKLOG)
+  priority      String      @default("med")
+  ownerType     String      @default("agent")
+  ownerId       String?
+  linkedLeadId  String?
+  linkedDraftId String?
+  createdBy     String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  doneAt        DateTime?
+}
+
+model Agent {
+  id           String      @id @default(uuid())
+  name         String      @unique
+  status       AgentStatus @default(IDLE)
+  currentTaskId String?
+  lastUpdateAt DateTime?
+  metadata     Json        @default("{}")
+}
+
+model TaskEvent {
+  id         BigInt   @id @default(autoincrement())
+  taskId     String?
+  campaignId String?
+  agentId    String?
+  eventType  String
+  payload    Json     @default("{}")
+  createdBy  String?
+  createdAt  DateTime @default(now())
+}
+
+model Approval {
+  id            String         @id @default(uuid())
+  draftId       String
+  draft         Draft          @relation(fields: [draftId], references: [id])
+  action        ApprovalAction
+  notes         String?
+  editorContent String?
+  decidedBy     String?
+  decidedAt     DateTime       @default(now())
+}
+
+model SchedulerJob {
+  id         String   @id @default(uuid())
+  campaignId String?
+  campaign   Campaign? @relation(fields: [campaignId], references: [id])
+  name       String
+  cronExpr   String
+  timezone   String   @default("America/Toronto")
+  enabled    Boolean  @default(true)
+  config     Json     @default("{}")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  runs       SchedulerRun[]
+}
+
+model SchedulerRun {
+  id         String   @id @default(uuid())
+  jobId      String
+  job        SchedulerJob @relation(fields: [jobId], references: [id])
+  startedAt  DateTime @default(now())
+  finishedAt DateTime?
+  status     String
+  summary    Json     @default("{}")
+}
+
+model AuditLog {
+  id          BigInt   @id @default(autoincrement())
+  actorType   String
+  actorId     String?
+  action      String
+  resourceType String
+  resourceId  String
+  beforeState Json?
+  afterState  Json?
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now())
+}
+
+model Setting {
+  key        String   @id
+  value      Json
+  updatedBy  String?
+  updatedAt  DateTime @default(now())
+}

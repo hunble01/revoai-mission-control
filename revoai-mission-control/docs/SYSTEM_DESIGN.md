@@ -1,252 +1,216 @@
 # RevoAI Mission Control — System Design (MVP)
 
-## 1) Architecture Overview
-
-## Stack
+## 1) Stack + Architecture
 - **Frontend:** Next.js (App Router, TypeScript)
-- **Backend API:** Node.js (NestJS or Express + TypeScript; recommend NestJS for modularity)
-- **DB:** PostgreSQL
-- **Cache/Broker:** Redis
-- **Realtime:** WebSocket gateway (fallback SSE)
-- **Infra:** Docker Compose (local first)
+- **Backend:** NestJS + Prisma
+- **Database:** PostgreSQL
+- **Realtime/Event fanout:** Redis + WebSockets
+- **Runtime:** Docker Compose (local-first)
 
-## Logical Components
-1. **Web App**
-   - Dashboard pages: Board, Agents, Feed, Approval Inbox, Leads, Drafts, Audit, Replay.
-2. **API Service**
-   - CRUD for tasks/leads/drafts/agents
-   - workflow transitions + role checks
-   - approval actions
-   - audit write middleware
-3. **Event Service (within API in MVP)**
-   - Normalizes domain events
-   - Stores event + audit records
-   - Publishes to Redis pub/sub channel
-4. **Realtime Gateway**
-   - Subscribes to Redis channels
-   - Pushes events to web clients (WS)
+## 2) High-Level Components
+1. **Web Dashboard**
+   - Task board, agent cards, activity feed, approval inbox, leads, drafts, campaigns, scheduler, audit/replay.
+2. **API (NestJS)**
+   - Domain modules: auth, tasks, agents, leads, drafts, approvals, campaigns, scheduler, settings, audit.
+3. **Event Bus Layer**
+   - Write domain event to DB + publish to Redis + stream via WS gateway.
+4. **Scheduler Runner**
+   - Cron-based job coordinator (Toronto timezone) writing events and task records.
 5. **Postgres**
-   - Source of truth for domain + append-only logs
+   - Source-of-truth + append-only logs.
 6. **Redis**
-   - Event fanout and lightweight presence/status cache
+   - Realtime pub/sub.
 
 ---
 
-## 2) Data Model (MVP)
+## 3) Core Data Model (Prisma/Postgres)
 
-### `users`
-- id (uuid, pk)
-- email (text, unique)
-- role (enum: admin/operator/closer/viewer)
-- password_hash (nullable in single-admin token mode)
-- is_active (bool)
-- created_at, updated_at
+### enums
+- `Role`: ADMIN, OPERATOR, CLOSER, VIEWER
+- `AgentStatus`: IDLE, RUNNING, PAUSED, BLOCKED
+- `TaskColumn`: BACKLOG, DOING, NEEDS_APPROVAL, DONE
+- `LeadScore`: A, B, C
+- `LeadStatus`: NEW, ENRICHED, DRAFTED, APPROVED, CONTACTED, REPLIED, BOOKED, LOST
+- `DraftStatus`: DRAFT, NEEDS_APPROVAL, APPROVED, REJECTED
+- `ApprovalAction`: APPROVE, REJECT, REQUEST_CHANGES, EDIT_INLINE_APPROVE, APPROVE_WITH_NOTES
+- `Channel`: EMAIL, FACEBOOK, INSTAGRAM, LINKEDIN
 
-### `agents`
-- id (uuid, pk)
-- name (text, unique) // orchestrator, lead_finder, etc.
-- status (enum: idle/running/paused/blocked)
-- current_task_id (uuid, nullable)
-- last_update_at (timestamptz)
-- metadata (jsonb)
+### tables/models
+- `users`
+- `agents`
+- `tasks`
+- `task_events` (timeline)
+- `audit_log` (append-only)
+- `campaigns` (new)
+- `campaign_metrics` (optional JSON or child table)
+- `leads` (must reference campaign)
+- `drafts` (must reference campaign; optional lead link)
+- `draft_versions`
+- `approvals`
+- `scheduler_jobs`
+- `scheduler_runs`
+- `settings` (dryRun + channel toggles + pause flags)
 
-### `tasks`
-- id (uuid, pk)
-- title (text)
-- description (text)
-- column (enum: backlog/doing/needs_approval/done)
-- priority (enum: low/med/high)
-- owner_type (enum: admin/agent)
-- owner_id (uuid, nullable)
-- linked_lead_id (uuid, nullable)
-- linked_draft_id (uuid, nullable)
-- created_by (uuid)
-- created_at, updated_at
-- done_at (timestamptz, nullable)
-
-### `task_events` (domain timeline)
-- id (bigserial, pk)
-- task_id (uuid, nullable)
-- agent_id (uuid, nullable)
-- event_type (text)
-- payload (jsonb)
-- created_by (uuid, nullable)
-- created_at (timestamptz default now)
-
-### `audit_log` (append-only immutable by app policy)
-- id (bigserial, pk)
-- actor_type (enum: user/agent/system)
-- actor_id (uuid, nullable)
-- action (text)
-- resource_type (text)
-- resource_id (text)
-- before_state (jsonb, nullable)
-- after_state (jsonb, nullable)
-- metadata (jsonb)
-- created_at (timestamptz default now)
-
-### `leads`
-- id (uuid, pk)
-- business_name (text)
-- niche (text)
-- region (text)
-- website (text)
-- contact_name (text, nullable)
-- contact_role (text, nullable)
-- email (text, nullable)
-- phone (text, nullable)
-- source (text)
-- lead_score (enum: A/B/C)
-- status (enum: new/enriched/drafted/approved/contacted/replied/booked/lost)
-- last_action_at (timestamptz, nullable)
-- next_step (text, nullable)
-- notes (jsonb) // personalization bullets array
-- created_at, updated_at
-
-### `drafts`
-- id (uuid, pk)
-- lead_id (uuid, nullable)
-- channel (enum: email/linkedin/facebook/instagram/post/script/landing_page/ad_copy)
-- draft_type (text)
-- status (enum: draft/needs_approval/approved/rejected)
-- current_version (int)
-- approver_id (uuid, nullable)
-- scheduled_send_at (timestamptz, nullable) // future use
-- created_by (uuid)
-- created_at, updated_at
-
-### `draft_versions`
-- id (uuid, pk)
-- draft_id (uuid)
-- version_number (int)
-- content (text)
-- change_note (text, nullable)
-- created_by (uuid, nullable)
-- created_at (timestamptz)
-
-### `approvals`
-- id (uuid, pk)
-- draft_id (uuid)
-- action (enum: approve/reject/request_changes/edit_inline_approve/approve_with_notes)
-- notes (text, nullable)
-- editor_content (text, nullable)
-- decided_by (uuid)
-- decided_at (timestamptz)
-
-### `system_controls`
-- key (text, pk) // global_pause
-- value (jsonb)
-- updated_by (uuid)
-- updated_at (timestamptz)
+### new critical fields
+- `settings.dry_run_mode` (default true)
+- `settings.outbound_email_enabled` (default false)
+- `settings.outbound_facebook_enabled` (default false)
+- `settings.outbound_instagram_enabled` (default false)
+- `settings.outbound_linkedin_enabled` (default false)
+- `leads.score_override` (nullable enum)
+- `leads.score_override_reason` (nullable text)
 
 ---
 
-## 3) Realtime Approach
+## 4) Realtime Event Architecture
+1. API mutation/scheduler action occurs.
+2. Transaction writes domain state + `task_events` + `audit_log`.
+3. Publisher emits compact event to Redis channel `mission_control.events`.
+4. WS gateway broadcasts to clients subscribed by workspace/user.
+5. UI updates board/feed/cards/inbox in near real-time.
 
-## Event flow
-1. API mutation occurs (e.g., task move, approval action).
-2. Service writes transaction:
-   - domain table update
-   - task_events insert
-   - audit_log insert
-3. Service publishes compact event to Redis channel `mission_control.events`.
-4. WebSocket gateway consumes and pushes to subscribed clients.
-5. UI updates board/feed/cards optimistically with server confirmation.
-
-## Event envelope
+### event envelope
 ```json
 {
-  "id": "evt_...",
-  "type": "draft.submitted_for_approval",
+  "id": "evt_123",
+  "type": "approval.approved_with_notes",
   "entityType": "draft",
-  "entityId": "...",
-  "taskId": "...",
-  "agent": "copywriter",
-  "timestamp": "2026-...",
-  "payload": {"status": "needs_approval"}
+  "entityId": "draft_uuid",
+  "taskId": "task_uuid",
+  "campaignId": "campaign_uuid",
+  "timestamp": "2026-02-18T...Z",
+  "payload": {
+    "notes": "approved with personalization tweak"
+  }
 }
 ```
 
-## Why WS over SSE
-- Bi-directional path for admin controls (pause/kill, inline approve edits).
-- Simpler single channel for live feed + board state hints.
+### required new event types
+- `scheduler.job.started`
+- `scheduler.job.completed`
+- `scheduler.job.failed`
+- `campaign.created|updated|activated`
+- `approval.approved_with_notes`
+- `lead.score.overridden`
+- `safety.dry_run.toggled`
+- `safety.channel_toggled`
 
 ---
 
-## 4) Permission / Workflow Rules
+## 5) Scheduler Module (Toronto Time)
+Timezone: `America/Toronto`
+
+Default jobs:
+- `09:00` lead_research
+- `09:30` enrichment_scoring
+- `10:30` outreach_drafting_qa (push to approvals)
+- `12:00` content_research_creation_qa (push to approvals)
+- `16:30` daily_brief (3 wins / 3 blockers / 3 next moves)
+
+Each run writes:
+- scheduler run record
+- emitted task events
+- audit entries
+
+---
+
+## 6) Dry-Run + Outbound Safety Enforcement
+Server-side guard middleware:
+- If `dryRunMode === true` => block any outbound executor call.
+- If specific channel toggle is OFF => block that channel send path.
+
+MVP behavior:
+- Jobs still generate leads/drafts/events.
+- Approval flow works fully.
+- External sending adapters are disabled/no-op.
+
+---
+
+## 7) Permissions / Transition Rules
 - Only Admin can:
-  - mark task `done`
-  - approve/reject drafts
-  - inline edit + approve
-  - global pause all
+  - set task DONE
+  - all approval decisions
+  - global pause + channel toggles + dry-run toggle
+  - score overrides (with reason)
 - Agents/operators can:
-  - move tasks to doing/needs_approval
+  - move to DOING / NEEDS_APPROVAL
   - create/update drafts
   - emit progress events
-- No draft enters "send execution" in MVP.
 
 ---
 
-## 5) Repo Scaffold Plan
+## 8) API Surface (initial)
+- `GET /health`
+- `GET/POST/PATCH /tasks`
+- `GET/PATCH /agents`
+- `GET/POST/PATCH /leads`
+- `POST /leads/:id/score-override`
+- `GET/POST/PATCH /drafts`
+- `POST /drafts/:id/approve`
+- `POST /drafts/:id/reject`
+- `POST /drafts/:id/request-changes`
+- `POST /drafts/:id/edit-inline-approve`
+- `POST /drafts/:id/approve-with-notes`
+- `GET/POST/PATCH /campaigns`
+- `GET/POST/PATCH /scheduler/jobs`
+- `POST /scheduler/jobs/:id/run-now`
+- `GET /scheduler/runs`
+- `GET/PATCH /settings/safety`
+- `GET /events/feed`
+- `GET /audit`
+- `GET /tasks/:id/replay`
 
+---
+
+## 9) Repo Scaffold
 ```text
 revoai-mission-control/
   apps/
-    web/                 # Next.js dashboard
-    api/                 # NestJS/Express API + WS gateway
+    api/
+      src/
+        modules/
+          approvals/
+          campaigns/
+          scheduler/
+          settings/
+          events/
+          leads/
+          drafts/
+          tasks/
+          agents/
+        prisma/
+          schema.prisma
+    web/
+      app/
+        board/
+        agents/
+        feed/
+        approvals/
+        leads/
+        drafts/
+        campaigns/
+        scheduler/
+        audit/
   db/
-    migrations/
-    schema.sql
   seed/
-    seed.ts
-    mvp_tasks.json
   docs/
-    PRD.md
-    SYSTEM_DESIGN.md
-    VPS_DEPLOY.md
   docker-compose.yml
-  .env.example
-  README.md
 ```
 
 ---
 
-## 6) Docker Compose Layout
+## 10) Docker Compose Layout
 Services:
-- `web` (Next.js, port 3000)
-- `api` (Node API + WS, port 4000)
-- `postgres` (port 5432)
-- `redis` (port 6379)
-- optional `pgadmin` (dev convenience)
-
-Networking:
-- single compose network `mission_control_net`
-
-Volumes:
-- `pg_data`
-- `redis_data`
+- `postgres`
+- `redis`
+- `api` (NestJS)
+- `web` (Next.js)
 
 ---
 
-## 7) MVP Build Tasks (to preload on board)
-Use seeded tasks in Backlog:
-1. Initialize monorepo + TypeScript tooling
-2. Implement DB schema + migrations
-3. Implement auth (single-admin mode)
-4. Implement agents/tasks APIs
-5. Implement leads + drafts + versions APIs
-6. Implement approval inbox APIs + actions
-7. Implement append-only audit log middleware
-8. Implement realtime event bus (Redis + WS)
-9. Build Kanban board UI
-10. Build agent cards + controls UI
-11. Build live activity feed UI
-12. Build approval inbox UI
-13. Build leads view + CSV export
-14. Build drafts view + version history UI
-15. Build audit + replay timeline view
-16. Implement global pause + per-agent pause
-17. Seed demo data
-18. Docker compose end-to-end local run
-19. Add VPS deployment guide
-20. QA pass + UAT checklist
+## 11) Preloaded Build Tasks (updated)
+Include prior backlog + new tasks:
+- implement campaigns module
+- implement scheduler jobs/runs
+- implement dry-run + channel toggles in settings + middleware guards
+- implement score override endpoint + UI

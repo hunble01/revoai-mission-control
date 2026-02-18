@@ -1,53 +1,45 @@
 # RevoAI Mission Control — MVP PRD (Phase 2)
 
 ## 1) Product Summary
-RevoAI Mission Control is a real-time command center for managing agent-driven outreach operations with full transparency, strict approval gates, and auditability.
+RevoAI Mission Control is a real-time command center for agent-driven growth ops with strict approvals, full visibility, and replayable audit trails.
 
-**Phase 2 scope:** planning/build only. No outreach execution (no actual send/post).
+**Phase 2 scope:** planning/build + internal workflow automation only. No external send/post execution.
 
 ## 2) Goals
-1. Real-time visibility into agent activity.
-2. Approval-gated workflow for all outbound draft assets.
-3. Audit-first traceability with replayable timelines.
-4. Clean MVP architecture that works locally via Docker and scales later.
+1. Real-time visibility into every meaningful agent action.
+2. Approval-gated workflow for all outbound drafts/assets.
+3. Audit-first traceability (append-only event log + replay).
+4. Scheduler-driven daily pipeline in Toronto time.
+5. Dry-run-safe automation (generate, score, draft, approve flows without external publishing).
 
 ## 3) Non-Goals (MVP)
-- No live publishing/sending to channels.
-- No Google OAuth (single-admin mode first).
-- No tamper-evident cryptographic audit chain yet (append-only DB log only).
+- No actual outbound delivery/publishing to channels.
+- No Google OAuth.
+- No cryptographic hash-chain audit yet (append-only DB log only).
 
-## 4) Users & Roles
-### Active in MVP
-- **Admin (Michael)** — full control, approvals, done-state authority.
+## 4) Roles
+### Active now
+- **Admin (Michael)**
 
-### Role-ready (future toggles)
+### Role-ready (future)
 - Operator/VA
 - Closer/Sales
 - Viewer
 
 ## 5) Core Workflow
-Lead research → enrichment → draft creation/versioning → needs approval → admin decision (approve/reject/request changes/edit inline) → done (planning/build phase only).
+Campaign config → Scheduler job runs → Leads created/enriched/scored → Drafts created + QA → Approval Inbox → Admin decisions (approve/reject/request changes/edit inline/approve with notes) → Done (no send in MVP).
 
-## 6) Core Features (MVP)
-### A. Task Board (Kanban)
-Columns:
-- Backlog
-- Doing
-- Needs Approval
-- Done
+## 6) Core Feature Set (MVP)
 
-Rules:
-- Agents/operators can move tasks to **Doing** or **Needs Approval**.
-- Only Admin can move tasks to **Done**.
+### A) Task Board (Kanban)
+Columns: **Backlog → Doing → Needs Approval → Done**
+- Agents/operators can move to Doing / Needs Approval.
+- Only Admin can mark Done.
 
-### B. Agent Cards
-Each agent card shows:
-- status (idle/running/paused/blocked)
-- current task
-- last update timestamp
-- quick controls: pause/resume (admin)
+### B) Agent Cards
+For each agent: status, current task, last update, pause/resume.
 
-MVP agent set:
+MVP agents:
 - Orchestrator
 - Lead Finder
 - Enrichment Agent
@@ -55,84 +47,104 @@ MVP agent set:
 - Content Agent
 - QA/Compliance Agent
 
-### C. Live Activity Feed (Realtime)
-Must stream at least:
-1) task created/updated
-2) agent started task
-3) agent progress milestone
-4) draft created/updated/versioned
-5) draft submitted to approval
-6) approval decision
-7) lead added/enriched/scored
-8) error/blocked/retry + pause/kill
+### C) Live Activity Feed (Realtime)
+Required event classes:
+1. task created/updated
+2. agent started task
+3. progress milestone
+4. draft created/updated/versioned
+5. draft submitted to approval
+6. approval decision (+ approved_with_notes)
+7. lead added/enriched/scored/overridden
+8. error/blocked/retry/pause/kill
+9. scheduler started/completed/failed
+10. campaign activated/updated
 
-### D. Approval Inbox (control center)
-Approval actions:
+### D) Approval Inbox (control center)
+Actions:
 - Approve
 - Reject
 - Request changes
 - Edit inline + approve
-- (optional) Approve with notes
+- Approve with notes (**marks approved immediately**)
 
-### E. Audit Log (append-only)
-- Every significant action writes an immutable audit event row.
-- Replay view reconstructs timeline per task.
+Approval notes must be visible in draft history.
 
-### F. Leads View
+### E) Audit Log + Replay
+- Append-only audit table for all state-changing actions.
+- Replay timeline per task.
+
+### F) Leads View
 Required fields:
-- business_name
+- business name
 - niche
 - region
 - website
-- contact_name + role
-- email + phone (public)
+- contact name/role
+- email/phone (public)
 - source
-- lead_score (A/B/C)
-- status (new/enriched/drafted/approved/contacted/replied/booked/lost)
-- last_action_at + next_step
-- notes/personalization bullets
+- lead score (A/B/C)
+- lead score override + reason
+- status
+- last action + next step
+- personalization bullets
+- linked campaign
 
-Includes:
-- search/filter
-- CSV export
+Includes search/filter + CSV export.
 
-### G. Drafts View
+### G) Drafts View
 Required fields:
 - channel
-- linked lead/company
-- draft_type
-- version history
+- linked lead/company + campaign
+- draft type
+- versions
 - status (draft/needs_approval/approved/rejected)
 - approver
 - comments/edits
-- scheduled_send_at (field only for now)
+- scheduled send time field (future)
 
-Includes:
-- search/filter
-- diff/version view
+### H) Campaigns Module (new MVP requirement)
+Campaign ties together:
+- niche
+- geography
+- lead rules (incl. score threshold)
+- outreach templates
+- content themes
+- metrics
 
-### H. Safety Controls
-- Global pause all agents
-- Per-agent pause/resume
+**Leads and drafts must link to a campaign.**
 
-## 7) Functional Acceptance Criteria
-1. Kanban board updates in real-time from events.
-2. Drafts cannot transition to approved/sent-like states without admin action.
-3. Every UI action produces a visible feed event + audit entry.
-4. Replay timeline works for any selected task.
-5. Leads and drafts are searchable/filterable.
-6. Leads export to CSV works.
-7. Runs locally via Docker Compose end-to-end.
+### I) Scheduler Module (new MVP requirement)
+Timezone: **America/Toronto**
+Configurable jobs:
+- 09:00 Lead Research
+- 09:30 Enrichment + scoring
+- 10:30 Outreach Drafting + QA → Approval Inbox
+- 12:00 Content Research + Creation + QA → Approval Inbox
+- 16:30 Daily Brief (3 wins / 3 blockers / 3 next moves)
 
-## 8) Quality Attributes
-- Fast and readable UI (“mission control” style, low clutter).
-- Deterministic status transitions.
-- Clear separation between event log and mutable records.
-- Simple to extend into multi-user + sender integrations later.
+### J) Dry-Run + Channel Safety Toggles (new MVP requirement)
+- Global `dryRunMode` = **ON by default**
+- Per-channel outbound toggles = **OFF by default**:
+  - Email
+  - Facebook
+  - Instagram
+  - LinkedIn
 
-## 9) Milestones
-1. Schema + service skeleton
-2. Realtime event pipeline
-3. Core UI pages (Board, Agents, Feed, Inbox, Leads, Drafts, Audit)
-4. Seeded data + end-to-end local run
-5. Optional VPS deploy guide
+No external sends/posts unless explicitly enabled later.
+
+## 7) Scoring Rules (MVP)
+- Rule-based A/B/C scoring engine.
+- Admin manual override allowed with required reason.
+- Signals can include: ads present, weak CTA, missing booking flow, reviews level, after-hours lead-loss likelihood.
+
+## 8) Acceptance Criteria
+1. Daily scheduler jobs run in Toronto timezone and emit events.
+2. Dry-run mode prevents all outbound execution paths.
+3. Channel toggles default OFF and are enforced server-side.
+4. All approval actions are logged and visible in history.
+5. Approve-with-notes marks approved and records notes/event.
+6. Leads + drafts always linked to campaigns.
+7. Board/feed/cards update in real-time.
+8. Audit replay works for any task.
+9. Works locally end-to-end via Docker Compose.
