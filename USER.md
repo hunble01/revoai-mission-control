@@ -9,6 +9,10 @@ _Learn about the person you're helping. Update this as you go._
 - **Notes:**
   - Wants persistent memory/continuity across sessions
   - Prefers daily Facebook Marketplace sedan updates at 5 PM Toronto time
+  - Building RevoAI; wants assistant to maintain a strict source-of-truth for offer, ICP, objections, CTAs, positioning, and messaging rules.
+  - Prefers business copy that is short, direct, non-hype, and outcome-focused.
+  - Wants minimal essential questions only (no long interrogations).
+  - Wants uncertain business details explicitly labeled as placeholder / subject to change.
 
 ## Context
 
