@@ -14,6 +14,7 @@ _Learn about the person you're helping. Update this as you go._
   - Wants minimal essential questions only (no long interrogations).
   - Wants uncertain business details explicitly labeled as placeholder / subject to change.
   - Wants Mission Control project context and key conversation decisions preserved continuously during build and after completion.
+  - Usually operates via SSH + Tailscale; default troubleshooting and browser relay guidance should assume remote SSH environment.
 
 ## Context
 
