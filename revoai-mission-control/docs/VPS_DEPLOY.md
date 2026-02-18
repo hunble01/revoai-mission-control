@@ -26,7 +26,7 @@ docker compose up -d --build
 
 ## 4) Reverse proxy
 - Route web to `:3000`
-- Route api/ws to `:4000`
+- Route api/ws to `:3001`
 - Enable TLS
 
 ## 5) Data durability

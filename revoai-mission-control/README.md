@@ -40,14 +40,31 @@ Phase 2 = planning/build + internal automation only.
 ## Realtime
 - WebSocket event stream via Socket.IO (`activity` channel)
 
-## Local run
+## Local run (bulletproof)
+1) Create local env file:
 ```bash
-docker compose up -d
+cp .env.example .env
+```
+
+2) Set your admin token in `.env`:
+```bash
+ADMIN_TOKEN=your-strong-token
+NEXT_PUBLIC_ADMIN_TOKEN=your-strong-token
+```
+
+3) Start everything:
+```bash
+docker compose up --build
 ```
 
 Then open:
 - web: http://localhost:3000
-- api: http://localhost:4000/api/health
+- api: http://localhost:3001/api/health
+- web health page: http://localhost:3000/health
+
+## API URL notes (web app)
+- Inside Docker network (server-side in web container): `INTERNAL_API_URL=http://api:3001`
+- In local browser (client-side): `NEXT_PUBLIC_API_URL=http://localhost:3001`
 
 ## Notes
 - This is scaffold + initial implementation.

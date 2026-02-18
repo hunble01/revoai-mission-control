@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 
-const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 const token = process.env.NEXT_PUBLIC_ADMIN_TOKEN || 'change-me';
 
 export default function LeadsPage() {

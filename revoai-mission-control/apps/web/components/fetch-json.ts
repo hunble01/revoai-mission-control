@@ -1,8 +1,13 @@
-const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const browserBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const internalBase = process.env.INTERNAL_API_URL || 'http://api:3001';
 const adminToken = process.env.NEXT_PUBLIC_ADMIN_TOKEN || 'change-me';
 
+function getBase() {
+  return typeof window === 'undefined' ? internalBase : browserBase;
+}
+
 export async function fetchJson(path: string) {
-  const res = await fetch(`${base}/api${path}`, {
+  const res = await fetch(`${getBase()}/api${path}`, {
     cache: 'no-store',
     headers: { 'x-admin-token': adminToken },
   });
@@ -11,7 +16,7 @@ export async function fetchJson(path: string) {
 }
 
 export async function postJson(path: string, body?: any, method: 'POST' | 'PATCH' = 'POST') {
-  const res = await fetch(`${base}/api${path}`, {
+  const res = await fetch(`${getBase()}/api${path}`, {
     method,
     headers: {
       'content-type': 'application/json',
