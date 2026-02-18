@@ -6,8 +6,21 @@ import { EventsService } from '../events/events.service';
 export class LeadsService {
   constructor(private readonly prisma: PrismaService, private readonly events: EventsService) {}
 
-  list() {
-    return this.prisma.lead.findMany({ orderBy: { createdAt: 'desc' }, take: 200 });
+  list(q?: { search?: string; status?: string }) {
+    return this.prisma.lead.findMany({
+      where: {
+        status: q?.status as any || undefined,
+        OR: q?.search
+          ? [
+              { businessName: { contains: q.search, mode: 'insensitive' } },
+              { region: { contains: q.search, mode: 'insensitive' } },
+              { niche: { contains: q.search, mode: 'insensitive' } },
+            ]
+          : undefined,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    });
   }
 
   create(data: any) {

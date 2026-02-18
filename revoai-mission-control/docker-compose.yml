@@ -37,6 +37,7 @@ services:
       ADMIN_MODE: single
       ADMIN_EMAIL: admin@revoai.local
       ADMIN_PASSWORD: change-me
+      ADMIN_TOKEN: change-me
     depends_on:
       - postgres
       - redis
@@ -53,6 +54,7 @@ services:
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:4000
       NEXT_PUBLIC_WS_URL: ws://localhost:4000
+      NEXT_PUBLIC_ADMIN_TOKEN: change-me
     depends_on:
       - api
     ports:

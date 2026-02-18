@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventsService } from '../events/events.service';
 
@@ -29,5 +29,14 @@ export class SettingsService {
     }
 
     return this.getSafety();
+  }
+
+  async assertOutboundAllowed(channel: 'email' | 'facebook' | 'instagram' | 'linkedin') {
+    const safety = await this.getSafety();
+    const dry = (safety?.dry_run_mode as any)?.enabled;
+    const channels = (safety?.outbound_channels as any) || {};
+
+    if (dry) throw new BadRequestException('dry-run mode is enabled; outbound execution blocked');
+    if (!channels[channel]) throw new BadRequestException(`${channel} outbound toggle is OFF`);
   }
 }

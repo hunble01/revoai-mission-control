@@ -1,5 +1,7 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Req } from '@nestjs/common';
 import { TasksService } from './tasks.service';
+import { CreateTaskDto, UpdateTaskDto } from './dto/task.dto';
+import { assertAdminToken, getActorRole } from '../../common/auth.util';
 
 @Controller('tasks')
 export class TasksController {
@@ -11,17 +13,20 @@ export class TasksController {
   }
 
   @Post()
-  create(@Body() body: any) {
+  create(@Req() req: any, @Body() body: CreateTaskDto) {
+    assertAdminToken(req);
     return this.tasks.create(body);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() body: any) {
-    return this.tasks.update(id, body);
+  update(@Req() req: any, @Param('id') id: string, @Body() body: UpdateTaskDto) {
+    assertAdminToken(req);
+    return this.tasks.update(id, body, getActorRole(req));
   }
 
   @Get(':id/replay')
-  replay(@Param('id') id: string) {
+  replay(@Req() req: any, @Param('id') id: string) {
+    assertAdminToken(req);
     return this.tasks.replay(id);
   }
 }

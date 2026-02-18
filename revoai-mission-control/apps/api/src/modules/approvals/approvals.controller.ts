@@ -1,33 +1,45 @@
-import { Body, Controller, Param, Post } from '@nestjs/common';
+import { Body, Controller, Param, Post, Req } from '@nestjs/common';
 import { ApprovalAction } from '@prisma/client';
 import { ApprovalsService } from './approvals.service';
+import { ApprovalActionDto } from './dto/approval.dto';
+import { assertAdminToken, assertAdminRole, getActorRole } from '../../common/auth.util';
 
 @Controller('drafts/:id')
 export class ApprovalsController {
   constructor(private readonly approvals: ApprovalsService) {}
 
+  private guard(req: any) {
+    assertAdminToken(req);
+    assertAdminRole(getActorRole(req), 'draft approvals');
+  }
+
   @Post('approve')
-  approve(@Param('id') id: string, @Body() body: any) {
+  approve(@Req() req: any, @Param('id') id: string, @Body() body: ApprovalActionDto) {
+    this.guard(req);
     return this.approvals.act(id, ApprovalAction.APPROVE, body?.notes);
   }
 
   @Post('reject')
-  reject(@Param('id') id: string, @Body() body: any) {
+  reject(@Req() req: any, @Param('id') id: string, @Body() body: ApprovalActionDto) {
+    this.guard(req);
     return this.approvals.act(id, ApprovalAction.REJECT, body?.notes);
   }
 
   @Post('request-changes')
-  requestChanges(@Param('id') id: string, @Body() body: any) {
+  requestChanges(@Req() req: any, @Param('id') id: string, @Body() body: ApprovalActionDto) {
+    this.guard(req);
     return this.approvals.act(id, ApprovalAction.REQUEST_CHANGES, body?.notes);
   }
 
   @Post('edit-inline-approve')
-  editInlineApprove(@Param('id') id: string, @Body() body: any) {
+  editInlineApprove(@Req() req: any, @Param('id') id: string, @Body() body: ApprovalActionDto) {
+    this.guard(req);
     return this.approvals.act(id, ApprovalAction.EDIT_INLINE_APPROVE, body?.notes, body?.content);
   }
 
   @Post('approve-with-notes')
-  approveWithNotes(@Param('id') id: string, @Body() body: any) {
+  approveWithNotes(@Req() req: any, @Param('id') id: string, @Body() body: ApprovalActionDto) {
+    this.guard(req);
     return this.approvals.act(id, ApprovalAction.APPROVE_WITH_NOTES, body?.notes);
   }
 }

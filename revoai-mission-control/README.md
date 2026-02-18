@@ -17,10 +17,11 @@ Phase 2 = planning/build + internal automation only.
 
 ## Key API routes scaffolded
 - `/api/health`
+- `/api/seed/load` (seed campaign + jobs + leads + drafts + tasks/events)
 - `/api/tasks`, `/api/tasks/:id/replay`
 - `/api/agents`
 - `/api/leads`, `/api/leads/:id/score-override`
-- `/api/drafts`
+- `/api/drafts`, `/api/drafts/:id/mark-sent-manual`
 - `/api/drafts/:id/approve`
 - `/api/drafts/:id/reject`
 - `/api/drafts/:id/request-changes`
@@ -31,6 +32,10 @@ Phase 2 = planning/build + internal automation only.
 - `/api/settings/safety`
 - `/api/events/feed`
 - `/api/audit`
+
+## Auth (single-admin MVP)
+- Mutating and protected routes require `x-admin-token` (or Bearer token).
+- Token defaults to `change-me` in local compose and should be replaced.
 
 ## Realtime
 - WebSocket event stream via Socket.IO (`activity` channel)

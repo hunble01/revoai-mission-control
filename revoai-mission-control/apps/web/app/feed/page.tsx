@@ -7,7 +7,10 @@ export default function FeedPage() {
 
   useEffect(() => {
     const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-    fetch(`${base}/api/events/feed`).then((r) => r.json()).then((d) => setEvents(d));
+    const token = process.env.NEXT_PUBLIC_ADMIN_TOKEN || 'change-me';
+    fetch(`${base}/api/events/feed`, { headers: { 'x-admin-token': token } })
+      .then((r) => r.json())
+      .then((d) => setEvents(d));
 
     const socket = io(base);
     socket.on('activity', (evt) => {

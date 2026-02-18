@@ -133,6 +133,8 @@ Configurable jobs:
 
 No external sends/posts unless explicitly enabled later.
 
+**Manual exception (MVP):** Admin can use **“Mark as Sent (manual)”** for LinkedIn drafts only, which logs `draft.marked_sent` and updates lead status, without performing any auto-send.
+
 ## 7) Scoring Rules (MVP)
 - Rule-based A/B/C scoring engine.
 - Admin manual override allowed with required reason.

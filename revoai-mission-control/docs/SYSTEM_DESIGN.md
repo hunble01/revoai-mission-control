@@ -151,6 +151,7 @@ MVP behavior:
 - `POST /drafts/:id/request-changes`
 - `POST /drafts/:id/edit-inline-approve`
 - `POST /drafts/:id/approve-with-notes`
+- `POST /drafts/:id/mark-sent-manual` (LinkedIn only; no auto-send)
 - `GET/POST/PATCH /campaigns`
 - `GET/POST/PATCH /scheduler/jobs`
 - `POST /scheduler/jobs/:id/run-now`

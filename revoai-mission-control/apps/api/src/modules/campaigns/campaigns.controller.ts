@@ -1,22 +1,27 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Req } from '@nestjs/common';
 import { CampaignsService } from './campaigns.service';
+import { CreateCampaignDto } from './dto/campaign.dto';
+import { assertAdminToken } from '../../common/auth.util';
 
 @Controller('campaigns')
 export class CampaignsController {
   constructor(private readonly campaigns: CampaignsService) {}
 
   @Get()
-  list() {
+  list(@Req() req: any) {
+    assertAdminToken(req);
     return this.campaigns.list();
   }
 
   @Post()
-  create(@Body() body: any) {
+  create(@Req() req: any, @Body() body: CreateCampaignDto) {
+    assertAdminToken(req);
     return this.campaigns.create(body);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() body: any) {
+  update(@Req() req: any, @Param('id') id: string, @Body() body: any) {
+    assertAdminToken(req);
     return this.campaigns.update(id, body);
   }
 }

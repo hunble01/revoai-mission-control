@@ -11,6 +11,7 @@ import { AgentsModule } from './modules/agents/agents.module';
 import { EventsModule } from './modules/events/events.module';
 import { FeedModule } from './modules/feed/feed.module';
 import { AuditModule } from './modules/audit/audit.module';
+import { SeedModule } from './modules/seed/seed.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { AuditModule } from './modules/audit/audit.module';
     AgentsModule,
     FeedModule,
     AuditModule,
+    SeedModule,
   ],
   controllers: [HealthController],
 })

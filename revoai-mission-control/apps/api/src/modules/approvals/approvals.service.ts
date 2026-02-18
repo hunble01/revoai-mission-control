@@ -1,7 +1,15 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { ApprovalAction, DraftStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventsService } from '../events/events.service';
+
+const draftTransitionsByAction: Record<ApprovalAction, DraftStatus> = {
+  APPROVE: DraftStatus.APPROVED,
+  REJECT: DraftStatus.REJECTED,
+  REQUEST_CHANGES: DraftStatus.DRAFT,
+  EDIT_INLINE_APPROVE: DraftStatus.APPROVED,
+  APPROVE_WITH_NOTES: DraftStatus.APPROVED,
+};
 
 @Injectable()
 export class ApprovalsService {
@@ -13,20 +21,24 @@ export class ApprovalsService {
   async act(draftId: string, action: ApprovalAction, notes?: string, editorContent?: string) {
     const updated = await this.prisma.$transaction(async (tx) => {
       const draft = await tx.draft.findUnique({ where: { id: draftId } });
-      if (!draft) throw new Error('Draft not found');
-
-      let status: DraftStatus = draft.status;
-      if ([ApprovalAction.APPROVE, ApprovalAction.EDIT_INLINE_APPROVE, ApprovalAction.APPROVE_WITH_NOTES].includes(action)) {
-        status = DraftStatus.APPROVED;
+      if (!draft) throw new NotFoundException('Draft not found');
+      if (draft.status !== DraftStatus.NEEDS_APPROVAL) {
+        throw new BadRequestException(`Draft must be NEEDS_APPROVAL before approval action. Current: ${draft.status}`);
       }
-      if (action === ApprovalAction.REJECT) status = DraftStatus.REJECTED;
-      if (action === ApprovalAction.REQUEST_CHANGES) status = DraftStatus.NEEDS_APPROVAL;
 
+      const status = draftTransitionsByAction[action];
+
+      if (action === ApprovalAction.EDIT_INLINE_APPROVE && !editorContent) {
+        throw new BadRequestException('Inline edit content is required');
+      }
+
+      let nextVersion = draft.currentVersion;
       if (action === ApprovalAction.EDIT_INLINE_APPROVE && editorContent) {
+        nextVersion = draft.currentVersion + 1;
         await tx.draftVersion.create({
           data: {
             draftId,
-            versionNumber: draft.currentVersion + 1,
+            versionNumber: nextVersion,
             content: editorContent,
             changeNote: 'Admin inline edit before approval',
           },
@@ -35,10 +47,7 @@ export class ApprovalsService {
 
       const savedDraft = await tx.draft.update({
         where: { id: draftId },
-        data: {
-          status,
-          currentVersion: action === ApprovalAction.EDIT_INLINE_APPROVE && editorContent ? draft.currentVersion + 1 : draft.currentVersion,
-        },
+        data: { status, currentVersion: nextVersion },
       });
 
       const approval = await tx.approval.create({
@@ -66,6 +75,7 @@ export class ApprovalsService {
 
     await this.events.publish({
       eventType,
+      campaignId: updated.savedDraft.campaignId,
       payload: { draftId, status: updated.savedDraft.status, notes: notes ?? null },
     });
 
