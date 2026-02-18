@@ -66,6 +66,32 @@ Then open:
 - Inside Docker network (server-side in web container): `INTERNAL_API_URL=http://api:3001`
 - In local browser (client-side): `NEXT_PUBLIC_API_URL=http://localhost:3001`
 
+## Private remote access (Tailscale, no public exposure)
+
+### A) Preferred: Tailscale Serve
+Expose the dashboard privately over your tailnet:
+```bash
+tailscale serve http / http://127.0.0.1:3000
+```
+Stop/reset serve config:
+```bash
+tailscale serve reset
+```
+
+### B) SSH tunnel over tailnet
+Tunnel local port 3000 to remote dashboard:
+```bash
+ssh -L 3000:127.0.0.1:3000 user@<tailscale-host>
+```
+Then open `http://localhost:3000` on your local machine.
+
+## Write endpoint protection
+- `x-admin-token` is required on all write/mutate routes.
+- Keep `ADMIN_TOKEN` and `NEXT_PUBLIC_ADMIN_TOKEN` secret and non-default.
+
+## Optional hardening note
+- If you ever bind services to `0.0.0.0`, restrict ports `3000`/`3001` at firewall level to `tailscale0` or CIDR `100.64.0.0/10` only.
+
 ## Notes
 - This is scaffold + initial implementation.
 - Next pass should add auth guards, validation DTOs, migrations, and fuller UI interactions.
