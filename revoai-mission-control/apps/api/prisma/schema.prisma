@@ -7,14 +7,65 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Role { ADMIN OPERATOR CLOSER VIEWER }
-enum AgentStatus { IDLE RUNNING PAUSED BLOCKED }
-enum TaskColumn { BACKLOG DOING NEEDS_APPROVAL DONE }
-enum LeadScore { A B C }
-enum LeadStatus { NEW ENRICHED DRAFTED APPROVED CONTACTED REPLIED BOOKED LOST }
-enum DraftStatus { DRAFT NEEDS_APPROVAL APPROVED REJECTED }
-enum ApprovalAction { APPROVE REJECT REQUEST_CHANGES EDIT_INLINE_APPROVE APPROVE_WITH_NOTES }
-enum Channel { EMAIL FACEBOOK INSTAGRAM LINKEDIN }
+enum Role {
+  ADMIN
+  OPERATOR
+  CLOSER
+  VIEWER
+}
+
+enum AgentStatus {
+  IDLE
+  RUNNING
+  PAUSED
+  BLOCKED
+}
+
+enum TaskColumn {
+  BACKLOG
+  DOING
+  NEEDS_APPROVAL
+  DONE
+}
+
+enum LeadScore {
+  A
+  B
+  C
+}
+
+enum LeadStatus {
+  NEW
+  ENRICHED
+  DRAFTED
+  APPROVED
+  CONTACTED
+  REPLIED
+  BOOKED
+  LOST
+}
+
+enum DraftStatus {
+  DRAFT
+  NEEDS_APPROVAL
+  APPROVED
+  REJECTED
+}
+
+enum ApprovalAction {
+  APPROVE
+  REJECT
+  REQUEST_CHANGES
+  EDIT_INLINE_APPROVE
+  APPROVE_WITH_NOTES
+}
+
+enum Channel {
+  EMAIL
+  FACEBOOK
+  INSTAGRAM
+  LINKEDIN
+}
 
 model User {
   id           String   @id @default(uuid())
@@ -27,7 +78,7 @@ model User {
 }
 
 model Campaign {
-  id                String   @id @default(uuid())
+  id                String    @id @default(uuid())
   name              String
   niche             String
   geography         String
@@ -35,14 +86,14 @@ model Campaign {
   outreachTemplates Json
   contentThemes     Json
   metrics           Json
-  isActive          Boolean  @default(true)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
-  leads             Lead[]
-  drafts            Draft[]
-  tasks             Task[]
-  schedulerJobs     SchedulerJob[]
+  leads         Lead[]
+  drafts        Draft[]
+  tasks         Task[]
+  schedulerJobs SchedulerJob[]
 }
 
 model Lead {
@@ -68,7 +119,7 @@ model Lead {
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt
 
-  drafts              Draft[]
+  drafts Draft[]
 }
 
 model Draft {
@@ -87,8 +138,8 @@ model Draft {
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
-  versions        DraftVersion[]
-  approvals       Approval[]
+  versions  DraftVersion[]
+  approvals Approval[]
 }
 
 model DraftVersion {
@@ -105,30 +156,30 @@ model DraftVersion {
 }
 
 model Task {
-  id            String      @id @default(uuid())
+  id            String     @id @default(uuid())
   campaignId    String?
-  campaign      Campaign?   @relation(fields: [campaignId], references: [id])
+  campaign      Campaign?  @relation(fields: [campaignId], references: [id])
   title         String
   description   String?
-  columnName    TaskColumn  @default(BACKLOG)
-  priority      String      @default("med")
-  ownerType     String      @default("agent")
+  columnName    TaskColumn @default(BACKLOG)
+  priority      String     @default("med")
+  ownerType     String     @default("agent")
   ownerId       String?
   linkedLeadId  String?
   linkedDraftId String?
   createdBy     String?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
   doneAt        DateTime?
 }
 
 model Agent {
-  id           String      @id @default(uuid())
-  name         String      @unique
-  status       AgentStatus @default(IDLE)
+  id            String      @id @default(uuid())
+  name          String      @unique
+  status        AgentStatus @default(IDLE)
   currentTaskId String?
-  lastUpdateAt DateTime?
-  metadata     Json        @default("{}")
+  lastUpdateAt  DateTime?
+  metadata      Json        @default("{}")
 }
 
 model TaskEvent {
@@ -154,46 +205,46 @@ model Approval {
 }
 
 model SchedulerJob {
-  id         String   @id @default(uuid())
+  id         String    @id @default(uuid())
   campaignId String?
   campaign   Campaign? @relation(fields: [campaignId], references: [id])
   name       String
   cronExpr   String
-  timezone   String   @default("America/Toronto")
-  enabled    Boolean  @default(true)
-  config     Json     @default("{}")
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  timezone   String    @default("America/Toronto")
+  enabled    Boolean   @default(true)
+  config     Json      @default("{}")
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
-  runs       SchedulerRun[]
+  runs SchedulerRun[]
 }
 
 model SchedulerRun {
-  id         String   @id @default(uuid())
+  id         String       @id @default(uuid())
   jobId      String
   job        SchedulerJob @relation(fields: [jobId], references: [id])
-  startedAt  DateTime @default(now())
+  startedAt  DateTime     @default(now())
   finishedAt DateTime?
   status     String
-  summary    Json     @default("{}")
+  summary    Json         @default("{}")
 }
 
 model AuditLog {
-  id          BigInt   @id @default(autoincrement())
-  actorType   String
-  actorId     String?
-  action      String
+  id           BigInt   @id @default(autoincrement())
+  actorType    String
+  actorId      String?
+  action       String
   resourceType String
-  resourceId  String
-  beforeState Json?
-  afterState  Json?
-  metadata    Json     @default("{}")
-  createdAt   DateTime @default(now())
+  resourceId   String
+  beforeState  Json?
+  afterState   Json?
+  metadata     Json     @default("{}")
+  createdAt    DateTime @default(now())
 }
 
 model Setting {
-  key        String   @id
-  value      Json
-  updatedBy  String?
-  updatedAt  DateTime @default(now())
+  key       String   @id
+  value     Json
+  updatedBy String?
+  updatedAt DateTime @default(now())
 }

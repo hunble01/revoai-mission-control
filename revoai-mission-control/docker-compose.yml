@@ -27,7 +27,7 @@ services:
     image: node:22-alpine
     container_name: revoai_mc_api
     working_dir: /workspace
-    command: sh -c "npm install && npm run dev:api"
+    command: sh -c "npm install && npx prisma generate --schema=apps/api/prisma/schema.prisma && ( [ -d apps/api/prisma/migrations ] && npx prisma migrate deploy --schema=apps/api/prisma/schema.prisma || echo 'No migrations to deploy' ) && npm run dev:api"
     volumes:
       - ./:/workspace
     environment:

@@ -15,6 +15,10 @@ Phase 2 = planning/build + internal automation only.
 - Seed board tasks in `seed/mvp_tasks.json`
 - Docker compose for local stack
 
+## Prisma startup behavior
+- API container runs `prisma generate --schema=apps/api/prisma/schema.prisma` automatically before Nest starts.
+- If migrations exist, it runs `prisma migrate deploy` before startup.
+
 ## Key API routes scaffolded
 - `/api/health`
 - `/api/seed/load` (seed campaign + jobs + leads + drafts + tasks/events)
@@ -61,6 +65,12 @@ Then open:
 - web: http://localhost:3000
 - api: http://localhost:3001/api/health
 - web health page: http://localhost:3000/health
+
+## One-command rebuild + verify
+Run this on the server from the repo directory:
+```bash
+git pull && docker compose up --build -d && curl -fsS http://localhost:3001/api/health
+```
 
 ## API URL notes (web app)
 - Inside Docker network (server-side in web container): `INTERNAL_API_URL=http://api:3001`
