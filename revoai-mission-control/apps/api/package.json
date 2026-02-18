@@ -13,9 +13,9 @@
     "build": "nest build",
     "prestart": "npm run prisma:generate",
     "start": "node dist/main",
-    "prisma:generate": "prisma generate --schema=prisma/schema.prisma",
-    "prisma:migrate": "prisma migrate dev --schema=prisma/schema.prisma",
-    "prisma:migrate:deploy": "prisma migrate deploy --schema=prisma/schema.prisma"
+    "prisma:generate": "sh -c 'if [ -f prisma/schema.prisma ]; then prisma generate --schema=prisma/schema.prisma; else prisma generate --schema=apps/api/prisma/schema.prisma; fi'",
+    "prisma:migrate": "sh -c 'if [ -f prisma/schema.prisma ]; then prisma migrate dev --schema=prisma/schema.prisma; else prisma migrate dev --schema=apps/api/prisma/schema.prisma; fi'",
+    "prisma:migrate:deploy": "sh -c 'if [ -f prisma/schema.prisma ]; then prisma migrate deploy --schema=prisma/schema.prisma; else prisma migrate deploy --schema=apps/api/prisma/schema.prisma; fi'"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.8",
