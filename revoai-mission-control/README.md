@@ -16,9 +16,11 @@ Phase 2 = planning/build + internal automation only.
 - Docker compose for local stack
 
 ## Prisma startup behavior
-- API container runs `prisma generate --schema=apps/api/prisma/schema.prisma` automatically before Nest starts (root-level path inside container).
-- Inside `apps/api` npm scripts, Prisma uses `prisma/schema.prisma` (workspace-local path) to avoid path resolution failures.
-- If migrations exist, it runs `prisma migrate deploy` before startup.
+- API container now starts **inside `apps/api`** and runs:
+  - `prisma generate --schema=prisma/schema.prisma`
+  - `prisma migrate deploy --schema=prisma/schema.prisma` (if migrations exist)
+  - then Nest (`nest start --watch`)
+- This avoids workspace path mismatches that caused `Could not load --schema ...` errors.
 
 ## Key API routes scaffolded
 - `/api/health`
@@ -70,7 +72,7 @@ Then open:
 ## One-command rebuild + verify
 Run this on the server from the repo directory:
 ```bash
-git pull && docker compose up --build -d && curl -fsS http://localhost:3001/api/health
+git fetch origin && git checkout master && git reset --hard origin/master && docker compose down --remove-orphans && docker compose up --build -d && curl -fsS http://localhost:3001/api/health
 ```
 
 ## API URL notes (web app)
