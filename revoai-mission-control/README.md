@@ -16,7 +16,8 @@ Phase 2 = planning/build + internal automation only.
 - Docker compose for local stack
 
 ## Prisma startup behavior
-- API container runs `prisma generate --schema=apps/api/prisma/schema.prisma` automatically before Nest starts.
+- API container runs `prisma generate --schema=apps/api/prisma/schema.prisma` automatically before Nest starts (root-level path inside container).
+- Inside `apps/api` npm scripts, Prisma uses `prisma/schema.prisma` (workspace-local path) to avoid path resolution failures.
 - If migrations exist, it runs `prisma migrate deploy` before startup.
 
 ## Key API routes scaffolded

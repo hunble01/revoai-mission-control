@@ -4,7 +4,7 @@
   "private": true,
   "type": "commonjs",
   "prisma": {
-    "schema": "apps/api/prisma/schema.prisma"
+    "schema": "prisma/schema.prisma"
   },
   "scripts": {
     "predev": "npm run prisma:generate",
@@ -13,9 +13,9 @@
     "build": "nest build",
     "prestart": "npm run prisma:generate",
     "start": "node dist/main",
-    "prisma:generate": "prisma generate --schema=apps/api/prisma/schema.prisma",
-    "prisma:migrate": "prisma migrate dev --schema=apps/api/prisma/schema.prisma",
-    "prisma:migrate:deploy": "prisma migrate deploy --schema=apps/api/prisma/schema.prisma"
+    "prisma:generate": "prisma generate --schema=prisma/schema.prisma",
+    "prisma:migrate": "prisma migrate dev --schema=prisma/schema.prisma",
+    "prisma:migrate:deploy": "prisma migrate deploy --schema=prisma/schema.prisma"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.8",
