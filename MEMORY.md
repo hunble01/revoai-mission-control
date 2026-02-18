@@ -26,6 +26,7 @@ Increase booked appointments from existing lead flow by improving:
 - booking conversion rate
 - no-show reduction
 - recovered bookings
+Core KPI: booked appointments generated from inbound lead flow.
 No guaranteed revenue claims.
 
 ### ICP + Niches
@@ -48,7 +49,13 @@ No guaranteed revenue claims.
 DIY stack (Wix/Squarespace + Calendly), CRM automations (GHL/HubSpot), agencies, VAs/call services, manual follow-up.
 
 ### Why RevoAI Wins
-End-to-end cohesive flow, fast launch (days), appointment-conversion focus, after-hours capture, recovery systems, tailored automations, ongoing optimization.
+- End-to-end cohesive flow (AI receptionist + chatbox + landing page + follow-up + booking)
+- Fast launch (days, not weeks)
+- Focus on appointment conversion, not vanity metrics
+- Strong after-hours capture (missed-call + instant reply)
+- Built-in no-show reduction + recovery
+- Tailored custom automations based on real business workflows
+- Continuous optimization mindset
 
 ### CTAs
 Primary:
