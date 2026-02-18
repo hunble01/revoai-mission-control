@@ -13,6 +13,7 @@ _Learn about the person you're helping. Update this as you go._
   - Prefers business copy that is short, direct, non-hype, and outcome-focused.
   - Wants minimal essential questions only (no long interrogations).
   - Wants uncertain business details explicitly labeled as placeholder / subject to change.
+  - Wants Mission Control project context and key conversation decisions preserved continuously during build and after completion.
 
 ## Context
 
