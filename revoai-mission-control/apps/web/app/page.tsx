@@ -1,17 +1,43 @@
+'use client';
+
+import { useEffect, useMemo, useState } from 'react';
 import { Badge } from '../components/ui/Badge';
-import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
-import { Input } from '../components/ui/Input';
 import { Table } from '../components/ui/Table';
 
-const kpis = [
-  { label: 'Pipeline Revenue', value: '$10,312.10', delta: '+18.4% vs last month' },
-  { label: 'Total Sales Projects', value: '224', delta: '+9.2% vs last month' },
-  { label: 'Total Deals', value: '3,612', delta: '+6.1% vs last month' },
-  { label: 'Conversion Rate', value: '67%', delta: '+1.2% vs last month' },
-];
+const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const token = process.env.NEXT_PUBLIC_ADMIN_TOKEN || 'change-me';
 
 export default function Home() {
+  const [leads, setLeads] = useState<any[]>([]);
+  const [drafts, setDrafts] = useState<any[]>([]);
+  const [safety, setSafety] = useState<any>(null);
+
+  useEffect(() => {
+    const headers = { 'x-admin-token': token };
+    Promise.all([
+      fetch(`${base}/api/leads`, { headers }).then((r) => r.json()).catch(() => []),
+      fetch(`${base}/api/drafts`, { headers }).then((r) => r.json()).catch(() => []),
+      fetch(`${base}/api/settings/safety`, { headers }).then((r) => r.json()).catch(() => null),
+    ]).then(([l, d, s]) => {
+      setLeads(Array.isArray(l) ? l : []);
+      setDrafts(Array.isArray(d) ? d : []);
+      setSafety(s);
+    });
+  }, []);
+
+  const kpis = useMemo(() => {
+    const approved = drafts.filter((d) => d.status === 'APPROVED').length;
+    const pending = drafts.filter((d) => d.status === 'PENDING_APPROVAL').length;
+    const qualified = leads.filter((l) => String(l.status || '').toUpperCase() === 'QUALIFIED').length;
+    return [
+      { label: 'Total Leads', value: String(leads.length) },
+      { label: 'Qualified Leads', value: String(qualified) },
+      { label: 'Approved Drafts', value: String(approved) },
+      { label: 'Pending Approvals', value: String(pending) },
+    ];
+  }, [leads, drafts]);
+
   return (
     <div className="dash-stack">
       <section className="kpi-grid">
@@ -19,81 +45,78 @@ export default function Home() {
           <Card key={k.label}>
             <p className="kpi-title">{k.label}</p>
             <p className="kpi-value">{k.value}</p>
-            <p className="kpi-sub">{k.delta}</p>
           </Card>
         ))}
       </section>
 
       <section className="split-panels">
-        <Card title="Lead Sources" subtitle="Last 30 days">
-          <div className="donut-wrap" role="img" aria-label="Lead source split chart">
-            <div className="donut">
-              <div className="donut-hole">
-                <strong>3521</strong>
-                <span>Total leads</span>
-              </div>
-            </div>
-            <ul className="legend">
-              <li><span className="dot dot-1" /> Website <b>1445</b></li>
-              <li><span className="dot dot-2" /> Paid Ads <b>803</b></li>
-              <li><span className="dot dot-3" /> Emails <b>722</b></li>
-              <li><span className="dot dot-4" /> Referral <b>451</b></li>
-            </ul>
-          </div>
+        <Card title="Recent Leads" subtitle="Existing lead data">
+          <Table>
+            <thead>
+              <tr>
+                <th>Business</th>
+                <th>Region</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {leads.slice(0, 5).map((l: any) => (
+                <tr key={l.id}>
+                  <td>{l.businessName}</td>
+                  <td>{l.region || '—'}</td>
+                  <td><Badge>{l.status || '—'}</Badge></td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
         </Card>
 
-        <Card title="Revenue Flow" subtitle="Total Revenue (Last 6 Months)">
-          <p className="rev-number">$272,500</p>
-          <div className="line-chart" role="img" aria-label="Revenue trend line chart">
-            <div className="gridline" />
-            <div className="gridline" />
-            <div className="gridline" />
-            <svg viewBox="0 0 300 120" preserveAspectRatio="none" aria-hidden>
-              <polyline points="10,90 55,82 100,66 145,72 190,54 235,42 290,28" />
-            </svg>
-          </div>
-          <div className="legend-inline">
-            <Badge tone="info">This Year</Badge>
-            <Badge>Prev Year</Badge>
-          </div>
+        <Card title="Recent Drafts" subtitle="Existing draft data">
+          <Table>
+            <thead>
+              <tr>
+                <th>Channel</th>
+                <th>Type</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {drafts.slice(0, 5).map((d: any) => (
+                <tr key={d.id}>
+                  <td>{d.channel}</td>
+                  <td>{d.draftType}</td>
+                  <td>
+                    <Badge tone={d.status === 'APPROVED' ? 'success' : 'default'}>{d.status}</Badge>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
         </Card>
       </section>
 
-      <Card title="Active Deals" subtitle="Recent opportunities">
-        <div className="table-toolbar">
-          <Input placeholder="Search deals..." aria-label="Search deals" />
-          <Button variant="ghost">Filter</Button>
-          <Button variant="secondary">Import</Button>
-          <Button variant="primary">+ New</Button>
-        </div>
-
+      <Card title="Safety Status" subtitle="Current Mission Control safety settings">
         <Table>
-          <thead>
-            <tr>
-              <th>Deal Name</th>
-              <th>Client</th>
-              <th>Stage</th>
-              <th>Value</th>
-              <th>Owner</th>
-              <th>Expected Close</th>
-            </tr>
-          </thead>
           <tbody>
             <tr>
-              <td>TechCorp Upgrade</td>
-              <td>TechCorp Inc.</td>
-              <td><Badge tone="info">Negotiation</Badge></td>
-              <td>$11,600</td>
-              <td>Alex Ray</td>
-              <td>Jul 21, 2026</td>
+              <td>Dry Run</td>
+              <td><Badge tone={safety?.dryRun ? 'success' : 'warning'}>{String(!!safety?.dryRun)}</Badge></td>
             </tr>
             <tr>
-              <td>Clinic Follow-up Automation</td>
-              <td>Northside Clinic</td>
-              <td><Badge tone="warning">Review</Badge></td>
-              <td>$7,400</td>
-              <td>Jamie K</td>
-              <td>Jul 25, 2026</td>
+              <td>Email Enabled</td>
+              <td><Badge>{String(!!safety?.outbound?.email)}</Badge></td>
+            </tr>
+            <tr>
+              <td>Facebook Enabled</td>
+              <td><Badge>{String(!!safety?.outbound?.facebook)}</Badge></td>
+            </tr>
+            <tr>
+              <td>Instagram Enabled</td>
+              <td><Badge>{String(!!safety?.outbound?.instagram)}</Badge></td>
+            </tr>
+            <tr>
+              <td>LinkedIn Enabled</td>
+              <td><Badge>{String(!!safety?.outbound?.linkedin)}</Badge></td>
             </tr>
           </tbody>
         </Table>

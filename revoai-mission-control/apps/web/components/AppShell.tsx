@@ -8,7 +8,7 @@ const NAV_GROUPS = [
   {
     title: 'AI Assistant',
     items: [
-      ['/', 'Dashboard'],
+      ['/', 'Overview'],
       ['/board', 'Board'],
       ['/agents', 'Agents'],
       ['/feed', 'Live Feed'],
