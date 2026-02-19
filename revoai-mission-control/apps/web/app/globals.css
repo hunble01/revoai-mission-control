@@ -185,6 +185,18 @@ a { color: inherit; text-decoration: none; }
 }
 .ui-input::placeholder { color: #7f8aa4; }
 
+.ui-textarea {
+  width: 100%;
+  min-height: 84px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(17,24,39,.65);
+  color: var(--text);
+  padding: 10px 12px;
+  resize: vertical;
+}
+.ui-textarea::placeholder { color: #7f8aa4; }
+
 .ui-btn {
   height: 36px;
   border-radius: 10px;
