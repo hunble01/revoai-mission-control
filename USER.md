@@ -17,6 +17,7 @@ _Learn about the person you're helping. Update this as you go._
   - Usually operates via SSH + Tailscale; default troubleshooting and browser relay guidance should assume remote SSH environment.
   - Plans a future hybrid deployment: VPS as core backend + Windows machine as execution node, controlled from same chat and surfaced in project UI.
   - Mission Control project is priority over side tasks; switch back immediately when requested.
+  - Keep the approved premium dark CRM-style UI language consistent across all remaining layers/modules.
 
 ## Context
 
