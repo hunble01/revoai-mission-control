@@ -1,5 +1,9 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { Badge } from '../../components/ui/Badge';
+import { Card } from '../../components/ui/Card';
+import { Input } from '../../components/ui/Input';
+import { Table } from '../../components/ui/Table';
 
 const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 const token = process.env.NEXT_PUBLIC_ADMIN_TOKEN || 'change-me';
@@ -20,25 +24,33 @@ export default function LeadsPage() {
   }, [q]);
 
   return (
-    <div>
-      <h1>Leads</h1>
-      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="search leads" />
-      <table width="100%" cellPadding={8} style={{ borderCollapse: 'collapse', marginTop: 10 }}>
+    <Card title="Leads" subtitle="Prospect list and qualification status">
+      <div className="table-toolbar" style={{ marginBottom: 12 }}>
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search leads" aria-label="Search leads" />
+      </div>
+
+      <Table>
         <thead>
-          <tr><th>Business</th><th>Region</th><th>Score</th><th>Status</th><th>Campaign</th></tr>
+          <tr>
+            <th>Business</th>
+            <th>Region</th>
+            <th>Score</th>
+            <th>Status</th>
+            <th>Campaign</th>
+          </tr>
         </thead>
         <tbody>
           {leads.map((l: any) => (
             <tr key={l.id}>
               <td>{l.businessName}</td>
-              <td>{l.region}</td>
+              <td>{l.region || '—'}</td>
               <td>{l.scoreOverride || l.leadScore || '—'}</td>
-              <td>{l.status}</td>
-              <td>{l.campaignId}</td>
+              <td><Badge tone={l.status === 'QUALIFIED' ? 'success' : 'default'}>{l.status}</Badge></td>
+              <td>{l.campaignId || '—'}</td>
             </tr>
           ))}
         </tbody>
-      </table>
-    </div>
+      </Table>
+    </Card>
   );
 }

@@ -1,6 +1,11 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { postJson } from '../../components/fetch-json';
+import { Badge } from '../../components/ui/Badge';
+import { Button } from '../../components/ui/Button';
+import { Card } from '../../components/ui/Card';
+import { Input } from '../../components/ui/Input';
+import { Table } from '../../components/ui/Table';
 
 const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 const token = process.env.NEXT_PUBLIC_ADMIN_TOKEN || 'change-me';
@@ -17,7 +22,9 @@ export default function DraftsPage() {
       .then((d) => setDrafts(d || []));
   };
 
-  useEffect(() => { load(); }, [q]);
+  useEffect(() => {
+    load();
+  }, [q]);
 
   const markSent = async (id: string) => {
     setErr('');
@@ -30,20 +37,42 @@ export default function DraftsPage() {
   };
 
   return (
-    <div>
-      <h1>Drafts</h1>
-      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="search drafts" />
-      {err && <p style={{ color: 'tomato' }}>{err}</p>}
-      <ul>
-        {drafts.map((d: any) => (
-          <li key={d.id}>
-            {d.channel} · {d.draftType} · {d.status} · v{d.currentVersion}
-            {d.channel === 'LINKEDIN' && d.status === 'APPROVED' && (
-              <button style={{ marginLeft: 8 }} onClick={() => markSent(d.id)}>Mark as Sent (manual)</button>
-            )}
-          </li>
-        ))}
-      </ul>
-    </div>
+    <Card title="Drafts" subtitle="Review, approval, and manual sent actions">
+      <div className="table-toolbar" style={{ marginBottom: 12 }}>
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search drafts" aria-label="Search drafts" />
+      </div>
+      {err && <p className="error-text">{err}</p>}
+
+      <Table>
+        <thead>
+          <tr>
+            <th>Channel</th>
+            <th>Type</th>
+            <th>Status</th>
+            <th>Version</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {drafts.map((d: any) => (
+            <tr key={d.id}>
+              <td>{d.channel}</td>
+              <td>{d.draftType}</td>
+              <td><Badge tone={d.status === 'APPROVED' ? 'success' : 'default'}>{d.status}</Badge></td>
+              <td>v{d.currentVersion}</td>
+              <td>
+                {d.channel === 'LINKEDIN' && d.status === 'APPROVED' ? (
+                  <Button variant="primary" onClick={() => markSent(d.id)}>
+                    Mark Sent
+                  </Button>
+                ) : (
+                  <span className="muted">—</span>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </Table>
+    </Card>
   );
 }
