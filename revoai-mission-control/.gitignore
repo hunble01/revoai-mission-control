@@ -1,0 +1,13 @@
+# dependencies
+node_modules/
+apps/web/node_modules/
+
+# build output
+apps/api/dist/
+apps/web/.next/
+
+# local env
+.env
+
+# misc
+*.log
