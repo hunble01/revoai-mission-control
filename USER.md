@@ -21,6 +21,7 @@ _Learn about the person you're helping. Update this as you go._
   - Prefers proactive completion/status notifications (tell him when work is done or blocked, without needing him to ask).
   - Future RevoAI direction: full client-facing multi-tenant SaaS (business login, dashboard, calls visibility, automated messaging controls, AI receptionist controls).
   - After current Mission Control dashboard build, remind Boss to start the small wedge product first (AI receptionist basics + automated messaging + no-show workflows), then expand.
+  - Prefers sending voice audio often; when audio is sent, open/listen to it and treat it as primary input (not typing-dependent).
 
 ## Context
 
