@@ -19,6 +19,7 @@ _Learn about the person you're helping. Update this as you go._
   - Mission Control project is priority over side tasks; switch back immediately when requested.
   - Keep the approved premium dark CRM-style UI language consistent across all remaining layers/modules.
   - Prefers proactive completion/status notifications (tell him when work is done or blocked, without needing him to ask).
+  - Future RevoAI direction: full client-facing multi-tenant SaaS (business login, dashboard, calls visibility, automated messaging controls, AI receptionist controls).
 
 ## Context
 

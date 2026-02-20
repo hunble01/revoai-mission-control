@@ -73,3 +73,12 @@ Pricing currently placeholder / subject to change by scope.
 
 ### Proof Status
 Case studies are being built; pilot strategy includes 1–2 discounted/free setups in exchange for testimonials and measurable metrics.
+
+## RevoAI — Future Product Vision (SaaS)
+- Long-term direction: evolve RevoAI into a full SaaS platform where each small business has its own secure login and dashboard.
+- Tenant dashboard should include at minimum:
+  - inbound call visibility/history
+  - automated follow-up messaging controls
+  - AI receptionist controls/configuration
+  - broader operational controls for lead handling and booking workflows
+- Vision intent: "RevoAI can do basically everything" across receptionist + follow-up + booking operations inside a client-facing SaaS experience.
