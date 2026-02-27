@@ -25,6 +25,13 @@ export class LeadsController {
     return this.leads.update(id, body);
   }
 
+  @Post('import/csv')
+  importCsv(@Req() req: any, @Body() body: any) {
+    assertAdminToken(req);
+    assertAdminRole(getActorRole(req), 'lead import');
+    return this.leads.importMappedCsv(body);
+  }
+
   @Post(':id/score-override')
   overrideScore(@Req() req: any, @Param('id') id: string, @Body() body: OverrideLeadScoreDto) {
     assertAdminToken(req);

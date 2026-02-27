@@ -22,6 +22,13 @@ type ParsedUpload = {
   headers: string[];
 };
 
+type ImportSummary = {
+  imported: number;
+  skippedDuplicates: number;
+  invalidRows: number;
+  totalRows: number;
+};
+
 const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 const token = process.env.NEXT_PUBLIC_ADMIN_TOKEN || 'change-me';
 
@@ -44,11 +51,19 @@ export default function CampaignsPage() {
 
   const [uploads, setUploads] = useState<ParsedUpload[]>([]);
   const [map, setMap] = useState<Record<string, string>>({});
+  const [selectedCampaignId, setSelectedCampaignId] = useState('');
+  const [importSummary, setImportSummary] = useState<ImportSummary | null>(null);
+  const [importError, setImportError] = useState('');
+  const [importing, setImporting] = useState(false);
 
   useEffect(() => {
     fetch(`${base}/api/campaigns`, { headers: { 'x-admin-token': token } })
       .then((r) => r.json())
-      .then((d) => setCampaigns(Array.isArray(d) ? d : []))
+      .then((d) => {
+        const list = Array.isArray(d) ? d : [];
+        setCampaigns(list);
+        if (list[0]?.id) setSelectedCampaignId(list[0].id);
+      })
       .catch(() => setCampaigns([]));
 
     const saved = localStorage.getItem('revoai_research_items');
@@ -120,7 +135,7 @@ export default function CampaignsPage() {
         parsed.push({
           fileName: file.name,
           fileType: 'CSV',
-          rows: rows.slice(1, 16),
+          rows: rows.slice(1),
           headers: rows[0] || [],
         });
       } else if (ext.endsWith('.xlsx')) {
@@ -131,10 +146,52 @@ export default function CampaignsPage() {
     }
 
     setUploads(parsed);
+    setImportSummary(null);
+    setImportError('');
     if (parsed[0]?.headers?.length) {
       const initial: Record<string, string> = {};
       for (const h of parsed[0].headers) initial[h] = '';
       setMap(initial);
+    }
+  };
+
+  const importCsvToLeads = async () => {
+    const csv = uploads.find((u) => u.fileType === 'CSV' && u.headers.length > 0);
+    if (!csv) {
+      setImportError('Please upload a CSV file first.');
+      return;
+    }
+
+    setImporting(true);
+    setImportError('');
+    setImportSummary(null);
+
+    try {
+      const res = await fetch(`${base}/api/leads/import/csv`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-token': token,
+          'x-actor-role': 'ADMIN',
+        },
+        body: JSON.stringify({
+          campaignId: selectedCampaignId || undefined,
+          headers: csv.headers,
+          rows: csv.rows,
+          mapping: map,
+        }),
+      });
+
+      const payload = await res.json();
+      if (!res.ok) {
+        throw new Error(payload?.message || 'CSV import failed.');
+      }
+
+      setImportSummary(payload);
+    } catch (err: any) {
+      setImportError(err?.message || 'CSV import failed.');
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -195,6 +252,32 @@ export default function CampaignsPage() {
 
       <Card title="Upload Center" subtitle="Upload CSV / XLSX / PDF for intake">
         <input type="file" accept=".csv,.xlsx,.pdf" multiple onChange={(e) => onFiles(e.target.files)} />
+
+        <div className="table-toolbar" style={{ marginTop: 10 }}>
+          <select
+            className="ui-input"
+            value={selectedCampaignId}
+            onChange={(e) => setSelectedCampaignId(e.target.value)}
+            aria-label="Campaign"
+          >
+            {campaigns.map((c: any) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+          <Button variant="primary" onClick={importCsvToLeads} disabled={importing}>
+            {importing ? 'Importing…' : 'Import CSV to Leads'}
+          </Button>
+        </div>
+
+        {importError && <p style={{ color: '#ff9b9b' }}>{importError}</p>}
+        {importSummary && (
+          <div className="ui-card" style={{ padding: 12, marginTop: 10 }}>
+            <strong>Import Summary</strong>
+            <p className="muted" style={{ marginBottom: 0 }}>
+              Imported: {importSummary.imported} • Skipped duplicates: {importSummary.skippedDuplicates} • Invalid rows: {importSummary.invalidRows} • Total rows: {importSummary.totalRows}
+            </p>
+          </div>
+        )}
 
         <div style={{ display: 'grid', gap: 10, marginTop: 10 }}>
           {uploads.map((u, idx) => (
