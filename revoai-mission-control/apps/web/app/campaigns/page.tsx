@@ -29,6 +29,17 @@ type ImportSummary = {
   totalRows: number;
 };
 
+type ImportRunMeta = {
+  at: string;
+  fileName: string;
+  campaignName: string;
+  stage: 'complete' | 'failed';
+  imported?: number;
+  skippedDuplicates?: number;
+  invalidRows?: number;
+  totalRows?: number;
+};
+
 const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 const token = process.env.NEXT_PUBLIC_ADMIN_TOKEN || 'change-me';
 
@@ -56,6 +67,7 @@ export default function CampaignsPage() {
   const [importError, setImportError] = useState('');
   const [importing, setImporting] = useState(false);
   const [importStage, setImportStage] = useState<'idle' | 'validating' | 'importing' | 'complete' | 'failed'>('idle');
+  const [lastImportMeta, setLastImportMeta] = useState<ImportRunMeta | null>(null);
 
   useEffect(() => {
     fetch(`${base}/api/campaigns`, { headers: { 'x-admin-token': token } })
@@ -234,6 +246,8 @@ export default function CampaignsPage() {
     setImportStage('validating');
     const startedAt = Date.now();
 
+    const campaignName = campaigns.find((c: any) => c.id === selectedCampaignId)?.name || 'Default campaign';
+
     try {
       const res = await fetch(`${base}/api/leads/import/csv`, {
         method: 'POST',
@@ -267,9 +281,25 @@ export default function CampaignsPage() {
 
       setImportSummary(payload);
       setImportStage('complete');
+      setLastImportMeta({
+        at: new Date().toISOString(),
+        fileName: csv.fileName,
+        campaignName,
+        stage: 'complete',
+        imported: payload?.imported,
+        skippedDuplicates: payload?.skippedDuplicates,
+        invalidRows: payload?.invalidRows,
+        totalRows: payload?.totalRows,
+      });
     } catch (err: any) {
       setImportError(err?.message || 'CSV import failed.');
       setImportStage('failed');
+      setLastImportMeta({
+        at: new Date().toISOString(),
+        fileName: csv.fileName,
+        campaignName,
+        stage: 'failed',
+      });
     } finally {
       const elapsed = Date.now() - startedAt;
       if (elapsed < 600) {
@@ -360,6 +390,23 @@ export default function CampaignsPage() {
           <p className="muted" style={{ marginTop: 8 }}>
             Mapped: {mappedCount}/{totalColumns} columns • {importReady ? 'Ready to import' : hasRequiredMapping ? 'Map at least 1 field to continue' : 'Map required field: Name or Company'}
           </p>
+        )}
+
+        {lastImportMeta && (
+          <div className="ui-card" style={{ padding: 12, marginTop: 10 }}>
+            <strong>Last Import Run</strong>
+            <div style={{ display: 'grid', gap: 4, marginTop: 8 }}>
+              <div className="muted">Time: {new Date(lastImportMeta.at).toLocaleString()}</div>
+              <div className="muted">File: {lastImportMeta.fileName}</div>
+              <div className="muted">Campaign: {lastImportMeta.campaignName}</div>
+              <div className="muted">Result: {lastImportMeta.stage === 'complete' ? 'Complete' : 'Failed'}</div>
+              {lastImportMeta.stage === 'complete' && (
+                <div className="muted">
+                  Imported {lastImportMeta.imported ?? 0} • Duplicates {lastImportMeta.skippedDuplicates ?? 0} • Invalid {lastImportMeta.invalidRows ?? 0} • Total {lastImportMeta.totalRows ?? 0}
+                </div>
+              )}
+            </div>
+          </div>
         )}
 
         {activeCsv && importStage !== 'idle' && (
