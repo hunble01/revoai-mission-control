@@ -141,6 +141,40 @@ export default function CampaignsPage() {
     };
   }, [activeCsv, map]);
 
+  const invalidRowPreview = useMemo(() => {
+    if (!activeCsv) return [] as Array<{ rowNumber: number; reason: string }>;
+
+    const byMappedOrHeader = (field: string, fallback: string) => {
+      const mappedHeader = activeCsv.headers.find((h) => map[h] === field);
+      if (mappedHeader) return activeCsv.headers.indexOf(mappedHeader);
+      return activeCsv.headers.findIndex((h) => h.toLowerCase().includes(fallback));
+    };
+
+    const idxName = byMappedOrHeader('name', 'name');
+    const idxCompany = byMappedOrHeader('company', 'company');
+    const idxEmail = byMappedOrHeader('email', 'email');
+    const idxPhone = byMappedOrHeader('phone', 'phone');
+
+    const invalid: Array<{ rowNumber: number; reason: string }> = [];
+
+    activeCsv.rows.forEach((row, i) => {
+      const name = idxName >= 0 ? (row[idxName] || '').trim() : '';
+      const company = idxCompany >= 0 ? (row[idxCompany] || '').trim() : '';
+      const email = idxEmail >= 0 ? (row[idxEmail] || '').trim() : '';
+      const phone = idxPhone >= 0 ? (row[idxPhone] || '').trim() : '';
+
+      if (!name && !company) {
+        invalid.push({ rowNumber: i + 2, reason: 'Missing Name/Company' });
+        return;
+      }
+      if (!email && !phone) {
+        invalid.push({ rowNumber: i + 2, reason: 'Missing Email/Phone' });
+      }
+    });
+
+    return invalid.slice(0, 5);
+  }, [activeCsv, map]);
+
   const saveResearch = (next: ResearchItem[]) => {
     setResearch(next);
     localStorage.setItem('revoai_research_items', JSON.stringify(next));
@@ -471,6 +505,19 @@ export default function CampaignsPage() {
                       <p className="muted" style={{ marginBottom: 0 }}>
                         Email duplicates: {duplicatePreview.email} • Phone duplicates: {duplicatePreview.phone}
                       </p>
+                    </div>
+                  )}
+
+                  {!!invalidRowPreview.length && (
+                    <div className="ui-card" style={{ padding: 10, marginBottom: 10, borderColor: '#6b5a2c' }}>
+                      <strong style={{ color: '#ffd479' }}>Invalid row preview</strong>
+                      <div style={{ display: 'grid', gap: 4, marginTop: 6 }}>
+                        {invalidRowPreview.map((r) => (
+                          <div key={`${r.rowNumber}-${r.reason}`} className="muted">
+                            Row {r.rowNumber}: {r.reason}
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
 
