@@ -68,6 +68,11 @@ export class LeadsService {
       throw new BadRequestException('At least one column must map to name or company.');
     }
 
+    const unknownMappedHeaders = Object.keys(data.mapping || {}).filter((h) => !data.headers.includes(h));
+    if (unknownMappedHeaders.length) {
+      throw new BadRequestException(`CSV mapping references unknown headers: ${unknownMappedHeaders.join(', ')}`);
+    }
+
     if ((data.rows || []).length > 5000) {
       throw new BadRequestException('CSV import exceeds 5000-row limit for a single run.');
     }
@@ -85,6 +90,14 @@ export class LeadsService {
     if (!campaignId) {
       throw new BadRequestException('No campaign available for lead ingestion.');
     }
+
+    const existing = await this.prisma.lead.findMany({
+      where: { campaignId },
+      select: { email: true, phone: true },
+    });
+
+    const seenEmails = new Set(existing.map((l) => (l.email || '').trim().toLowerCase()).filter(Boolean));
+    const seenPhones = new Set(existing.map((l) => (l.phone || '').replace(/\D+/g, '')).filter(Boolean));
 
     let imported = 0;
     let skippedDuplicates = 0;
@@ -115,35 +128,35 @@ export class LeadsService {
         continue;
       }
 
-      const duplicate = await this.prisma.lead.findFirst({
-        where: {
-          campaignId,
-          OR: [
-            ...(email ? [{ email }] : []),
-            ...(phone ? [{ phone }] : []),
-          ],
-        },
-        select: { id: true },
-      });
+      const duplicate = !!(
+        (email && seenEmails.has(email)) ||
+        (phone && seenPhones.has(phone))
+      );
 
       if (duplicate) {
         skippedDuplicates += 1;
         continue;
       }
 
-      await this.prisma.lead.create({
-        data: {
-          campaignId,
-          businessName,
-          contactName: mapped.name || null,
-          email,
-          phone,
-          source,
-          status: 'NEW',
-        },
-      });
+      try {
+        await this.prisma.lead.create({
+          data: {
+            campaignId,
+            businessName,
+            contactName: mapped.name || null,
+            email,
+            phone,
+            source,
+            status: 'NEW',
+          },
+        });
 
-      imported += 1;
+        if (email) seenEmails.add(email);
+        if (phone) seenPhones.add(phone);
+        imported += 1;
+      } catch {
+        invalidRows += 1;
+      }
     }
 
     return {
