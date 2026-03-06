@@ -95,6 +95,40 @@ export default function CampaignsPage() {
   const hasRequiredMapping = Object.values(map).some((v) => v === 'name' || v === 'company');
   const importReady = mappedCount > 0 && hasRequiredMapping;
 
+  const duplicatePreview = useMemo(() => {
+    if (!activeCsv) return { email: 0, phone: 0 };
+
+    const mappedEmailHeader = activeCsv.headers.find((h) => map[h] === 'email');
+    const mappedPhoneHeader = activeCsv.headers.find((h) => map[h] === 'phone');
+
+    const emailIdx = mappedEmailHeader
+      ? activeCsv.headers.indexOf(mappedEmailHeader)
+      : activeCsv.headers.findIndex((h) => h.toLowerCase().includes('email'));
+    const phoneIdx = mappedPhoneHeader
+      ? activeCsv.headers.indexOf(mappedPhoneHeader)
+      : activeCsv.headers.findIndex((h) => h.toLowerCase().includes('phone'));
+
+    const countDupes = (idx: number) => {
+      if (idx < 0) return 0;
+      const counts = new Map<string, number>();
+      for (const row of activeCsv.rows) {
+        const val = (row[idx] || '').trim().toLowerCase();
+        if (!val) continue;
+        counts.set(val, (counts.get(val) || 0) + 1);
+      }
+      let dupes = 0;
+      counts.forEach((n) => {
+        if (n > 1) dupes += n - 1;
+      });
+      return dupes;
+    };
+
+    return {
+      email: countDupes(emailIdx),
+      phone: countDupes(phoneIdx),
+    };
+  }, [activeCsv, map]);
+
   const saveResearch = (next: ResearchItem[]) => {
     setResearch(next);
     localStorage.setItem('revoai_research_items', JSON.stringify(next));
@@ -368,6 +402,15 @@ export default function CampaignsPage() {
                       </label>
                     ))}
                   </div>
+
+                  {(duplicatePreview.email > 0 || duplicatePreview.phone > 0) && (
+                    <div className="ui-card" style={{ padding: 10, marginBottom: 10, borderColor: '#6b5a2c' }}>
+                      <strong style={{ color: '#ffd479' }}>Duplicate warning</strong>
+                      <p className="muted" style={{ marginBottom: 0 }}>
+                        Email duplicates: {duplicatePreview.email} • Phone duplicates: {duplicatePreview.phone}
+                      </p>
+                    </div>
+                  )}
 
                   <Table>
                     <thead>
