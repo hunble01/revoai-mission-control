@@ -91,7 +91,8 @@ export default function CampaignsPage() {
   }, [activeCsv, map]);
 
   const totalColumns = activeCsv?.headers.length || 0;
-  const importReady = mappedCount > 0;
+  const hasRequiredMapping = Object.values(map).some((v) => v === 'name' || v === 'company');
+  const importReady = mappedCount > 0 && hasRequiredMapping;
 
   const saveResearch = (next: ResearchItem[]) => {
     setResearch(next);
@@ -172,6 +173,11 @@ export default function CampaignsPage() {
     const csv = uploads.find((u) => u.fileType === 'CSV' && u.headers.length > 0);
     if (!csv) {
       setImportError('Please upload a CSV file first.');
+      return;
+    }
+
+    if (!Object.values(map).some((v) => v === 'name' || v === 'company')) {
+      setImportError('Map at least one required field: Name or Company.');
       return;
     }
 
@@ -289,7 +295,7 @@ export default function CampaignsPage() {
 
         {activeCsv && (
           <p className="muted" style={{ marginTop: 8 }}>
-            Mapped: {mappedCount}/{totalColumns} columns • {importReady ? 'Ready to import' : 'Map at least 1 field to continue'}
+            Mapped: {mappedCount}/{totalColumns} columns • {importReady ? 'Ready to import' : hasRequiredMapping ? 'Map at least 1 field to continue' : 'Map required field: Name or Company'}
           </p>
         )}
 
