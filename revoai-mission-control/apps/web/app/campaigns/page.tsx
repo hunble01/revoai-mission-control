@@ -80,6 +80,19 @@ export default function CampaignsPage() {
     return research.filter((r) => `${r.title} ${r.notes} ${r.tags}`.toLowerCase().includes(q));
   }, [research, query]);
 
+  const activeCsv = useMemo(
+    () => uploads.find((u) => u.fileType === 'CSV' && u.headers.length > 0),
+    [uploads],
+  );
+
+  const mappedCount = useMemo(() => {
+    if (!activeCsv) return 0;
+    return activeCsv.headers.filter((h) => !!map[h]).length;
+  }, [activeCsv, map]);
+
+  const totalColumns = activeCsv?.headers.length || 0;
+  const importReady = mappedCount > 0;
+
   const saveResearch = (next: ResearchItem[]) => {
     setResearch(next);
     localStorage.setItem('revoai_research_items', JSON.stringify(next));
@@ -269,10 +282,16 @@ export default function CampaignsPage() {
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
-          <Button variant="primary" onClick={importCsvToLeads} disabled={importing}>
+          <Button variant="primary" onClick={importCsvToLeads} disabled={importing || !importReady}>
             {importing ? '⏳ Importing…' : 'Import CSV to Leads'}
           </Button>
         </div>
+
+        {activeCsv && (
+          <p className="muted" style={{ marginTop: 8 }}>
+            Mapped: {mappedCount}/{totalColumns} columns • {importReady ? 'Ready to import' : 'Map at least 1 field to continue'}
+          </p>
+        )}
 
         {importError && <p style={{ color: '#ff9b9b' }}>{importError}</p>}
         {importSummary && (
