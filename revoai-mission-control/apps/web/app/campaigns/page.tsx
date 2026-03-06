@@ -378,9 +378,12 @@ export default function CampaignsPage() {
         {importSummary && (
           <div className="ui-card" style={{ padding: 12, marginTop: 10 }}>
             <strong>Import Summary</strong>
-            <p className="muted" style={{ marginBottom: 0 }}>
-              Imported: {importSummary.imported} • Skipped duplicates: {importSummary.skippedDuplicates} • Invalid rows: {importSummary.invalidRows} • Total rows: {importSummary.totalRows}
-            </p>
+            <div style={{ display: 'grid', gap: 6, marginTop: 8 }}>
+              <div className="muted">Imported: {importSummary.imported}</div>
+              <div className="muted">Skipped duplicates: {importSummary.skippedDuplicates}</div>
+              <div className="muted">Invalid rows: {importSummary.invalidRows}</div>
+              <div className="muted">Total rows: {importSummary.totalRows}</div>
+            </div>
           </div>
         )}
 
