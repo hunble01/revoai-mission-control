@@ -11,12 +11,24 @@ const token = process.env.NEXT_PUBLIC_ADMIN_TOKEN || 'change-me';
 export default function LeadsPage() {
   const [leads, setLeads] = useState<any[]>([]);
   const [q, setQ] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const load = () => {
+  const load = async () => {
     const url = `${base}/api/leads${q ? `?search=${encodeURIComponent(q)}` : ''}`;
-    fetch(url, { headers: { 'x-admin-token': token } })
-      .then((r) => r.json())
-      .then((d) => setLeads(d || []));
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch(url, { headers: { 'x-admin-token': token } });
+      if (!res.ok) throw new Error(`Failed to load leads (HTTP ${res.status})`);
+      const d = await res.json();
+      setLeads(Array.isArray(d) ? d : []);
+    } catch (err: any) {
+      setLeads([]);
+      setError(err?.message || 'Failed to load leads');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -29,7 +41,11 @@ export default function LeadsPage() {
         <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search leads" aria-label="Search leads" />
       </div>
 
-      {!leads.length ? (
+      {loading ? (
+        <p className="muted">Loading leads...</p>
+      ) : error ? (
+        <p style={{ color: '#ff9b9b' }}>{error}</p>
+      ) : !leads.length ? (
         <p className="muted">No leads found. Import CSV from Campaigns → Upload Center.</p>
       ) : (
         <>
