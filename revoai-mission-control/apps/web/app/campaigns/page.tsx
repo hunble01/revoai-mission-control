@@ -205,6 +205,15 @@ export default function CampaignsPage() {
     }
   };
 
+  const resetImportState = () => {
+    setUploads([]);
+    setMap({});
+    setImportSummary(null);
+    setImportError('');
+    setImporting(false);
+    setImportStage('idle');
+  };
+
   const importCsvToLeads = async () => {
     const csv = uploads.find((u) => u.fileType === 'CSV' && u.headers.length > 0);
     if (!csv) {
@@ -341,6 +350,9 @@ export default function CampaignsPage() {
           </select>
           <Button variant="primary" onClick={importCsvToLeads} disabled={importing || !importReady}>
             {importing ? '⏳ Importing…' : 'Import CSV to Leads'}
+          </Button>
+          <Button variant="secondary" onClick={resetImportState}>
+            Reset Import State
           </Button>
         </div>
 
