@@ -55,6 +55,7 @@ export default function CampaignsPage() {
   const [importSummary, setImportSummary] = useState<ImportSummary | null>(null);
   const [importError, setImportError] = useState('');
   const [importing, setImporting] = useState(false);
+  const [importStage, setImportStage] = useState<'idle' | 'validating' | 'importing' | 'complete' | 'failed'>('idle');
 
   useEffect(() => {
     fetch(`${base}/api/campaigns`, { headers: { 'x-admin-token': token } })
@@ -162,6 +163,7 @@ export default function CampaignsPage() {
     setUploads(parsed);
     setImportSummary(null);
     setImportError('');
+    setImportStage('idle');
     if (parsed[0]?.headers?.length) {
       const initial: Record<string, string> = {};
       for (const h of parsed[0].headers) initial[h] = '';
@@ -173,17 +175,20 @@ export default function CampaignsPage() {
     const csv = uploads.find((u) => u.fileType === 'CSV' && u.headers.length > 0);
     if (!csv) {
       setImportError('Please upload a CSV file first.');
+      setImportStage('failed');
       return;
     }
 
     if (!Object.values(map).some((v) => v === 'name' || v === 'company')) {
       setImportError('Map at least one required field: Name or Company.');
+      setImportStage('failed');
       return;
     }
 
     setImporting(true);
     setImportError('');
     setImportSummary(null);
+    setImportStage('validating');
     const startedAt = Date.now();
 
     try {
@@ -202,14 +207,17 @@ export default function CampaignsPage() {
         }),
       });
 
+      setImportStage('importing');
       const payload = await res.json();
       if (!res.ok) {
         throw new Error(payload?.message || 'CSV import failed.');
       }
 
       setImportSummary(payload);
+      setImportStage('complete');
     } catch (err: any) {
       setImportError(err?.message || 'CSV import failed.');
+      setImportStage('failed');
     } finally {
       const elapsed = Date.now() - startedAt;
       if (elapsed < 600) {
@@ -297,6 +305,18 @@ export default function CampaignsPage() {
           <p className="muted" style={{ marginTop: 8 }}>
             Mapped: {mappedCount}/{totalColumns} columns • {importReady ? 'Ready to import' : hasRequiredMapping ? 'Map at least 1 field to continue' : 'Map required field: Name or Company'}
           </p>
+        )}
+
+        {activeCsv && importStage !== 'idle' && (
+          <div className="ui-card" style={{ padding: 12, marginTop: 10 }}>
+            <strong>Import Status</strong>
+            <p className="muted" style={{ marginBottom: 0 }}>
+              {importStage === 'validating' && 'Validating CSV mapping and row shape...'}
+              {importStage === 'importing' && 'Importing rows to Leads...'}
+              {importStage === 'complete' && 'Import complete.'}
+              {importStage === 'failed' && 'Import failed.'}
+            </p>
+          </div>
         )}
 
         {importError && <p style={{ color: '#ff9b9b' }}>{importError}</p>}
