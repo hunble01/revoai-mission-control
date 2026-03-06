@@ -165,6 +165,7 @@ export default function CampaignsPage() {
     setImporting(true);
     setImportError('');
     setImportSummary(null);
+    const startedAt = Date.now();
 
     try {
       const res = await fetch(`${base}/api/leads/import/csv`, {
@@ -191,6 +192,10 @@ export default function CampaignsPage() {
     } catch (err: any) {
       setImportError(err?.message || 'CSV import failed.');
     } finally {
+      const elapsed = Date.now() - startedAt;
+      if (elapsed < 600) {
+        await new Promise((resolve) => setTimeout(resolve, 600 - elapsed));
+      }
       setImporting(false);
     }
   };
@@ -265,7 +270,7 @@ export default function CampaignsPage() {
             ))}
           </select>
           <Button variant="primary" onClick={importCsvToLeads} disabled={importing}>
-            {importing ? 'Importing…' : 'Import CSV to Leads'}
+            {importing ? '⏳ Importing…' : 'Import CSV to Leads'}
           </Button>
         </div>
 
