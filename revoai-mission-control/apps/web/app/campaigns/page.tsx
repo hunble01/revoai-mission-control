@@ -27,6 +27,10 @@ type ImportSummary = {
   skippedDuplicates: number;
   invalidRows: number;
   totalRows: number;
+  errorModel?: {
+    reasonCounts?: Record<string, number>;
+    rowIssues?: Array<{ rowNumber: number; code: string; reason: string }>;
+  };
 };
 
 type ImportRunMeta = {
@@ -352,7 +356,9 @@ export default function CampaignsPage() {
       }
 
       if (!res.ok) {
-        throw new Error(payload?.message || `CSV import failed (HTTP ${res.status}).`);
+        const apiMessage = payload?.message || payload?.error?.message;
+        const apiCode = payload?.code || payload?.error?.code;
+        throw new Error(apiCode ? `${apiMessage || 'CSV import failed.'} [${apiCode}]` : (apiMessage || `CSV import failed (HTTP ${res.status}).`));
       }
 
       setImportSummary(payload);
@@ -510,6 +516,30 @@ export default function CampaignsPage() {
               <div className="muted">Invalid rows: {importSummary.invalidRows}</div>
               <div className="muted">Total rows: {importSummary.totalRows}</div>
             </div>
+
+            {!!importSummary.errorModel?.reasonCounts && (
+              <div style={{ marginTop: 10 }}>
+                <strong style={{ fontSize: 13 }}>API Failure Reasons</strong>
+                <div style={{ display: 'grid', gap: 4, marginTop: 6 }}>
+                  {Object.entries(importSummary.errorModel.reasonCounts).map(([code, count]) => (
+                    <div key={code} className="muted">{code}: {count}</div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {!!importSummary.errorModel?.rowIssues?.length && (
+              <div style={{ marginTop: 10 }}>
+                <strong style={{ fontSize: 13 }}>API Row Issues (sample)</strong>
+                <div style={{ display: 'grid', gap: 4, marginTop: 6 }}>
+                  {importSummary.errorModel.rowIssues.slice(0, 5).map((r) => (
+                    <div key={`${r.rowNumber}-${r.code}`} className="muted">
+                      Row {r.rowNumber}: {r.reason} ({r.code})
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

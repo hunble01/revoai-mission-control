@@ -56,25 +56,44 @@ export class LeadsService {
     mapping: Record<string, 'name' | 'company' | 'email' | 'phone' | 'source' | ''>;
   }) {
     if (!Array.isArray(data?.headers) || !Array.isArray(data?.rows)) {
-      throw new BadRequestException('Invalid CSV payload: headers/rows must be arrays.');
+      throw new BadRequestException({
+        code: 'INVALID_PAYLOAD',
+        message: 'Invalid CSV payload: headers/rows must be arrays.',
+        details: { field: 'headers|rows' },
+      });
     }
 
     if (!data.headers.length) {
-      throw new BadRequestException('CSV headers are required.');
+      throw new BadRequestException({
+        code: 'MISSING_HEADERS',
+        message: 'CSV headers are required.',
+      });
     }
 
     const requiredMappings = new Set(Object.values(data.mapping || {}).filter(Boolean));
     if (!requiredMappings.has('name') && !requiredMappings.has('company')) {
-      throw new BadRequestException('At least one column must map to name or company.');
+      throw new BadRequestException({
+        code: 'MISSING_REQUIRED_MAPPING',
+        message: 'At least one column must map to name or company.',
+        details: { required: ['name', 'company'] },
+      });
     }
 
     const unknownMappedHeaders = Object.keys(data.mapping || {}).filter((h) => !data.headers.includes(h));
     if (unknownMappedHeaders.length) {
-      throw new BadRequestException(`CSV mapping references unknown headers: ${unknownMappedHeaders.join(', ')}`);
+      throw new BadRequestException({
+        code: 'UNKNOWN_MAPPED_HEADER',
+        message: `CSV mapping references unknown headers: ${unknownMappedHeaders.join(', ')}`,
+        details: { unknownMappedHeaders },
+      });
     }
 
     if ((data.rows || []).length > 5000) {
-      throw new BadRequestException('CSV import exceeds 5000-row limit for a single run.');
+      throw new BadRequestException({
+        code: 'ROW_LIMIT_EXCEEDED',
+        message: 'CSV import exceeds 5000-row limit for a single run.',
+        details: { maxRows: 5000, receivedRows: (data.rows || []).length },
+      });
     }
 
     const campaignId =
@@ -88,7 +107,10 @@ export class LeadsService {
       )?.id;
 
     if (!campaignId) {
-      throw new BadRequestException('No campaign available for lead ingestion.');
+      throw new BadRequestException({
+        code: 'CAMPAIGN_REQUIRED',
+        message: 'No campaign available for lead ingestion.',
+      });
     }
 
     const existing = await this.prisma.lead.findMany({
@@ -103,9 +125,22 @@ export class LeadsService {
     let skippedDuplicates = 0;
     let invalidRows = 0;
 
-    for (const row of data.rows || []) {
+    const reasonCounts: Record<string, number> = {
+      INVALID_ROW_SHAPE: 0,
+      MISSING_IDENTITY: 0,
+      MISSING_CONTACT: 0,
+      DUPLICATE: 0,
+      WRITE_FAILED: 0,
+    };
+    const rowIssues: Array<{ rowNumber: number; code: string; reason: string }> = [];
+
+    for (let rowIndex = 0; rowIndex < (data.rows || []).length; rowIndex++) {
+      const row = data.rows[rowIndex];
+      const rowNumber = rowIndex + 2;
       if (!Array.isArray(row) || row.length > data.headers.length + 20) {
         invalidRows += 1;
+        reasonCounts.INVALID_ROW_SHAPE += 1;
+        if (rowIssues.length < 25) rowIssues.push({ rowNumber, code: 'INVALID_ROW_SHAPE', reason: 'Row shape is invalid.' });
         continue;
       }
 
@@ -123,8 +158,17 @@ export class LeadsService {
       const phone = mapped.phone ? mapped.phone.replace(/\D+/g, '') : null;
       const source = (mapped.source || 'csv-import').trim();
 
-      if (!businessName || (!email && !phone)) {
+      if (!businessName) {
         invalidRows += 1;
+        reasonCounts.MISSING_IDENTITY += 1;
+        if (rowIssues.length < 25) rowIssues.push({ rowNumber, code: 'MISSING_IDENTITY', reason: 'Missing Name/Company.' });
+        continue;
+      }
+
+      if (!email && !phone) {
+        invalidRows += 1;
+        reasonCounts.MISSING_CONTACT += 1;
+        if (rowIssues.length < 25) rowIssues.push({ rowNumber, code: 'MISSING_CONTACT', reason: 'Missing Email/Phone.' });
         continue;
       }
 
@@ -135,6 +179,8 @@ export class LeadsService {
 
       if (duplicate) {
         skippedDuplicates += 1;
+        reasonCounts.DUPLICATE += 1;
+        if (rowIssues.length < 25) rowIssues.push({ rowNumber, code: 'DUPLICATE', reason: 'Duplicate email/phone in campaign.' });
         continue;
       }
 
@@ -156,6 +202,8 @@ export class LeadsService {
         imported += 1;
       } catch {
         invalidRows += 1;
+        reasonCounts.WRITE_FAILED += 1;
+        if (rowIssues.length < 25) rowIssues.push({ rowNumber, code: 'WRITE_FAILED', reason: 'Database write failed.' });
       }
     }
 
@@ -165,6 +213,10 @@ export class LeadsService {
       skippedDuplicates,
       invalidRows,
       totalRows: (data.rows || []).length,
+      errorModel: {
+        reasonCounts,
+        rowIssues,
+      },
     };
   }
 }
