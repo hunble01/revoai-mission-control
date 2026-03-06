@@ -72,6 +72,32 @@ export default function CampaignsPage() {
   const [importing, setImporting] = useState(false);
   const [importStage, setImportStage] = useState<'idle' | 'validating' | 'importing' | 'complete' | 'failed'>('idle');
   const [lastImportMeta, setLastImportMeta] = useState<ImportRunMeta | null>(null);
+  const [importRuns, setImportRuns] = useState<ImportRunMeta[]>([]);
+
+  const fetchImportRuns = async () => {
+    try {
+      const res = await fetch(`${base}/api/leads/import/runs?limit=10`, {
+        headers: { 'x-admin-token': token },
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      const runs = Array.isArray(data) ? data : [];
+      const mapped: ImportRunMeta[] = runs.map((r: any) => ({
+        at: r.createdAt || new Date().toISOString(),
+        fileName: r.fileName || 'csv-import',
+        campaignName: r.campaignName || r.campaignId || 'Unknown campaign',
+        stage: r.invalidRows > 0 && r.imported === 0 ? 'failed' : 'complete',
+        imported: r.imported,
+        skippedDuplicates: r.skippedDuplicates,
+        invalidRows: r.invalidRows,
+        totalRows: r.totalRows,
+      }));
+      setImportRuns(mapped);
+      if (mapped[0]) setLastImportMeta(mapped[0]);
+    } catch {
+      // no-op: history is optional in UI
+    }
+  };
 
   useEffect(() => {
     fetch(`${base}/api/campaigns`, { headers: { 'x-admin-token': token } })
@@ -82,6 +108,8 @@ export default function CampaignsPage() {
         if (list[0]?.id) setSelectedCampaignId(list[0].id);
       })
       .catch(() => setCampaigns([]));
+
+    fetchImportRuns();
 
     const saved = localStorage.getItem('revoai_research_items');
     if (saved) {
@@ -338,6 +366,7 @@ export default function CampaignsPage() {
         },
         body: JSON.stringify({
           campaignId: selectedCampaignId || undefined,
+          fileName: csv.fileName,
           headers: csv.headers,
           rows: csv.rows,
           mapping: map,
@@ -363,25 +392,30 @@ export default function CampaignsPage() {
 
       setImportSummary(payload);
       setImportStage('complete');
-      setLastImportMeta({
+      const latestRun = {
         at: new Date().toISOString(),
         fileName: csv.fileName,
         campaignName,
-        stage: 'complete',
+        stage: 'complete' as const,
         imported: payload?.imported,
         skippedDuplicates: payload?.skippedDuplicates,
         invalidRows: payload?.invalidRows,
         totalRows: payload?.totalRows,
-      });
+      };
+      setLastImportMeta(latestRun);
+      setImportRuns((prev) => [latestRun, ...prev].slice(0, 10));
+      fetchImportRuns();
     } catch (err: any) {
       setImportError(err?.message || 'CSV import failed.');
       setImportStage('failed');
-      setLastImportMeta({
+      const failedRun = {
         at: new Date().toISOString(),
         fileName: csv.fileName,
         campaignName,
-        stage: 'failed',
-      });
+        stage: 'failed' as const,
+      };
+      setLastImportMeta(failedRun);
+      setImportRuns((prev) => [failedRun, ...prev].slice(0, 10));
     } finally {
       const elapsed = Date.now() - startedAt;
       if (elapsed < 600) {
@@ -490,6 +524,20 @@ export default function CampaignsPage() {
                   Imported {lastImportMeta.imported ?? 0} • Duplicates {lastImportMeta.skippedDuplicates ?? 0} • Invalid {lastImportMeta.invalidRows ?? 0} • Total {lastImportMeta.totalRows ?? 0}
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {!!importRuns.length && (
+          <div className="ui-card" style={{ padding: 12, marginTop: 10 }}>
+            <strong>Import Run History</strong>
+            <div style={{ display: 'grid', gap: 6, marginTop: 8 }}>
+              {importRuns.slice(0, 10).map((run, idx) => (
+                <div key={`${run.at}-${idx}`} className="muted">
+                  {new Date(run.at).toLocaleString()} • {run.fileName} • {run.campaignName} • {run.stage === 'complete' ? 'Complete' : 'Failed'}
+                  {run.stage === 'complete' ? ` • Imported ${run.imported ?? 0}/${run.totalRows ?? 0}` : ''}
+                </div>
+              ))}
             </div>
           </div>
         )}

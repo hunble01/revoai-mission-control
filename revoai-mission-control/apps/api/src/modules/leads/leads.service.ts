@@ -51,10 +51,11 @@ export class LeadsService {
 
   async importMappedCsv(data: {
     campaignId?: string;
+    fileName?: string;
     headers: string[];
     rows: string[][];
     mapping: Record<string, 'name' | 'company' | 'email' | 'phone' | 'source' | ''>;
-  }) {
+  }, actorId?: string) {
     if (!Array.isArray(data?.headers) || !Array.isArray(data?.rows)) {
       throw new BadRequestException({
         code: 'INVALID_PAYLOAD',
@@ -113,6 +114,10 @@ export class LeadsService {
       });
     }
 
+    const campaign = await this.prisma.campaign.findUnique({
+      where: { id: campaignId },
+      select: { name: true },
+    });
     const existing = await this.prisma.lead.findMany({
       where: { campaignId },
       select: { email: true, phone: true },
@@ -207,8 +212,10 @@ export class LeadsService {
       }
     }
 
-    return {
+    const result = {
       campaignId,
+      campaignName: campaign?.name || 'Unknown campaign',
+      fileName: data.fileName || 'csv-import',
       imported,
       skippedDuplicates,
       invalidRows,
@@ -218,5 +225,45 @@ export class LeadsService {
         rowIssues,
       },
     };
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorType: 'user',
+        actorId: actorId || null,
+        action: 'lead.import.csv',
+        resourceType: 'lead_import_run',
+        resourceId: campaignId,
+        metadata: result as any,
+      },
+    });
+
+    return result;
+  }
+
+  async listImportRuns(limit = 10) {
+    const take = Math.min(Math.max(Number.isFinite(limit) ? Number(limit) : 10, 1), 50);
+    const rows = await this.prisma.auditLog.findMany({
+      where: {
+        action: 'lead.import.csv',
+        resourceType: 'lead_import_run',
+      },
+      orderBy: { createdAt: 'desc' },
+      take,
+      select: {
+        id: true,
+        createdAt: true,
+        actorId: true,
+        resourceId: true,
+        metadata: true,
+      },
+    });
+
+    return rows.map((r) => ({
+      id: String(r.id),
+      createdAt: r.createdAt,
+      actorId: r.actorId,
+      campaignId: r.resourceId,
+      ...(r.metadata as Record<string, any>),
+    }));
   }
 }

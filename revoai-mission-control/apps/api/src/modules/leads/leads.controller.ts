@@ -29,7 +29,14 @@ export class LeadsController {
   importCsv(@Req() req: any, @Body() body: any) {
     assertAdminToken(req);
     assertAdminRole(getActorRole(req), 'lead import');
-    return this.leads.importMappedCsv(body);
+    const actorId = req?.headers?.['x-actor-id'] ? String(req.headers['x-actor-id']) : undefined;
+    return this.leads.importMappedCsv(body, actorId);
+  }
+
+  @Get('import/runs')
+  listImportRuns(@Req() req: any, @Query('limit') limit?: string) {
+    assertAdminToken(req);
+    return this.leads.listImportRuns(limit ? Number(limit) : 10);
   }
 
   @Post(':id/score-override')
