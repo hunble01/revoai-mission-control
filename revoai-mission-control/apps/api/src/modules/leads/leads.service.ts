@@ -55,9 +55,21 @@ export class LeadsService {
     rows: string[][];
     mapping: Record<string, 'name' | 'company' | 'email' | 'phone' | 'source' | ''>;
   }) {
+    if (!Array.isArray(data?.headers) || !Array.isArray(data?.rows)) {
+      throw new BadRequestException('Invalid CSV payload: headers/rows must be arrays.');
+    }
+
+    if (!data.headers.length) {
+      throw new BadRequestException('CSV headers are required.');
+    }
+
     const requiredMappings = new Set(Object.values(data.mapping || {}).filter(Boolean));
     if (!requiredMappings.has('name') && !requiredMappings.has('company')) {
       throw new BadRequestException('At least one column must map to name or company.');
+    }
+
+    if ((data.rows || []).length > 5000) {
+      throw new BadRequestException('CSV import exceeds 5000-row limit for a single run.');
     }
 
     const campaignId =
@@ -79,6 +91,11 @@ export class LeadsService {
     let invalidRows = 0;
 
     for (const row of data.rows || []) {
+      if (!Array.isArray(row) || row.length > data.headers.length + 20) {
+        invalidRows += 1;
+        continue;
+      }
+
       const mapped: Record<string, string> = {};
 
       for (let i = 0; i < data.headers.length; i++) {
@@ -88,10 +105,10 @@ export class LeadsService {
         mapped[targetField] = (row[i] || '').trim();
       }
 
-      const businessName = mapped.company || mapped.name || '';
-      const email = mapped.email || null;
-      const phone = mapped.phone || null;
-      const source = mapped.source || 'csv-import';
+      const businessName = (mapped.company || mapped.name || '').trim();
+      const email = mapped.email ? mapped.email.trim().toLowerCase() : null;
+      const phone = mapped.phone ? mapped.phone.replace(/\D+/g, '') : null;
+      const source = (mapped.source || 'csv-import').trim();
 
       if (!businessName || (!email && !phone)) {
         invalidRows += 1;
