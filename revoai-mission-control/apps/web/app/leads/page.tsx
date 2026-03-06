@@ -24,33 +24,44 @@ export default function LeadsPage() {
   }, [q]);
 
   return (
-    <Card title="Leads" subtitle="Prospect list and qualification status">
+    <Card title="Leads" subtitle="Live imported leads from /api/leads">
       <div className="table-toolbar" style={{ marginBottom: 12 }}>
         <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search leads" aria-label="Search leads" />
       </div>
 
-      <Table>
-        <thead>
-          <tr>
-            <th>Business</th>
-            <th>Region</th>
-            <th>Score</th>
-            <th>Status</th>
-            <th>Campaign</th>
-          </tr>
-        </thead>
-        <tbody>
-          {leads.map((l: any) => (
-            <tr key={l.id}>
-              <td>{l.businessName}</td>
-              <td>{l.region || '—'}</td>
-              <td>{l.scoreOverride || l.leadScore || '—'}</td>
-              <td><Badge tone={l.status === 'QUALIFIED' ? 'success' : 'default'}>{l.status}</Badge></td>
-              <td>{l.campaignId || '—'}</td>
-            </tr>
-          ))}
-        </tbody>
-      </Table>
+      {!leads.length ? (
+        <p className="muted">No leads found. Import CSV from Campaigns → Upload Center.</p>
+      ) : (
+        <>
+          <p className="muted" style={{ marginTop: 0 }}>Showing first {Math.min(leads.length, 10)} of {leads.length} leads</p>
+          <Table>
+            <thead>
+              <tr>
+                <th>Business</th>
+                <th>Contact</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Source</th>
+                <th>Status</th>
+                <th>Campaign</th>
+              </tr>
+            </thead>
+            <tbody>
+              {leads.slice(0, 10).map((l: any) => (
+                <tr key={l.id}>
+                  <td>{l.businessName || '—'}</td>
+                  <td>{l.contactName || '—'}</td>
+                  <td>{l.email || '—'}</td>
+                  <td>{l.phone || '—'}</td>
+                  <td>{l.source || '—'}</td>
+                  <td><Badge tone={l.status === 'QUALIFIED' ? 'success' : 'default'}>{l.status || 'NEW'}</Badge></td>
+                  <td>{l.campaignId || '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        </>
+      )}
     </Card>
   );
 }
