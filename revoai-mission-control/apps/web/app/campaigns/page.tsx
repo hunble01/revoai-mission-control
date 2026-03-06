@@ -141,8 +141,13 @@ export default function CampaignsPage() {
     };
   }, [activeCsv, map]);
 
-  const invalidRowPreview = useMemo(() => {
-    if (!activeCsv) return [] as Array<{ rowNumber: number; reason: string }>;
+  const invalidRowAnalysis = useMemo(() => {
+    if (!activeCsv) {
+      return {
+        preview: [] as Array<{ rowNumber: number; reason: string }>,
+        counts: { missingIdentity: 0, missingContact: 0, total: 0 },
+      };
+    }
 
     const byMappedOrHeader = (field: string, fallback: string) => {
       const mappedHeader = activeCsv.headers.find((h) => map[h] === field);
@@ -156,6 +161,8 @@ export default function CampaignsPage() {
     const idxPhone = byMappedOrHeader('phone', 'phone');
 
     const invalid: Array<{ rowNumber: number; reason: string }> = [];
+    let missingIdentity = 0;
+    let missingContact = 0;
 
     activeCsv.rows.forEach((row, i) => {
       const name = idxName >= 0 ? (row[idxName] || '').trim() : '';
@@ -164,15 +171,24 @@ export default function CampaignsPage() {
       const phone = idxPhone >= 0 ? (row[idxPhone] || '').trim() : '';
 
       if (!name && !company) {
+        missingIdentity += 1;
         invalid.push({ rowNumber: i + 2, reason: 'Missing Name/Company' });
         return;
       }
       if (!email && !phone) {
+        missingContact += 1;
         invalid.push({ rowNumber: i + 2, reason: 'Missing Email/Phone' });
       }
     });
 
-    return invalid.slice(0, 5);
+    return {
+      preview: invalid.slice(0, 5),
+      counts: {
+        missingIdentity,
+        missingContact,
+        total: invalid.length,
+      },
+    };
   }, [activeCsv, map]);
 
   const saveResearch = (next: ResearchItem[]) => {
@@ -258,6 +274,32 @@ export default function CampaignsPage() {
     setImportError('');
     setImporting(false);
     setImportStage('idle');
+  };
+
+  const applyAutoMap = () => {
+    if (!activeCsv?.headers?.length) return;
+
+    const next: Record<string, string> = {};
+    const rules: Array<{ field: string; tests: RegExp[] }> = [
+      { field: 'name', tests: [/contact.?name/i, /^name$/i, /owner/i] },
+      { field: 'company', tests: [/company/i, /business/i, /clinic/i] },
+      { field: 'email', tests: [/email/i, /e-mail/i] },
+      { field: 'phone', tests: [/phone/i, /mobile/i, /tel/i] },
+      { field: 'source', tests: [/source/i, /channel/i, /utm/i] },
+    ];
+
+    for (const header of activeCsv.headers) {
+      let mapped = '';
+      for (const rule of rules) {
+        if (rule.tests.some((rx) => rx.test(header))) {
+          mapped = rule.field;
+          break;
+        }
+      }
+      next[header] = mapped;
+    }
+
+    setMap((prev) => ({ ...prev, ...next }));
   };
 
   const importCsvToLeads = async () => {
@@ -415,6 +457,9 @@ export default function CampaignsPage() {
           <Button variant="primary" onClick={importCsvToLeads} disabled={importing || !importReady}>
             {importing ? '⏳ Importing…' : 'Import CSV to Leads'}
           </Button>
+          <Button variant="secondary" onClick={applyAutoMap} disabled={!activeCsv}>
+            Auto-map Headers
+          </Button>
           <Button variant="secondary" onClick={resetImportState}>
             Reset Import State
           </Button>
@@ -508,11 +553,14 @@ export default function CampaignsPage() {
                     </div>
                   )}
 
-                  {!!invalidRowPreview.length && (
+                  {!!invalidRowAnalysis.counts.total && (
                     <div className="ui-card" style={{ padding: 10, marginBottom: 10, borderColor: '#6b5a2c' }}>
                       <strong style={{ color: '#ffd479' }}>Invalid row preview</strong>
+                      <p className="muted" style={{ margin: '6px 0 0' }}>
+                        Total invalid: {invalidRowAnalysis.counts.total} • Missing Name/Company: {invalidRowAnalysis.counts.missingIdentity} • Missing Email/Phone: {invalidRowAnalysis.counts.missingContact}
+                      </p>
                       <div style={{ display: 'grid', gap: 4, marginTop: 6 }}>
-                        {invalidRowPreview.map((r) => (
+                        {invalidRowAnalysis.preview.map((r) => (
                           <div key={`${r.rowNumber}-${r.reason}`} className="muted">
                             Row {r.rowNumber}: {r.reason}
                           </div>
