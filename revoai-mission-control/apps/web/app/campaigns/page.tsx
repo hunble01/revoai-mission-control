@@ -208,9 +208,18 @@ export default function CampaignsPage() {
       });
 
       setImportStage('importing');
-      const payload = await res.json();
+      const raw = await res.text();
+      let payload: any = null;
+      if (raw) {
+        try {
+          payload = JSON.parse(raw);
+        } catch {
+          payload = { message: raw };
+        }
+      }
+
       if (!res.ok) {
-        throw new Error(payload?.message || 'CSV import failed.');
+        throw new Error(payload?.message || `CSV import failed (HTTP ${res.status}).`);
       }
 
       setImportSummary(payload);
