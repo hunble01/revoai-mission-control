@@ -16,7 +16,9 @@ export default function FeedPage() {
     socket.on('activity', (evt) => {
       setEvents((prev) => [evt, ...prev].slice(0, 200));
     });
-    return () => socket.disconnect();
+    return () => {
+      socket.disconnect();
+    };
   }, []);
 
   return (
