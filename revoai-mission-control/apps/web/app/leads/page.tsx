@@ -16,6 +16,8 @@ export default function LeadsPage() {
   const [pageSize, setPageSize] = useState(10);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [savingLeadId, setSavingLeadId] = useState<string | null>(null);
+  const [saveMessage, setSaveMessage] = useState('');
 
   const load = async () => {
     const params = new URLSearchParams();
@@ -40,6 +42,32 @@ export default function LeadsPage() {
   useEffect(() => {
     load();
   }, [q, status]);
+
+  const updateLeadStatus = async (leadId: string, nextStatus: string) => {
+    const prev = leads;
+    setSaveMessage('');
+    setSavingLeadId(leadId);
+
+    setLeads((curr) => curr.map((l: any) => (l.id === leadId ? { ...l, status: nextStatus } : l)));
+
+    try {
+      const res = await fetch(`${base}/api/leads/${leadId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-token': token,
+        },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      if (!res.ok) throw new Error(`Failed to update lead status (HTTP ${res.status})`);
+      setSaveMessage('Status updated.');
+    } catch (err: any) {
+      setLeads(prev);
+      setSaveMessage(err?.message || 'Failed to update status.');
+    } finally {
+      setSavingLeadId(null);
+    }
+  };
 
   const totalPages = Math.max(1, Math.ceil(leads.length / pageSize));
   const safePage = Math.min(page, totalPages);
@@ -79,6 +107,7 @@ export default function LeadsPage() {
           <p className="muted" style={{ marginTop: 0 }}>
             Showing {leads.length ? start + 1 : 0}-{Math.min(start + pageSize, leads.length)} of {leads.length} leads
           </p>
+          {!!saveMessage && <p className="muted" style={{ marginTop: 6 }}>{saveMessage}</p>}
           <Table>
             <thead>
               <tr>
@@ -88,6 +117,7 @@ export default function LeadsPage() {
                 <th>Phone</th>
                 <th>Source</th>
                 <th>Status</th>
+                <th>Update</th>
                 <th>Campaign</th>
               </tr>
             </thead>
@@ -100,6 +130,24 @@ export default function LeadsPage() {
                   <td>{l.phone || '—'}</td>
                   <td>{l.source || '—'}</td>
                   <td><Badge tone={l.status === 'QUALIFIED' ? 'success' : 'default'}>{l.status || 'NEW'}</Badge></td>
+                  <td>
+                    <select
+                      className="ui-input"
+                      aria-label={`Update status for ${l.businessName || l.id}`}
+                      value={l.status || 'NEW'}
+                      disabled={savingLeadId === l.id}
+                      onChange={(e) => updateLeadStatus(l.id, e.target.value)}
+                    >
+                      <option value="NEW">NEW</option>
+                      <option value="ENRICHED">ENRICHED</option>
+                      <option value="DRAFTED">DRAFTED</option>
+                      <option value="APPROVED">APPROVED</option>
+                      <option value="CONTACTED">CONTACTED</option>
+                      <option value="REPLIED">REPLIED</option>
+                      <option value="BOOKED">BOOKED</option>
+                      <option value="LOST">LOST</option>
+                    </select>
+                  </td>
                   <td>{l.campaignId || '—'}</td>
                 </tr>
               ))}
