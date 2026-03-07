@@ -105,7 +105,8 @@ export default function CampaignsPage() {
       .then((d) => {
         const list = Array.isArray(d) ? d : [];
         setCampaigns(list);
-        if (list[0]?.id) setSelectedCampaignId(list[0].id);
+        const firstActive = list.find((c: any) => c.isActive);
+        if (firstActive?.id) setSelectedCampaignId(firstActive.id);
       })
       .catch(() => setCampaigns([]));
 
@@ -125,6 +126,11 @@ export default function CampaignsPage() {
     return research.filter((r) => `${r.title} ${r.notes} ${r.tags}`.toLowerCase().includes(q));
   }, [research, query]);
 
+  const activeCampaigns = useMemo(
+    () => campaigns.filter((c: any) => c.isActive),
+    [campaigns],
+  );
+
   const activeCsv = useMemo(
     () => uploads.find((u) => u.fileType === 'CSV' && u.headers.length > 0),
     [uploads],
@@ -137,7 +143,8 @@ export default function CampaignsPage() {
 
   const totalColumns = activeCsv?.headers.length || 0;
   const hasRequiredMapping = Object.values(map).some((v) => v === 'name' || v === 'company');
-  const importReady = mappedCount > 0 && hasRequiredMapping;
+  const hasActiveCampaign = activeCampaigns.length > 0;
+  const importReady = mappedCount > 0 && hasRequiredMapping && hasActiveCampaign;
 
   const duplicatePreview = useMemo(() => {
     if (!activeCsv) return { email: 0, phone: 0 };
@@ -490,7 +497,7 @@ export default function CampaignsPage() {
             onChange={(e) => setSelectedCampaignId(e.target.value)}
             aria-label="Campaign"
           >
-            {campaigns.map((c: any) => (
+            {activeCampaigns.map((c: any) => (
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
@@ -504,6 +511,12 @@ export default function CampaignsPage() {
             Reset Import State
           </Button>
         </div>
+
+        {!activeCampaigns.length && (
+          <p style={{ color: '#ff9b9b', marginTop: 8 }}>
+            No active campaign available. Activate a campaign before importing leads.
+          </p>
+        )}
 
         {activeCsv && (
           <p className="muted" style={{ marginTop: 8 }}>

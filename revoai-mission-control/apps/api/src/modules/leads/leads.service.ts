@@ -116,8 +116,22 @@ export class LeadsService {
 
     const campaign = await this.prisma.campaign.findUnique({
       where: { id: campaignId },
-      select: { name: true },
+      select: { name: true, isActive: true },
     });
+
+    if (!campaign) {
+      throw new BadRequestException({
+        code: 'CAMPAIGN_NOT_FOUND',
+        message: 'Selected campaign was not found.',
+      });
+    }
+
+    if (!campaign.isActive) {
+      throw new BadRequestException({
+        code: 'CAMPAIGN_INACTIVE',
+        message: 'Selected campaign is inactive and cannot receive imports.',
+      });
+    }
     const existing = await this.prisma.lead.findMany({
       where: { campaignId },
       select: { email: true, phone: true },
