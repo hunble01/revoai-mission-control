@@ -26,9 +26,9 @@ export default function SchedulerPage() {
     setError('');
     try {
       const [j, s, r] = await Promise.all([
-        fetch(`${base}/api/scheduler/jobs`, { headers: { 'x-admin-token': token } }).then((x) => x.json()),
-        fetch(`${base}/api/settings/safety`, { headers: { 'x-admin-token': token } }).then((x) => x.json()),
-        fetch(`${base}/api/scheduler/runs`, { headers: { 'x-admin-token': token } }).then((x) => x.json()),
+        fetch(`${base}/api/scheduler/jobs`, { credentials: 'include', headers: { 'x-admin-token': token } }).then((x) => x.json()),
+        fetch(`${base}/api/settings/safety`, { credentials: 'include', headers: { 'x-admin-token': token } }).then((x) => x.json()),
+        fetch(`${base}/api/scheduler/runs`, { credentials: 'include', headers: { 'x-admin-token': token } }).then((x) => x.json()),
       ]);
       setJobs(Array.isArray(j) ? j : []);
       setSafety(s || {});
@@ -68,6 +68,7 @@ export default function SchedulerPage() {
     try {
       await fetch(`${base}/api/scheduler/jobs/${job.id}`, {
         method: 'PATCH',
+        credentials: 'include',
         headers: {
           'content-type': 'application/json',
           'x-admin-token': token,
@@ -99,6 +100,7 @@ export default function SchedulerPage() {
     try {
       await fetch(`${base}/api/scheduler/jobs`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'content-type': 'application/json',
           'x-admin-token': token,

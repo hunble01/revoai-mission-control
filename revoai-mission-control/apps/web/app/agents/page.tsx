@@ -23,8 +23,8 @@ export default function AgentsPage() {
     setError('');
     try {
       const [agentsRes, tasksRes] = await Promise.all([
-        fetch(`${base}/api/agents`, { headers: { 'x-admin-token': token } }),
-        fetch(`${base}/api/tasks`, { headers: { 'x-admin-token': token } }),
+        fetch(`${base}/api/agents`, { credentials: 'include', headers: { 'x-admin-token': token } }),
+        fetch(`${base}/api/tasks`, { credentials: 'include', headers: { 'x-admin-token': token } }),
       ]);
       if (!agentsRes.ok) throw new Error(`Failed to load agents (HTTP ${agentsRes.status})`);
       if (!tasksRes.ok) throw new Error(`Failed to load tasks (HTTP ${tasksRes.status})`);
@@ -61,6 +61,7 @@ export default function AgentsPage() {
     try {
       const res = await fetch(`${base}/api/agents/${id}`, {
         method: 'PATCH',
+        credentials: 'include',
         headers: {
           'content-type': 'application/json',
           'x-admin-token': token,

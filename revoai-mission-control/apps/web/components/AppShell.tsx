@@ -63,6 +63,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="sidebar-footer">
               <a href="/help">Help Center</a>
               <a href="/settings">Settings</a>
+              <a href="/login">Login</a>
+              <a href="#" onClick={async (e) => { e.preventDefault(); await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/auth/logout`, { method: 'POST', credentials: 'include' }); window.location.href = '/login'; }}>Logout</a>
               <div className="profile-chip">Boss Workspace • Secure</div>
             </div>
           </aside>

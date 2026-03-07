@@ -24,7 +24,12 @@ function rateLimit(req: any, res: any, next: any) {
 }
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { cors: true });
+  const app = await NestFactory.create(AppModule, {
+    cors: {
+      origin: true,
+      credentials: true,
+    },
+  });
   app.use(rateLimit);
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: false }));
   app.useGlobalFilters(new AllExceptionsFilter());

@@ -33,7 +33,7 @@ export default function BoardPage() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`${base}/api/tasks`, { headers: { 'x-admin-token': token } });
+      const res = await fetch(`${base}/api/tasks`, { credentials: 'include', headers: { 'x-admin-token': token } });
       if (!res.ok) throw new Error(`Failed to load tasks (HTTP ${res.status})`);
       const data = await res.json();
       const list = Array.isArray(data) ? data : [];
@@ -57,6 +57,7 @@ export default function BoardPage() {
     setReplayError('');
     try {
       const res = await fetch(`${base}/api/tasks/${taskId}/replay`, {
+        credentials: 'include',
         headers: { 'x-admin-token': token, 'x-actor-role': 'admin' },
       });
       if (!res.ok) throw new Error(`Failed replay load (HTTP ${res.status})`);
@@ -91,6 +92,7 @@ export default function BoardPage() {
     try {
       const res = await fetch(`${base}/api/tasks/${task.id}`, {
         method: 'PATCH',
+        credentials: 'include',
         headers: {
           'content-type': 'application/json',
           'x-admin-token': token,

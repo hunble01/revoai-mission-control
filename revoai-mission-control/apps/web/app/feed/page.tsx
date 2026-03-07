@@ -26,7 +26,7 @@ export default function FeedPage() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`${base}/api/events/feed`, { headers: { 'x-admin-token': token } });
+      const res = await fetch(`${base}/api/events/feed`, { credentials: 'include', headers: { 'x-admin-token': token } });
       if (!res.ok) throw new Error(`Failed to load feed (HTTP ${res.status})`);
       const data = await res.json();
       setEvents(Array.isArray(data) ? data : []);

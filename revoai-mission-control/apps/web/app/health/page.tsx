@@ -13,8 +13,8 @@ export default function HealthPage() {
     (async () => {
       try {
         const [h, s] = await Promise.all([
-          fetch(`${base}/api/health`, { headers: { 'x-admin-token': token } }).then((r) => r.json()),
-          fetch(`${base}/api/settings/safety`, { headers: { 'x-admin-token': token } }).then((r) => r.json()),
+          fetch(`${base}/api/health`, { credentials: 'include', headers: { 'x-admin-token': token } }).then((r) => r.json()),
+          fetch(`${base}/api/settings/safety`, { credentials: 'include', headers: { 'x-admin-token': token } }).then((r) => r.json()),
         ]);
         setApi(h);
         setSafety(s);

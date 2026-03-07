@@ -12,17 +12,20 @@ export default function Home() {
   const [leads, setLeads] = useState<any[]>([]);
   const [drafts, setDrafts] = useState<any[]>([]);
   const [safety, setSafety] = useState<any>(null);
+  const [alerts, setAlerts] = useState<any[]>([]);
 
   useEffect(() => {
     const headers = { 'x-admin-token': token };
     Promise.all([
-      fetch(`${base}/api/leads`, { headers }).then((r) => r.json()).catch(() => []),
-      fetch(`${base}/api/drafts`, { headers }).then((r) => r.json()).catch(() => []),
-      fetch(`${base}/api/settings/safety`, { headers }).then((r) => r.json()).catch(() => null),
-    ]).then(([l, d, s]) => {
+      fetch(`${base}/api/leads`, { credentials: 'include', headers }).then((r) => r.json()).catch(() => []),
+      fetch(`${base}/api/drafts`, { credentials: 'include', headers }).then((r) => r.json()).catch(() => []),
+      fetch(`${base}/api/settings/safety`, { credentials: 'include', headers }).then((r) => r.json()).catch(() => null),
+      fetch(`${base}/api/alerts`, { credentials: 'include', headers }).then((r) => r.json()).catch(() => ({ alerts: [] })),
+    ]).then(([l, d, s, a]) => {
       setLeads(Array.isArray(l) ? l : []);
       setDrafts(Array.isArray(d) ? d : []);
       setSafety(s);
+      setAlerts(Array.isArray(a?.alerts) ? a.alerts : []);
     });
   }, []);
 
@@ -59,6 +62,18 @@ export default function Home() {
           <a className="demo-step" href="/campaigns">4. Campaign Loop</a>
         </div>
       </section>
+
+      {!!alerts.length && (
+        <Card title="Operational Alerts" subtitle="Workflow-linked production watchlist">
+          <div style={{ display: 'grid', gap: 6 }}>
+            {alerts.map((a: any) => (
+              <div key={a.key} className="muted">
+                <strong style={{ color: a.status === 'warn' ? '#ffd479' : '#8ad6ff' }}>{a.key}</strong> — {a.message}
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <section className="kpi-grid" style={{ gridTemplateColumns: 'repeat(6, minmax(0, 1fr))' }}>
         {kpis.map((k) => (

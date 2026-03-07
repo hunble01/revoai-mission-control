@@ -26,8 +26,8 @@ export default function TaskReplayPage({ params }: ReplayPageProps) {
     try {
       const headers = { 'x-admin-token': token, 'x-actor-role': 'admin' };
       const [allTasksRes, replayRes] = await Promise.all([
-        fetch(`${base}/api/tasks`, { headers }),
-        fetch(`${base}/api/tasks/${taskId}/replay`, { headers }),
+        fetch(`${base}/api/tasks`, { credentials: 'include', headers }),
+        fetch(`${base}/api/tasks/${taskId}/replay`, { credentials: 'include', headers }),
       ]);
 
       if (!allTasksRes.ok) throw new Error(`Failed to load task list (HTTP ${allTasksRes.status})`);

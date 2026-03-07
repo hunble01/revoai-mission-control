@@ -82,6 +82,7 @@ export default function CampaignsPage() {
   const fetchImportRuns = async () => {
     try {
       const res = await fetch(`${base}/api/leads/import/runs?limit=10`, {
+        credentials: 'include',
         headers: { 'x-admin-token': token },
       });
       if (!res.ok) return;
@@ -107,7 +108,7 @@ export default function CampaignsPage() {
   };
 
   useEffect(() => {
-    fetch(`${base}/api/campaigns`, { headers: { 'x-admin-token': token } })
+    fetch(`${base}/api/campaigns`, { credentials: 'include', headers: { 'x-admin-token': token } })
       .then((r) => r.json())
       .then((d) => {
         const list = Array.isArray(d) ? d : [];
@@ -391,6 +392,7 @@ export default function CampaignsPage() {
     try {
       const res = await fetch(`${base}/api/leads/import/csv`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           'x-admin-token': token,

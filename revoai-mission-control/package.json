@@ -23,6 +23,7 @@
     "release:checkpoint": "bash ops/deploy/release-checkpoint.sh",
     "backup:postgres": "bash ops/backup/postgres-backup.sh",
     "restore:postgres": "bash ops/backup/postgres-restore.sh",
-    "restore:verify": "bash ops/backup/postgres-restore-verify.sh"
+    "restore:verify": "bash ops/backup/postgres-restore-verify.sh",
+    "uat:final": "node scripts/final-uat-pass.js"
   }
 }

@@ -20,7 +20,7 @@ export default function ApprovalsPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${base}/api/drafts?status=NEEDS_APPROVAL`, { headers: { 'x-admin-token': token } });
+      const res = await fetch(`${base}/api/drafts?status=NEEDS_APPROVAL`, { credentials: 'include', headers: { 'x-admin-token': token } });
       const d = await res.json();
       setDrafts(Array.isArray(d) ? d : []);
     } catch {

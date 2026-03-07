@@ -16,7 +16,7 @@ export default function SettingsPage() {
   const load = async () => {
     setErr('');
     try {
-      const res = await fetch(`${base}/api/settings/safety`, { headers: { 'x-admin-token': token } });
+      const res = await fetch(`${base}/api/settings/safety`, { credentials: 'include', headers: { 'x-admin-token': token } });
       if (!res.ok) throw new Error(`Failed to load settings (HTTP ${res.status})`);
       setSafety(await res.json());
     } catch (e: any) {
@@ -45,6 +45,7 @@ export default function SettingsPage() {
     try {
       const res = await fetch(`${base}/api/settings/safety`, {
         method: 'PATCH',
+        credentials: 'include',
         headers: {
           'content-type': 'application/json',
           'x-admin-token': token,

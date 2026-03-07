@@ -1,0 +1,33 @@
+{
+  "ok": true,
+  "checks": [
+    "auth_bootstrap",
+    "auth_login_session",
+    "api/health",
+    "api/alerts",
+    "api/leads",
+    "api/drafts",
+    "api/campaigns",
+    "api/scheduler/jobs",
+    "api/scheduler/runs",
+    "api/agents",
+    "api/audit?limit=20",
+    "api/tasks",
+    "web/",
+    "web/campaigns",
+    "web/leads",
+    "web/approvals",
+    "web/drafts",
+    "web/board",
+    "web/tasks/00000000-0000-0000-0000-000000000000/replay",
+    "web/feed",
+    "web/agents",
+    "web/scheduler",
+    "web/health",
+    "web/audit",
+    "web/help",
+    "web/settings"
+  ],
+  "failures": [],
+  "ts": "2026-03-07T07:49:29.111Z"
+}

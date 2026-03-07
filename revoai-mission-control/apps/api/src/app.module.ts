@@ -12,6 +12,8 @@ import { EventsModule } from './modules/events/events.module';
 import { FeedModule } from './modules/feed/feed.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { SeedModule } from './modules/seed/seed.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { AlertsModule } from './modules/alerts/alerts.module';
 
 @Module({
   imports: [
@@ -27,6 +29,8 @@ import { SeedModule } from './modules/seed/seed.module';
     FeedModule,
     AuditModule,
     SeedModule,
+    AuthModule,
+    AlertsModule,
   ],
   controllers: [HealthController],
 })

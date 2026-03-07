@@ -21,6 +21,7 @@ enum AgentStatus {
   BLOCKED
 }
 
+
 enum TaskColumn {
   BACKLOG
   DOING
@@ -68,13 +69,15 @@ enum Channel {
 }
 
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  role         Role     @default(ADMIN)
+  id           String    @id @default(uuid())
+  email        String    @unique
+  role         Role      @default(ADMIN)
   passwordHash String?
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  sessions Session[]
 }
 
 model Campaign {
@@ -247,4 +250,20 @@ model Setting {
   value     Json
   updatedBy String?
   updatedAt DateTime @default(now())
+}
+
+model Session {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role
+  issuedAt   DateTime @default(now())
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  userAgent  String?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
 }

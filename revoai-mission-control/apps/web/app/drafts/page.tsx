@@ -17,7 +17,7 @@ export default function DraftsPage() {
 
   const load = () => {
     const url = `${base}/api/drafts${q ? `?search=${encodeURIComponent(q)}` : ''}`;
-    fetch(url, { headers: { 'x-admin-token': token } })
+    fetch(url, { credentials: 'include', headers: { 'x-admin-token': token } })
       .then((r) => r.json())
       .then((d) => setDrafts(d || []));
   };

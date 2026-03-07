@@ -27,7 +27,7 @@ export default function LeadsPage() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(url, { headers: { 'x-admin-token': token } });
+      const res = await fetch(url, { credentials: 'include', headers: { 'x-admin-token': token } });
       if (!res.ok) throw new Error(`Failed to load leads (HTTP ${res.status})`);
       const d = await res.json();
       setLeads(Array.isArray(d) ? d : []);
@@ -53,6 +53,7 @@ export default function LeadsPage() {
     try {
       const res = await fetch(`${base}/api/leads/${leadId}`, {
         method: 'PATCH',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           'x-admin-token': token,
