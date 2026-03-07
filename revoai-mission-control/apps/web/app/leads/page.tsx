@@ -56,6 +56,7 @@ export default function LeadsPage() {
         headers: {
           'Content-Type': 'application/json',
           'x-admin-token': token,
+          'x-actor-role': 'admin',
         },
         body: JSON.stringify({ status: nextStatus }),
       });

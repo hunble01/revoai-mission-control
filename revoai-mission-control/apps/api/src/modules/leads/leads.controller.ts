@@ -16,12 +16,14 @@ export class LeadsController {
   @Post()
   create(@Req() req: any, @Body() body: CreateLeadDto) {
     assertAdminToken(req);
+    assertAdminRole(getActorRole(req), 'lead create');
     return this.leads.create(body);
   }
 
   @Patch(':id')
   update(@Req() req: any, @Param('id') id: string, @Body() body: any) {
     assertAdminToken(req);
+    assertAdminRole(getActorRole(req), 'lead update');
     return this.leads.update(id, body);
   }
 

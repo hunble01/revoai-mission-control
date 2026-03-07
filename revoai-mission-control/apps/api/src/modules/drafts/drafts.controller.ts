@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, Req } from '@nestjs/common';
 import { DraftsService } from './drafts.service';
 import { CreateDraftDto, UpdateDraftDto } from './dto/draft.dto';
-import { assertAdminToken, getActorRole } from '../../common/auth.util';
+import { assertAdminToken, assertAdminRole, getActorRole } from '../../common/auth.util';
 
 @Controller('drafts')
 export class DraftsController {
@@ -16,12 +16,14 @@ export class DraftsController {
   @Post()
   create(@Req() req: any, @Body() body: CreateDraftDto) {
     assertAdminToken(req);
+    assertAdminRole(getActorRole(req), 'draft create');
     return this.drafts.create(body);
   }
 
   @Patch(':id')
   update(@Req() req: any, @Param('id') id: string, @Body() body: UpdateDraftDto) {
     assertAdminToken(req);
+    assertAdminRole(getActorRole(req), 'draft update');
     return this.drafts.update(id, body, getActorRole(req));
   }
 

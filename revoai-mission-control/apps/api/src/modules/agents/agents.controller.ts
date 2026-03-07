@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Patch, Req } from '@nestjs/common';
 import { AgentsService } from './agents.service';
-import { assertAdminToken } from '../../common/auth.util';
+import { assertAdminToken, assertAdminRole, getActorRole } from '../../common/auth.util';
 
 @Controller('agents')
 export class AgentsController {
@@ -15,6 +15,7 @@ export class AgentsController {
   @Patch(':id')
   update(@Req() req: any, @Param('id') id: string, @Body() body: any) {
     assertAdminToken(req);
+    assertAdminRole(getActorRole(req), 'agent update');
     return this.agents.update(id, body);
   }
 }

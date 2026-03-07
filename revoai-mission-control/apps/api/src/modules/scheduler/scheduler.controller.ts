@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Post, Req } from '@nestjs/common';
 import { SchedulerService } from './scheduler.service';
 import { CreateSchedulerJobDto } from './dto/scheduler.dto';
-import { assertAdminToken } from '../../common/auth.util';
+import { assertAdminToken, assertAdminRole, getActorRole } from '../../common/auth.util';
 
 @Controller('scheduler')
 export class SchedulerController {
@@ -16,18 +16,21 @@ export class SchedulerController {
   @Post('jobs')
   createJob(@Req() req: any, @Body() body: CreateSchedulerJobDto) {
     assertAdminToken(req);
+    assertAdminRole(getActorRole(req), 'scheduler create job');
     return this.scheduler.createJob(body);
   }
 
   @Patch('jobs/:id')
   updateJob(@Req() req: any, @Param('id') id: string, @Body() body: any) {
     assertAdminToken(req);
+    assertAdminRole(getActorRole(req), 'scheduler update job');
     return this.scheduler.updateJob(id, body);
   }
 
   @Post('jobs/:id/run-now')
   runNow(@Req() req: any, @Param('id') id: string) {
     assertAdminToken(req);
+    assertAdminRole(getActorRole(req), 'scheduler run-now');
     return this.scheduler.runNow(id);
   }
 
@@ -40,6 +43,7 @@ export class SchedulerController {
   @Post('seed-defaults')
   seedDefaults(@Req() req: any, @Body() body: any) {
     assertAdminToken(req);
+    assertAdminRole(getActorRole(req), 'scheduler seed defaults');
     return this.scheduler.seedDefaultPipeline(body?.campaignId);
   }
 }

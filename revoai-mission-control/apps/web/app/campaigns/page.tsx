@@ -369,7 +369,7 @@ export default function CampaignsPage() {
         headers: {
           'Content-Type': 'application/json',
           'x-admin-token': token,
-          'x-actor-role': 'ADMIN',
+          'x-actor-role': 'admin',
         },
         body: JSON.stringify({
           campaignId: selectedCampaignId || undefined,
