@@ -12,6 +12,7 @@ ENV_FILE_DEFAULT="${ROOT_DIR}/env/profiles/prod.env"
 ENV_FILE="${ENV_FILE:-${ENV_FILE_DEFAULT}}"
 DRY_RUN="${DRY_RUN:-0}"
 RELEASE_ID="${RELEASE_ID:-$(date -u +%Y%m%d%H%M%S)-$(git -C "${ROOT_DIR}" rev-parse --short HEAD)}"
+RECORD_CMD="${ROOT_DIR}/ops/deploy/record-release.sh"
 
 run() {
   if [[ "${DRY_RUN}" == "1" ]]; then
@@ -38,6 +39,7 @@ mkdir -p "${RELEASES_DIR}" "${STATE_DIR}"
 if [[ ! -f "${ENV_FILE}" ]]; then
   echo "Missing env file: ${ENV_FILE}"
   echo "Create from env/profiles/prod.env.example"
+  [[ "${DRY_RUN}" != "1" ]] && "${RECORD_CMD}" deploy "${RELEASE_ID}" blocked "missing_env_file"
   exit 1
 fi
 
@@ -66,6 +68,10 @@ run "curl -fsS -I http://127.0.0.1:3000 >/dev/null"
 
 if [[ "${DRY_RUN}" != "1" ]]; then
   echo "${RELEASE_ID}" > "${STATE_DIR}/last_successful_release"
+  if [[ -L "${PREVIOUS_LINK}" ]]; then
+    basename "$(readlink "${PREVIOUS_LINK}")" > "${STATE_DIR}/last_rollback_point"
+  fi
+  "${RECORD_CMD}" deploy "${RELEASE_ID}" ok "health_checks_passed"
 fi
 
 hook post_deploy

@@ -19,6 +19,7 @@
     "config:matrix:validate": "node scripts/validate-config-matrix.js",
     "deploy:artifact": "bash ops/deploy/release-artifact.sh",
     "deploy:run": "bash ops/deploy/deploy.sh",
-    "deploy:rollback": "bash ops/deploy/rollback.sh"
+    "deploy:rollback": "bash ops/deploy/rollback.sh",
+    "release:checkpoint": "bash ops/deploy/release-checkpoint.sh"
   }
 }

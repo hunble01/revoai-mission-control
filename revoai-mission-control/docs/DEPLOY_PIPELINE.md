@@ -2,6 +2,12 @@
 
 Scope: build artifact, migrate, restart, rollback hooks/process.
 
+Runtime hardening in compose:
+- healthchecks on `postgres`, `redis`, `api`, `web`
+- `restart: unless-stopped` for all critical services
+- `init: true` + `stop_grace_period` for `api` and `web` graceful signal handling
+- dependency ordering uses `condition: service_healthy`
+
 ## Artifacts and scripts
 
 - `ops/deploy/release-artifact.sh`

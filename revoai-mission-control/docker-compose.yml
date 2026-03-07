@@ -3,6 +3,12 @@ services:
     image: postgres:16
     container_name: revoai_mc_postgres
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mission -d mission_control"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     environment:
       POSTGRES_DB: mission_control
       POSTGRES_USER: mission
@@ -16,6 +22,12 @@ services:
     image: redis:7
     container_name: revoai_mc_redis
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
     ports:
       - "6379:6379"
     volumes:
@@ -25,7 +37,16 @@ services:
     image: node:22-alpine
     container_name: revoai_mc_api
     working_dir: /workspace
-    command: sh -c "apk add --no-cache openssl >/dev/null 2>&1 || true && npm install && cd apps/api && npm install && npx prisma generate --schema=prisma/schema.prisma && ( [ -d prisma/migrations ] && npx prisma migrate deploy --schema=prisma/schema.prisma || echo 'No migrations to deploy' ) && npx nest start --watch"
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 20s
+    command: sh -c "apk add --no-cache openssl >/dev/null 2>&1 || true && npm install && cd apps/api && npm install && npx prisma generate --schema=prisma/schema.prisma && ( [ -d prisma/migrations ] && npx prisma migrate deploy --schema=prisma/schema.prisma || echo 'No migrations to deploy' ) && npx nest start"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3001/api/health >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 20s
     volumes:
       - ./:/workspace
     environment:
@@ -37,8 +58,10 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-me}
       ADMIN_TOKEN: ${ADMIN_TOKEN:-change-me}
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     ports:
       - "3001:3001"
 
@@ -46,7 +69,16 @@ services:
     image: node:22-alpine
     container_name: revoai_mc_web
     working_dir: /workspace
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 20s
     command: sh -c "npm install && npm run dev:web"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000 >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 25s
     volumes:
       - ./:/workspace
     environment:
@@ -55,7 +87,8 @@ services:
       INTERNAL_API_URL: ${INTERNAL_API_URL:-http://api:3001}
       NEXT_PUBLIC_ADMIN_TOKEN: ${NEXT_PUBLIC_ADMIN_TOKEN:-change-me}
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     ports:
       - "3000:3000"
 
