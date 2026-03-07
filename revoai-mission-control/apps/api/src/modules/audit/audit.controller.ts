@@ -7,11 +7,16 @@ export class AuditController {
   constructor(private readonly prisma: PrismaService) {}
 
   @Get()
-  list(@Req() req: any, @Query('limit') limit?: string) {
+  async list(@Req() req: any, @Query('limit') limit?: string) {
     assertAdminToken(req);
-    return this.prisma.auditLog.findMany({
+    const rows = await this.prisma.auditLog.findMany({
       orderBy: { createdAt: 'desc' },
       take: Math.min(Number(limit || 200), 1000),
     });
+
+    return rows.map((r) => ({
+      ...r,
+      id: String(r.id),
+    }));
   }
 }

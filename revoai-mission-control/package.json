@@ -12,6 +12,9 @@
     "smoke:mvp": "node scripts/mvp-smoke-test.js",
     "sanity:env": "node scripts/env-sanity-check.js",
     "sanity:seed": "node scripts/seed-sanity-check.js",
-    "readiness:mvp": "npm run sanity:env && npm -w apps/api run build && npm -w apps/web run build && npm run sanity:seed"
+    "readiness:mvp": "npm run sanity:env && npm -w apps/api run build && npm -w apps/web run build && npm run sanity:seed",
+    "test:integration:mvp": "node scripts/test-integration-mvp.js",
+    "test:ui:smoke": "node scripts/test-ui-smoke.js",
+    "test:mvp:all": "npm run test:integration:mvp && npm run test:ui:smoke"
   }
 }
