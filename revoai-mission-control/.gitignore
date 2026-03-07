@@ -11,3 +11,7 @@ apps/web/.next/
 
 # misc
 *.log
+
+# deploy runtime state/artifacts
+.deploy/
+artifacts/

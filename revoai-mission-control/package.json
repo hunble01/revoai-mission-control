@@ -16,6 +16,9 @@
     "test:integration:mvp": "node scripts/test-integration-mvp.js",
     "test:ui:smoke": "node scripts/test-ui-smoke.js",
     "test:mvp:all": "npm run test:integration:mvp && npm run test:ui:smoke",
-    "config:matrix:validate": "node scripts/validate-config-matrix.js"
+    "config:matrix:validate": "node scripts/validate-config-matrix.js",
+    "deploy:artifact": "bash ops/deploy/release-artifact.sh",
+    "deploy:run": "bash ops/deploy/deploy.sh",
+    "deploy:rollback": "bash ops/deploy/rollback.sh"
   }
 }

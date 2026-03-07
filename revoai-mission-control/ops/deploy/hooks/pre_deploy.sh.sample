@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# Example pre-deploy hook
+# Args: $1 = release id
+# Add custom checks/notifications here.

@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# Example post-deploy hook
+# Args: $1 = release id
+# Add release notifications or warmup actions here.
