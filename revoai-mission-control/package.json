@@ -20,6 +20,9 @@
     "deploy:artifact": "bash ops/deploy/release-artifact.sh",
     "deploy:run": "bash ops/deploy/deploy.sh",
     "deploy:rollback": "bash ops/deploy/rollback.sh",
-    "release:checkpoint": "bash ops/deploy/release-checkpoint.sh"
+    "release:checkpoint": "bash ops/deploy/release-checkpoint.sh",
+    "backup:postgres": "bash ops/backup/postgres-backup.sh",
+    "restore:postgres": "bash ops/backup/postgres-restore.sh",
+    "restore:verify": "bash ops/backup/postgres-restore-verify.sh"
   }
 }

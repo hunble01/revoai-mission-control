@@ -15,3 +15,6 @@ apps/web/.next/
 # deploy runtime state/artifacts
 .deploy/
 artifacts/
+
+# backup artifacts
+backups/
