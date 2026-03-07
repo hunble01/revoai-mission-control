@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { DraftStatus } from '@prisma/client';
+import { ApprovalAction, DraftStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventsService } from '../events/events.service';
 import { SettingsService } from '../settings/settings.service';
@@ -91,6 +91,93 @@ export class DraftsService {
     const updated = await this.prisma.draft.update({ where: { id }, data });
     await this.events.publish({ eventType: 'draft.updated', campaignId: updated.campaignId, payload: { draftId: id } });
     return updated;
+  }
+
+  async approvalDecision(
+    id: string,
+    action: 'approve' | 'reject' | 'request-changes' | 'approve-with-notes' | 'edit-inline-approve',
+    body: { notes?: string; content?: string },
+    actorRole: string,
+  ) {
+    if (actorRole !== 'admin') throw new BadRequestException('Only admin can perform approval decisions');
+
+    const draft = await this.prisma.draft.findUnique({ where: { id } });
+    if (!draft) throw new NotFoundException('Draft not found');
+    if (draft.status !== DraftStatus.NEEDS_APPROVAL) {
+      throw new BadRequestException('Draft is not in NEEDS_APPROVAL state');
+    }
+
+    const notes = (body?.notes || '').trim();
+    const content = body?.content || '';
+
+    let nextStatus: DraftStatus = DraftStatus.NEEDS_APPROVAL;
+    let approvalAction: ApprovalAction = ApprovalAction.REQUEST_CHANGES;
+
+    if (action === 'approve') {
+      nextStatus = DraftStatus.APPROVED;
+      approvalAction = ApprovalAction.APPROVE;
+    } else if (action === 'reject') {
+      nextStatus = DraftStatus.REJECTED;
+      approvalAction = ApprovalAction.REJECT;
+    } else if (action === 'request-changes') {
+      nextStatus = DraftStatus.DRAFT;
+      approvalAction = ApprovalAction.REQUEST_CHANGES;
+    } else if (action === 'approve-with-notes') {
+      nextStatus = DraftStatus.APPROVED;
+      approvalAction = ApprovalAction.APPROVE_WITH_NOTES;
+    } else if (action === 'edit-inline-approve') {
+      if (!content.trim()) throw new BadRequestException('Inline content is required for inline approve');
+      nextStatus = DraftStatus.APPROVED;
+      approvalAction = ApprovalAction.EDIT_INLINE_APPROVE;
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const current = await tx.draft.findUnique({ where: { id } });
+      if (!current) throw new NotFoundException('Draft not found');
+
+      if (action === 'edit-inline-approve') {
+        await tx.draftVersion.create({
+          data: {
+            draftId: id,
+            versionNumber: current.currentVersion + 1,
+            content,
+            changeNote: 'Inline edit during approval',
+          },
+        });
+      }
+
+      await tx.approval.create({
+        data: {
+          draftId: id,
+          action: approvalAction,
+          notes: notes || null,
+          editorContent: action === 'edit-inline-approve' ? content : null,
+          decidedBy: 'admin',
+        },
+      });
+
+      return tx.draft.update({
+        where: { id },
+        data: {
+          status: nextStatus,
+          ...(action === 'edit-inline-approve' ? { currentVersion: current.currentVersion + 1 } : {}),
+        },
+      });
+    });
+
+    await this.events.publish({
+      eventType: 'draft.approval.decided',
+      campaignId: updated.campaignId,
+      payload: { draftId: id, action, nextStatus },
+    });
+
+    return {
+      ok: true,
+      draftId: id,
+      action,
+      nextStatus,
+      currentVersion: updated.currentVersion,
+    };
   }
 
   async markSentManual(id: string, actorRole: string) {

@@ -25,6 +25,36 @@ export class DraftsController {
     return this.drafts.update(id, body, getActorRole(req));
   }
 
+  @Post(':id/approve')
+  approve(@Req() req: any, @Param('id') id: string, @Body() body: any) {
+    assertAdminToken(req);
+    return this.drafts.approvalDecision(id, 'approve', body, getActorRole(req));
+  }
+
+  @Post(':id/reject')
+  reject(@Req() req: any, @Param('id') id: string, @Body() body: any) {
+    assertAdminToken(req);
+    return this.drafts.approvalDecision(id, 'reject', body, getActorRole(req));
+  }
+
+  @Post(':id/request-changes')
+  requestChanges(@Req() req: any, @Param('id') id: string, @Body() body: any) {
+    assertAdminToken(req);
+    return this.drafts.approvalDecision(id, 'request-changes', body, getActorRole(req));
+  }
+
+  @Post(':id/approve-with-notes')
+  approveWithNotes(@Req() req: any, @Param('id') id: string, @Body() body: any) {
+    assertAdminToken(req);
+    return this.drafts.approvalDecision(id, 'approve-with-notes', body, getActorRole(req));
+  }
+
+  @Post(':id/edit-inline-approve')
+  editInlineApprove(@Req() req: any, @Param('id') id: string, @Body() body: any) {
+    assertAdminToken(req);
+    return this.drafts.approvalDecision(id, 'edit-inline-approve', body, getActorRole(req));
+  }
+
   @Post(':id/mark-sent-manual')
   markSent(@Req() req: any, @Param('id') id: string) {
     assertAdminToken(req);

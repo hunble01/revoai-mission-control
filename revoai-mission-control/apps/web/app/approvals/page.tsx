@@ -13,11 +13,22 @@ export default function ApprovalsPage() {
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [inlineEdit, setInlineEdit] = useState<Record<string, string>>({});
   const [err, setErr] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [actingId, setActingId] = useState<string | null>(null);
+  const [message, setMessage] = useState('');
 
-  const load = () => {
-    fetch(`${base}/api/drafts?status=NEEDS_APPROVAL`, { headers: { 'x-admin-token': token } })
-      .then((r) => r.json())
-      .then((d) => setDrafts(d || []));
+  const load = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${base}/api/drafts?status=NEEDS_APPROVAL`, { headers: { 'x-admin-token': token } });
+      const d = await res.json();
+      setDrafts(Array.isArray(d) ? d : []);
+    } catch {
+      setDrafts([]);
+      setErr('Failed to load approvals queue');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -26,6 +37,8 @@ export default function ApprovalsPage() {
 
   async function act(id: string, action: string) {
     setErr('');
+    setMessage('');
+    setActingId(id);
     try {
       if (action === 'approve') await postJson(`/drafts/${id}/approve`, { notes: notes[id] || '' });
       if (action === 'reject') await postJson(`/drafts/${id}/reject`, { notes: notes[id] || '' });
@@ -37,9 +50,12 @@ export default function ApprovalsPage() {
           content: inlineEdit[id] || '',
         });
       }
-      load();
+      setMessage('Decision saved and queue refreshed.');
+      await load();
     } catch (e: any) {
       setErr(e.message);
+    } finally {
+      setActingId(null);
     }
   }
 
@@ -47,9 +63,13 @@ export default function ApprovalsPage() {
     <div className="dash-stack">
       <Card title="Approval Inbox" subtitle="Admin-gated actions with audit logging">
         {err && <p className="error-text">{err}</p>}
+        {!!message && <p className="muted">{message}</p>}
         <p className="muted" style={{ marginTop: 0 }}>
-          Queue size: <strong style={{ color: 'var(--text)' }}>{drafts.length}</strong>
+          Queue size: <strong style={{ color: 'var(--text)' }}>{drafts.length}</strong> {loading ? '• Refreshing…' : ''}
         </p>
+        <div className="table-toolbar" style={{ marginTop: 8 }}>
+          <Button variant="secondary" onClick={load} disabled={loading || !!actingId}>Refresh queue</Button>
+        </div>
       </Card>
 
       {drafts.map((d) => (
@@ -76,11 +96,11 @@ export default function ApprovalsPage() {
           />
 
           <div className="table-toolbar" style={{ marginTop: 10 }}>
-            <Button variant="primary" onClick={() => act(d.id, 'approve')}>Approve</Button>
-            <Button variant="ghost" onClick={() => act(d.id, 'request-changes')}>Request changes</Button>
-            <Button variant="secondary" onClick={() => act(d.id, 'approve-with-notes')}>Approve with notes</Button>
-            <Button variant="secondary" onClick={() => act(d.id, 'edit-inline-approve')}>Inline edit + approve</Button>
-            <Button variant="ghost" onClick={() => act(d.id, 'reject')}>Reject</Button>
+            <Button variant="primary" onClick={() => act(d.id, 'approve')} disabled={actingId === d.id}>Approve</Button>
+            <Button variant="ghost" onClick={() => act(d.id, 'request-changes')} disabled={actingId === d.id}>Request changes</Button>
+            <Button variant="secondary" onClick={() => act(d.id, 'approve-with-notes')} disabled={actingId === d.id}>Approve with notes</Button>
+            <Button variant="secondary" onClick={() => act(d.id, 'edit-inline-approve')} disabled={actingId === d.id}>Inline edit + approve</Button>
+            <Button variant="ghost" onClick={() => act(d.id, 'reject')} disabled={actingId === d.id}>Reject</Button>
           </div>
         </Card>
       ))}
