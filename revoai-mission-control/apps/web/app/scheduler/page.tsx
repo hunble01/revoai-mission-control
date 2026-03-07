@@ -10,16 +10,28 @@ export default function SchedulerPage() {
   const [safety, setSafety] = useState<any>({});
   const [runs, setRuns] = useState<any[]>([]);
   const [msg, setMsg] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const load = async () => {
-    const [j, s, r] = await Promise.all([
-      fetch(`${base}/api/scheduler/jobs`, { headers: { 'x-admin-token': token } }).then((x) => x.json()),
-      fetch(`${base}/api/settings/safety`, { headers: { 'x-admin-token': token } }).then((x) => x.json()),
-      fetch(`${base}/api/scheduler/runs`, { headers: { 'x-admin-token': token } }).then((x) => x.json()),
-    ]);
-    setJobs(j || []);
-    setSafety(s || {});
-    setRuns(r || []);
+    setLoading(true);
+    setError('');
+    try {
+      const [j, s, r] = await Promise.all([
+        fetch(`${base}/api/scheduler/jobs`, { headers: { 'x-admin-token': token } }).then((x) => x.json()),
+        fetch(`${base}/api/settings/safety`, { headers: { 'x-admin-token': token } }).then((x) => x.json()),
+        fetch(`${base}/api/scheduler/runs`, { headers: { 'x-admin-token': token } }).then((x) => x.json()),
+      ]);
+      setJobs(Array.isArray(j) ? j : []);
+      setSafety(s || {});
+      setRuns(Array.isArray(r) ? r : []);
+    } catch (e: any) {
+      setJobs([]);
+      setRuns([]);
+      setError(e?.message || 'Failed to load scheduler state');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(); }, []);
@@ -40,23 +52,38 @@ export default function SchedulerPage() {
       <h1>Scheduler + Safety</h1>
       <button onClick={seed}>Load Seed Data</button>
       {msg && <p>{msg}</p>}
-      <p>Timezone: America/Toronto</p>
-      <pre>{JSON.stringify(safety, null, 2)}</pre>
-      <h3>Jobs</h3>
-      <ul>
-        {jobs.map((j: any) => (
-          <li key={j.id}>
-            {j.name} ({j.cronExpr}) [{j.enabled ? 'enabled' : 'disabled'}]
-            <button style={{ marginLeft: 8 }} onClick={() => runNow(j.id)}>Run now (dry-run)</button>
-          </li>
-        ))}
-      </ul>
-      <h3>Recent Runs</h3>
-      <ul>
-        {runs.slice(0, 10).map((r: any) => (
-          <li key={r.id}>{r.status} · {new Date(r.startedAt).toLocaleString()}</li>
-        ))}
-      </ul>
+      {error && <p style={{ color: '#ff9b9b' }}>{error}</p>}
+      {loading ? (
+        <p>Loading scheduler state...</p>
+      ) : (
+        <>
+          <p>Timezone: America/Toronto</p>
+          <pre>{JSON.stringify(safety, null, 2)}</pre>
+          <h3>Jobs</h3>
+          {!jobs.length ? (
+            <p>No scheduler jobs found.</p>
+          ) : (
+            <ul>
+              {jobs.map((j: any) => (
+                <li key={j.id}>
+                  {j.name} ({j.cronExpr}) [{j.enabled ? 'enabled' : 'disabled'}]
+                  <button style={{ marginLeft: 8 }} onClick={() => runNow(j.id)}>Run now (dry-run)</button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <h3>Recent Runs</h3>
+          {!runs.length ? (
+            <p>No scheduler runs yet.</p>
+          ) : (
+            <ul>
+              {runs.slice(0, 10).map((r: any) => (
+                <li key={r.id}>{r.status} · {new Date(r.startedAt).toLocaleString()}</li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
     </div>
   );
 }
