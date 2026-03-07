@@ -42,6 +42,8 @@ type ImportRunMeta = {
   skippedDuplicates?: number;
   invalidRows?: number;
   totalRows?: number;
+  reasonCounts?: Record<string, number>;
+  rowIssues?: Array<{ rowNumber: number; code: string; reason: string }>;
 };
 
 const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -73,6 +75,9 @@ export default function CampaignsPage() {
   const [importStage, setImportStage] = useState<'idle' | 'validating' | 'importing' | 'complete' | 'failed'>('idle');
   const [lastImportMeta, setLastImportMeta] = useState<ImportRunMeta | null>(null);
   const [importRuns, setImportRuns] = useState<ImportRunMeta[]>([]);
+  const [runFilterStatus, setRunFilterStatus] = useState<'all' | 'complete' | 'failed'>('all');
+  const [runFilterCampaign, setRunFilterCampaign] = useState('all');
+  const [expandedRun, setExpandedRun] = useState<string | null>(null);
 
   const fetchImportRuns = async () => {
     try {
@@ -91,6 +96,8 @@ export default function CampaignsPage() {
         skippedDuplicates: r.skippedDuplicates,
         invalidRows: r.invalidRows,
         totalRows: r.totalRows,
+        reasonCounts: r?.errorModel?.reasonCounts || {},
+        rowIssues: Array.isArray(r?.errorModel?.rowIssues) ? r.errorModel.rowIssues : [],
       }));
       setImportRuns(mapped);
       if (mapped[0]) setLastImportMeta(mapped[0]);
@@ -229,6 +236,24 @@ export default function CampaignsPage() {
       },
     };
   }, [activeCsv, map]);
+
+  const filteredRuns = useMemo(() => {
+    return importRuns.filter((r) => {
+      if (runFilterStatus !== 'all' && r.stage !== runFilterStatus) return false;
+      if (runFilterCampaign !== 'all' && r.campaignName !== runFilterCampaign) return false;
+      return true;
+    });
+  }, [importRuns, runFilterStatus, runFilterCampaign]);
+
+  const importInsights = useMemo(() => {
+    const total = filteredRuns.length;
+    const failed = filteredRuns.filter((r) => r.stage === 'failed').length;
+    const importedRows = filteredRuns.reduce((sum, r) => sum + (r.imported || 0), 0);
+    const invalidRows = filteredRuns.reduce((sum, r) => sum + (r.invalidRows || 0), 0);
+    const duplicateRows = filteredRuns.reduce((sum, r) => sum + (r.skippedDuplicates || 0), 0);
+    const failureRate = total ? Math.round((failed / total) * 100) : 0;
+    return { total, failed, importedRows, invalidRows, duplicateRows, failureRate };
+  }, [filteredRuns]);
 
   const saveResearch = (next: ResearchItem[]) => {
     setResearch(next);
@@ -408,6 +433,8 @@ export default function CampaignsPage() {
         skippedDuplicates: payload?.skippedDuplicates,
         invalidRows: payload?.invalidRows,
         totalRows: payload?.totalRows,
+        reasonCounts: payload?.errorModel?.reasonCounts || {},
+        rowIssues: Array.isArray(payload?.errorModel?.rowIssues) ? payload.errorModel.rowIssues : [],
       };
       setLastImportMeta(latestRun);
       setImportRuns((prev) => [latestRun, ...prev].slice(0, 10));
@@ -555,13 +582,66 @@ export default function CampaignsPage() {
         {!!importRuns.length && (
           <div className="ui-card" style={{ padding: 12, marginTop: 10 }}>
             <strong>Import Run History</strong>
-            <div style={{ display: 'grid', gap: 6, marginTop: 8 }}>
-              {importRuns.slice(0, 10).map((run, idx) => (
-                <div key={`${run.at}-${idx}`} className="muted">
-                  {new Date(run.at).toLocaleString()} • {run.fileName} • {run.campaignName} • {run.stage === 'complete' ? 'Complete' : 'Failed'}
-                  {run.stage === 'complete' ? ` • Imported ${run.imported ?? 0}/${run.totalRows ?? 0}` : ''}
-                </div>
-              ))}
+
+            <div className="table-toolbar" style={{ marginTop: 8 }}>
+              <select className="ui-input" value={runFilterStatus} onChange={(e) => setRunFilterStatus(e.target.value as any)} aria-label="Filter import status">
+                <option value="all">All outcomes</option>
+                <option value="complete">Complete</option>
+                <option value="failed">Failed</option>
+              </select>
+              <select className="ui-input" value={runFilterCampaign} onChange={(e) => setRunFilterCampaign(e.target.value)} aria-label="Filter import campaign">
+                <option value="all">All campaigns</option>
+                {Array.from(new Set(importRuns.map((r) => r.campaignName))).map((name) => (
+                  <option key={name} value={name}>{name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ display: 'grid', gap: 6, marginTop: 10 }}>
+              <div className="muted">Runs: {importInsights.total} • Failed: {importInsights.failed} ({importInsights.failureRate}%)</div>
+              <div className="muted">Imported rows: {importInsights.importedRows} • Invalid rows: {importInsights.invalidRows} • Duplicates: {importInsights.duplicateRows}</div>
+            </div>
+
+            <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
+              {filteredRuns.slice(0, 20).map((run, idx) => {
+                const key = `${run.at}-${idx}`;
+                const isExpanded = expandedRun === key;
+                return (
+                  <div key={key} className="ui-card" style={{ padding: 10 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
+                      <div className="muted">
+                        {new Date(run.at).toLocaleString()} • {run.fileName} • {run.campaignName} • {run.stage === 'complete' ? 'Complete' : 'Failed'}
+                        {` • Imported ${run.imported ?? 0}/${run.totalRows ?? 0} • Invalid ${run.invalidRows ?? 0} • Duplicates ${run.skippedDuplicates ?? 0}`}
+                      </div>
+                      <Button variant="secondary" onClick={() => setExpandedRun(isExpanded ? null : key)}>
+                        {isExpanded ? 'Hide reasons' : 'View reasons'}
+                      </Button>
+                    </div>
+
+                    {isExpanded && (
+                      <div style={{ marginTop: 8, display: 'grid', gap: 6 }}>
+                        <strong style={{ fontSize: 13 }}>Failure reason breakdown</strong>
+                        <div style={{ display: 'grid', gap: 4 }}>
+                          {Object.entries(run.reasonCounts || {}).map(([code, count]) => (
+                            <div key={code} className="muted">{code}: {count}</div>
+                          ))}
+                          {!Object.keys(run.reasonCounts || {}).length && <div className="muted">No reason counts captured for this run.</div>}
+                        </div>
+                        <strong style={{ fontSize: 13 }}>Row issue drill-down (sample)</strong>
+                        <div style={{ display: 'grid', gap: 4 }}>
+                          {(run.rowIssues || []).slice(0, 20).map((issue) => (
+                            <div key={`${issue.rowNumber}-${issue.code}-${issue.reason}`} className="muted">
+                              Row {issue.rowNumber}: {issue.reason} ({issue.code})
+                            </div>
+                          ))}
+                          {!(run.rowIssues || []).length && <div className="muted">No row-level issues captured for this run.</div>}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              {!filteredRuns.length && <p className="muted" style={{ margin: 0 }}>No import runs match the selected filters.</p>}
             </div>
           </div>
         )}
