@@ -189,10 +189,13 @@ export class DraftsService {
 
     return {
       ok: true,
-      draftId: id,
-      action,
-      nextStatus,
-      currentVersion: updated.currentVersion,
+      contractVersion: 'mvp.v1',
+      data: {
+        draftId: id,
+        action,
+        nextStatus,
+        currentVersion: updated.currentVersion,
+      },
     };
   }
 

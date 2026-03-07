@@ -79,6 +79,16 @@ export class ApprovalsService {
       payload: { draftId, status: updated.savedDraft.status, notes: notes ?? null },
     });
 
-    return updated;
+    return {
+      ok: true,
+      contractVersion: 'mvp.v1',
+      data: {
+        draftId,
+        action,
+        status: updated.savedDraft.status,
+        currentVersion: updated.savedDraft.currentVersion,
+        approvalId: updated.approval.id,
+      },
+    };
   }
 }

@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, Req } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Patch, Post, Query, Req } from '@nestjs/common';
+import { LeadStatus } from '@prisma/client';
 import { LeadsService } from './leads.service';
 import { CreateLeadDto, OverrideLeadScoreDto } from './dto/lead.dto';
 import { assertAdminToken, assertAdminRole, getActorRole } from '../../common/auth.util';
@@ -10,6 +11,15 @@ export class LeadsController {
   @Get()
   list(@Req() req: any, @Query('search') search?: string, @Query('status') status?: string) {
     assertAdminToken(req);
+
+    if (status && !Object.values(LeadStatus).includes(status as LeadStatus)) {
+      throw new BadRequestException({
+        code: 'INVALID_STATUS_FILTER',
+        message: `Invalid lead status filter: ${status}`,
+        details: { allowed: Object.values(LeadStatus) },
+      });
+    }
+
     return this.leads.list({ search, status });
   }
 
