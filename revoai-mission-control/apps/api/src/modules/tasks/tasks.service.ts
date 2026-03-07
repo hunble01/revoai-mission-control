@@ -53,7 +53,17 @@ export class TasksService {
     return task;
   }
 
-  replay(id: string) {
-    return this.prisma.taskEvent.findMany({ where: { taskId: id }, orderBy: { createdAt: 'asc' } });
+  async replay(id: string) {
+    const rows = await this.prisma.taskEvent.findMany({ where: { taskId: id }, orderBy: { createdAt: 'asc' } });
+
+    return JSON.parse(
+      JSON.stringify(
+        rows.map((r) => ({
+          ...r,
+          id: String(r.id),
+        })),
+        (_, value) => (typeof value === 'bigint' ? String(value) : value),
+      ),
+    );
   }
 }
