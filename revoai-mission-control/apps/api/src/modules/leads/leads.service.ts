@@ -27,8 +27,30 @@ export class LeadsService {
     return this.prisma.lead.create({ data });
   }
 
-  update(id: string, data: any) {
-    return this.prisma.lead.update({ where: { id }, data });
+  async update(id: string, data: any, actorId?: string) {
+    const before = await this.prisma.lead.findUnique({
+      where: { id },
+      select: { id: true, status: true, campaignId: true, updatedAt: true },
+    });
+
+    const updated = await this.prisma.lead.update({ where: { id }, data });
+
+    if (before && typeof data?.status === 'string' && data.status !== before.status) {
+      await this.prisma.auditLog.create({
+        data: {
+          actorType: 'user',
+          actorId: actorId || null,
+          action: 'lead.status.updated',
+          resourceType: 'lead',
+          resourceId: id,
+          beforeState: { status: before.status },
+          afterState: { status: updated.status },
+          metadata: { campaignId: updated.campaignId },
+        },
+      });
+    }
+
+    return updated;
   }
 
   async overrideScore(id: string, score: 'A' | 'B' | 'C', reason: string) {

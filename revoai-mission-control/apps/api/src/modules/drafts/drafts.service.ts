@@ -98,6 +98,7 @@ export class DraftsService {
     action: 'approve' | 'reject' | 'request-changes' | 'approve-with-notes' | 'edit-inline-approve',
     body: { notes?: string; content?: string },
     actorRole: string,
+    actorId?: string,
   ) {
     if (actorRole !== 'admin') throw new BadRequestException('Only admin can perform approval decisions');
 
@@ -156,13 +157,28 @@ export class DraftsService {
         },
       });
 
-      return tx.draft.update({
+      const updatedDraft = await tx.draft.update({
         where: { id },
         data: {
           status: nextStatus,
           ...(action === 'edit-inline-approve' ? { currentVersion: current.currentVersion + 1 } : {}),
         },
       });
+
+      await tx.auditLog.create({
+        data: {
+          actorType: 'user',
+          actorId: actorId || null,
+          action: 'draft.approval.decision',
+          resourceType: 'draft',
+          resourceId: id,
+          beforeState: { status: current.status },
+          afterState: { status: updatedDraft.status, currentVersion: updatedDraft.currentVersion },
+          metadata: { decision: action },
+        },
+      });
+
+      return updatedDraft;
     });
 
     await this.events.publish({

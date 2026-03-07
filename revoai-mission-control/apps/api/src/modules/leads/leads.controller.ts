@@ -24,7 +24,8 @@ export class LeadsController {
   update(@Req() req: any, @Param('id') id: string, @Body() body: any) {
     assertAdminToken(req);
     assertAdminRole(getActorRole(req), 'lead update');
-    return this.leads.update(id, body);
+    const actorId = req?.headers?.['x-actor-id'] ? String(req.headers['x-actor-id']) : undefined;
+    return this.leads.update(id, body, actorId);
   }
 
   @Post('import/csv')

@@ -30,31 +30,36 @@ export class DraftsController {
   @Post(':id/approve')
   approve(@Req() req: any, @Param('id') id: string, @Body() body: any) {
     assertAdminToken(req);
-    return this.drafts.approvalDecision(id, 'approve', body, getActorRole(req));
+    const actorId = req?.headers?.['x-actor-id'] ? String(req.headers['x-actor-id']) : undefined;
+    return this.drafts.approvalDecision(id, 'approve', body, getActorRole(req), actorId);
   }
 
   @Post(':id/reject')
   reject(@Req() req: any, @Param('id') id: string, @Body() body: any) {
     assertAdminToken(req);
-    return this.drafts.approvalDecision(id, 'reject', body, getActorRole(req));
+    const actorId = req?.headers?.['x-actor-id'] ? String(req.headers['x-actor-id']) : undefined;
+    return this.drafts.approvalDecision(id, 'reject', body, getActorRole(req), actorId);
   }
 
   @Post(':id/request-changes')
   requestChanges(@Req() req: any, @Param('id') id: string, @Body() body: any) {
     assertAdminToken(req);
-    return this.drafts.approvalDecision(id, 'request-changes', body, getActorRole(req));
+    const actorId = req?.headers?.['x-actor-id'] ? String(req.headers['x-actor-id']) : undefined;
+    return this.drafts.approvalDecision(id, 'request-changes', body, getActorRole(req), actorId);
   }
 
   @Post(':id/approve-with-notes')
   approveWithNotes(@Req() req: any, @Param('id') id: string, @Body() body: any) {
     assertAdminToken(req);
-    return this.drafts.approvalDecision(id, 'approve-with-notes', body, getActorRole(req));
+    const actorId = req?.headers?.['x-actor-id'] ? String(req.headers['x-actor-id']) : undefined;
+    return this.drafts.approvalDecision(id, 'approve-with-notes', body, getActorRole(req), actorId);
   }
 
   @Post(':id/edit-inline-approve')
   editInlineApprove(@Req() req: any, @Param('id') id: string, @Body() body: any) {
     assertAdminToken(req);
-    return this.drafts.approvalDecision(id, 'edit-inline-approve', body, getActorRole(req));
+    const actorId = req?.headers?.['x-actor-id'] ? String(req.headers['x-actor-id']) : undefined;
+    return this.drafts.approvalDecision(id, 'edit-inline-approve', body, getActorRole(req), actorId);
   }
 
   @Post(':id/mark-sent-manual')
