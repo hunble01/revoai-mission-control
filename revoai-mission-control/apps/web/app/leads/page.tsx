@@ -76,7 +76,19 @@ export default function LeadsPage() {
   const visibleLeads = leads.slice(start, start + pageSize);
 
   return (
-    <Card title="Leads" subtitle="Live imported leads from /api/leads">
+    <div className="dash-stack">
+      <section className="page-hero">
+        <h3>Leads Qualification & Routing</h3>
+        <p>Second demo stage: review imported leads, filter, and update status with immediate feedback.</p>
+        <div className="demo-steps">
+          <span className="demo-step">1. Import</span>
+          <span className="demo-step active">2. Leads</span>
+          <span className="demo-step">3. Approvals</span>
+          <span className="demo-step">4. Campaign Loop</span>
+        </div>
+      </section>
+
+      <Card title="Leads" subtitle="Live imported leads from /api/leads">
       <div className="table-toolbar" style={{ marginBottom: 12 }}>
         <Input value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} placeholder="Search leads" aria-label="Search leads" />
         <select className="ui-input" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} aria-label="Filter status">
@@ -166,6 +178,7 @@ export default function LeadsPage() {
           </div>
         </>
       )}
-    </Card>
+      </Card>
+    </div>
   );
 }

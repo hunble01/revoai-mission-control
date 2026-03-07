@@ -61,6 +61,17 @@ export default function ApprovalsPage() {
 
   return (
     <div className="dash-stack">
+      <section className="page-hero">
+        <h3>Approval Decisions</h3>
+        <p>Third demo stage: process queued drafts, make decisions, and confirm queue refresh + audit trail.</p>
+        <div className="demo-steps">
+          <span className="demo-step">1. Import</span>
+          <span className="demo-step">2. Leads</span>
+          <span className="demo-step active">3. Approvals</span>
+          <span className="demo-step">4. Campaign Loop</span>
+        </div>
+      </section>
+
       <Card title="Approval Inbox" subtitle="Admin-gated actions with audit logging">
         {err && <p className="error-text">{err}</p>}
         {!!message && <p className="muted">{message}</p>}

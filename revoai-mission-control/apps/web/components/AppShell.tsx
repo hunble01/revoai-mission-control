@@ -17,10 +17,10 @@ const NAV_GROUPS = [
   {
     title: 'Pipeline',
     items: [
-      ['/approvals', 'Approvals'],
-      ['/leads', 'Leads'],
-      ['/drafts', 'Drafts'],
       ['/campaigns', 'Campaigns'],
+      ['/leads', 'Leads'],
+      ['/approvals', 'Approvals'],
+      ['/drafts', 'Drafts'],
     ],
   },
   {
@@ -72,6 +72,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <div>
                 <strong>Operations Console</strong>
                 <small>Speed-to-lead, approvals, booked appointments</small>
+                <div className="flow-links" aria-label="Demo flow">
+                  <a href="/campaigns">Import</a>
+                  <span>→</span>
+                  <a href="/leads">Leads</a>
+                  <span>→</span>
+                  <a href="/approvals">Approvals</a>
+                  <span>→</span>
+                  <a href="/campaigns">Campaigns</a>
+                </div>
               </div>
               <div className="topbar-actions">
                 <Input aria-label="Search" placeholder="Search anything..." />

@@ -434,6 +434,17 @@ export default function CampaignsPage() {
 
   return (
     <div className="dash-stack">
+      <section className="page-hero">
+        <h3>Campaign Setup & Import Start</h3>
+        <p>Begin demo flow here: upload CSV, map fields, and push leads into active campaign context.</p>
+        <div className="demo-steps">
+          <span className="demo-step active">1. Import</span>
+          <span className="demo-step">2. Leads</span>
+          <span className="demo-step">3. Approvals</span>
+          <span className="demo-step">4. Campaign Loop</span>
+        </div>
+      </section>
+
       <Card title="Campaigns" subtitle="Current campaign records">
         <Table>
           <thead>

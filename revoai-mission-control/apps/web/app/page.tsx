@@ -40,6 +40,17 @@ export default function Home() {
 
   return (
     <div className="dash-stack">
+      <section className="page-hero">
+        <h3>MVP Demo Narrative</h3>
+        <p>Run this order for clean storytelling: import leads, qualify/update, approve drafts, then review campaign loop.</p>
+        <div className="demo-steps">
+          <a className="demo-step active" href="/campaigns">1. Import (Campaigns)</a>
+          <a className="demo-step" href="/leads">2. Leads</a>
+          <a className="demo-step" href="/approvals">3. Approvals</a>
+          <a className="demo-step" href="/campaigns">4. Campaign Loop</a>
+        </div>
+      </section>
+
       <section className="kpi-grid">
         {kpis.map((k) => (
           <Card key={k.label}>
