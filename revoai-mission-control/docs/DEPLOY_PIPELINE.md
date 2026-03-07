@@ -7,6 +7,7 @@ Runtime hardening in compose:
 - `restart: unless-stopped` for all critical services
 - `init: true` + `stop_grace_period` for `api` and `web` graceful signal handling
 - dependency ordering uses `condition: service_healthy`
+- web runtime/build outputs forced into `/tmp/revoai-web-next-*` via `NEXT_DIST_DIR` to avoid host `.next*` permission drift
 
 ## Artifacts and scripts
 

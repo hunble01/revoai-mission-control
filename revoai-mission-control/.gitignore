@@ -5,6 +5,8 @@ apps/web/node_modules/
 # build output
 apps/api/dist/
 apps/web/.next/
+apps/web/.next-dev/
+apps/web/.next-build/
 
 # local env
 .env
