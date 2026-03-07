@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "npm run -w apps/api dev & npm run -w apps/web dev",
     "dev:api": "npm run -w apps/api dev",
-    "dev:web": "npm run -w apps/web dev"
+    "dev:web": "npm run -w apps/web dev",
+    "smoke:mvp": "node scripts/mvp-smoke-test.js"
   }
 }
