@@ -61,8 +61,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             ))}
 
             <div className="sidebar-footer">
-              <a href="#">Help Center</a>
-              <a href="#">Settings</a>
+              <a href="/help">Help Center</a>
+              <a href="/settings">Settings</a>
               <div className="profile-chip">Boss Workspace • Secure</div>
             </div>
           </aside>
