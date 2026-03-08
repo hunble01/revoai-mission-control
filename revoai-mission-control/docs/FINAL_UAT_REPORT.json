@@ -26,8 +26,14 @@
     "web/health",
     "web/audit",
     "web/help",
-    "web/settings"
+    "web/settings",
+    "web/research",
+    "web/content",
+    "web/linkedin",
+    "web/facebook",
+    "web/analytics",
+    "web/connections"
   ],
   "failures": [],
-  "ts": "2026-03-07T07:49:29.111Z"
+  "ts": "2026-03-08T11:03:49.104Z"
 }

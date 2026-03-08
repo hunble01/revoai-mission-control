@@ -1,4 +1,5 @@
 import { IsEmail, IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
+import { Channel } from '@prisma/client';
 
 export class CreateLeadDto {
   @IsUUID() campaignId!: string;
@@ -10,7 +11,9 @@ export class CreateLeadDto {
   @IsOptional() @IsString() contactRole?: string;
   @IsOptional() @IsEmail() email?: string;
   @IsOptional() @IsString() phone?: string;
+  @IsOptional() @IsString() linkedinUrl?: string;
   @IsOptional() @IsString() source?: string;
+  @IsOptional() @IsEnum(Channel) preferredChannel?: Channel;
 }
 
 export class OverrideLeadScoreDto {

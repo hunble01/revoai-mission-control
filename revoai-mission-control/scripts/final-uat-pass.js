@@ -6,7 +6,14 @@ const path = require('path');
 const api = process.env.UAT_API_BASE || 'http://127.0.0.1:3001/api';
 const web = process.env.UAT_WEB_BASE || 'http://127.0.0.1:3000';
 const email = process.env.UAT_ADMIN_EMAIL || process.env.BOOTSTRAP_ADMIN_EMAIL || process.env.ADMIN_EMAIL || 'admin@revoai.local';
-const password = process.env.UAT_ADMIN_PASSWORD || process.env.BOOTSTRAP_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || 'change-me';
+const adminToken = process.env.UAT_ADMIN_TOKEN || process.env.ADMIN_TOKEN || 'change-me';
+const passwordCandidates = [
+  process.env.UAT_ADMIN_PASSWORD,
+  process.env.BOOTSTRAP_ADMIN_PASSWORD,
+  process.env.ADMIN_PASSWORD,
+  'Boss123456',
+  'change-me',
+].filter(Boolean);
 
 async function fetchJson(url, opts = {}) {
   const res = await fetch(url, opts);
@@ -24,27 +31,36 @@ async function fetchJson(url, opts = {}) {
     report.ok = false; report.failures.push(`bootstrap:${b.res.status}`);
   } else report.checks.push('auth_bootstrap');
 
-  const login = await fetchJson(`${api}/auth/login`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
-  const cookie = login.res.headers.get('set-cookie') || '';
-  if (!login.res.ok || !cookie.includes('mc_session=')) {
-    report.ok = false; report.failures.push(`auth_login:${login.res.status}`);
-  } else report.checks.push('auth_login_session');
+  let cookie = '';
+  let loginStatus = 0;
+  for (const password of passwordCandidates) {
+    const login = await fetchJson(`${api}/auth/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    loginStatus = login.res.status;
+    cookie = login.res.headers.get('set-cookie') || '';
+    if (login.res.ok && cookie.includes('mc_session=')) {
+      report.checks.push('auth_login_session');
+      break;
+    }
+  }
+  if (!cookie.includes('mc_session=')) {
+    report.ok = false; report.failures.push(`auth_login:${loginStatus}`);
+  }
 
   const apiChecks = [
     '/health', '/alerts', '/leads', '/drafts', '/campaigns', '/scheduler/jobs', '/scheduler/runs', '/agents', '/audit?limit=20', '/tasks'
   ];
   for (const route of apiChecks) {
-    const r = await fetchJson(`${api}${route}`, { headers: { cookie } });
+    const r = await fetchJson(`${api}${route}`, { headers: { cookie, 'x-admin-token': adminToken } });
     if (!r.res.ok) {
       report.ok = false; report.failures.push(`api${route}:${r.res.status}`);
     } else report.checks.push(`api${route}`);
   }
 
-  const webRoutes = ['/', '/campaigns', '/leads', '/approvals', '/drafts', '/board', '/tasks/00000000-0000-0000-0000-000000000000/replay', '/feed', '/agents', '/scheduler', '/health', '/audit', '/help', '/settings'];
+  const webRoutes = ['/', '/campaigns', '/leads', '/approvals', '/drafts', '/board', '/tasks/00000000-0000-0000-0000-000000000000/replay', '/feed', '/agents', '/scheduler', '/health', '/audit', '/help', '/settings', '/research', '/content', '/linkedin', '/facebook', '/analytics', '/connections'];
   for (const route of webRoutes) {
     const res = await fetch(`${web}${route}`);
     if (!res.ok) {

@@ -95,6 +95,7 @@ export default function FeedPage() {
             <option key={t} value={t}>{t}</option>
           ))}
         </select>
+        <span className="muted">New: RESEARCH_RUN_COMPLETE • POST_PUBLISHED • LINKEDIN_DM_SENT • POST_DRAFT_CREATED</span>
         <select className="ui-input" value={severityFilter} onChange={(e) => setSeverityFilter(e.target.value as any)}>
           <option value="all">All severity</option>
           <option value="high">High</option>

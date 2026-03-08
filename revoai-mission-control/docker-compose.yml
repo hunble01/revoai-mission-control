@@ -34,21 +34,19 @@ services:
       - redis_data:/data
 
   api:
-    image: node:22-alpine
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
     container_name: revoai_mc_api
-    working_dir: /workspace
     init: true
     restart: unless-stopped
     stop_grace_period: 20s
-    command: sh -c "apk add --no-cache openssl >/dev/null 2>&1 || true && npm install && cd apps/api && npm install && npx prisma generate --schema=prisma/schema.prisma && ( [ -d prisma/migrations ] && npx prisma migrate deploy --schema=prisma/schema.prisma || echo 'No migrations to deploy' ) && npx nest start"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3001/api/health >/dev/null 2>&1 || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 8
       start_period: 20s
-    volumes:
-      - ./:/workspace
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql://mission:mission@postgres:5432/mission_control}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
@@ -57,6 +55,9 @@ services:
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@revoai.local}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-me}
       ADMIN_TOKEN: ${ADMIN_TOKEN:-change-me}
+      SESSION_SECRET: ${SESSION_SECRET:-change-me}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-admin@revoai.local}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-change-me}
     depends_on:
       postgres:
         condition: service_healthy

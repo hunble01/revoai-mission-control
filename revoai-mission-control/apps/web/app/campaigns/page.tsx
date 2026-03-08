@@ -59,6 +59,7 @@ function parseCsv(text: string): string[][] {
 
 export default function CampaignsPage() {
   const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [allLeads, setAllLeads] = useState<any[]>([]);
 
   const [research, setResearch] = useState<ResearchItem[]>([]);
   const [title, setTitle] = useState('');
@@ -108,24 +109,23 @@ export default function CampaignsPage() {
   };
 
   useEffect(() => {
-    fetch(`${base}/api/campaigns`, { credentials: 'include', headers: { 'x-admin-token': token } })
-      .then((r) => r.json())
-      .then((d) => {
+    Promise.all([
+      fetch(`${base}/api/campaigns`, { credentials: 'include', headers: { 'x-admin-token': token } }).then((r) => r.json()).catch(() => []),
+      fetch(`${base}/api/leads`, { credentials: 'include', headers: { 'x-admin-token': token } }).then((r) => r.json()).catch(() => []),
+    ])
+      .then(([d, leads]) => {
         const list = Array.isArray(d) ? d : [];
         setCampaigns(list);
+        setAllLeads(Array.isArray(leads) ? leads : []);
         const firstActive = list.find((c: any) => c.isActive);
         if (firstActive?.id) setSelectedCampaignId(firstActive.id);
       })
-      .catch(() => setCampaigns([]));
+      .catch(() => {
+        setCampaigns([]);
+        setAllLeads([]);
+      });
 
     fetchImportRuns();
-
-    const saved = localStorage.getItem('revoai_research_items');
-    if (saved) {
-      try {
-        setResearch(JSON.parse(saved));
-      } catch {}
-    }
   }, []);
 
   const filteredResearch = useMemo(() => {
@@ -138,6 +138,25 @@ export default function CampaignsPage() {
     () => campaigns.filter((c: any) => c.isActive),
     [campaigns],
   );
+
+  const campaignStats = useMemo(() => {
+    const byCampaign: Record<string, any> = {};
+    for (const l of allLeads) {
+      const cid = String(l.campaignId || '');
+      if (!cid) continue;
+      if (!byCampaign[cid]) byCampaign[cid] = { leads: 0, contacted: 0, replied: 0, booked: 0, source: 'CSV Import' };
+      byCampaign[cid].leads += 1;
+      const st = String(l.status || '').toUpperCase();
+      if (st === 'CONTACTED') byCampaign[cid].contacted += 1;
+      if (st === 'REPLIED') byCampaign[cid].replied += 1;
+      if (st === 'BOOKED') byCampaign[cid].booked += 1;
+      const src = String(l.source || '').toLowerCase();
+      if (src.includes('research') || src.includes('agent') || src.includes('hunter') || src.includes('apollo')) {
+        byCampaign[cid].source = 'Research Agent';
+      }
+    }
+    return byCampaign;
+  }, [allLeads]);
 
   const activeCsv = useMemo(
     () => uploads.find((u) => u.fileType === 'CSV' && u.headers.length > 0),
@@ -481,50 +500,31 @@ export default function CampaignsPage() {
               <th>Name</th>
               <th>Niche</th>
               <th>Geography</th>
-              <th>Min Score</th>
+              <th>Source</th>
+              <th>Leads</th>
+              <th>Contacted</th>
+              <th>Replied</th>
+              <th>Booked</th>
             </tr>
           </thead>
           <tbody>
-            {campaigns.map((c: any) => (
-              <tr key={c.id}>
-                <td>{c.name}</td>
-                <td>{c.niche}</td>
-                <td>{c.geography}</td>
-                <td>{c.minScore}</td>
-              </tr>
-            ))}
+            {campaigns.map((c: any) => {
+              const s = campaignStats[c.id] || { source: 'CSV Import', leads: 0, contacted: 0, replied: 0, booked: 0 };
+              return (
+                <tr key={c.id}>
+                  <td>{c.name}</td>
+                  <td>{c.niche}</td>
+                  <td>{c.geography}</td>
+                  <td>{s.source}</td>
+                  <td>{s.leads}</td>
+                  <td>{s.contacted}</td>
+                  <td>{s.replied}</td>
+                  <td>{s.booked}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </Table>
-      </Card>
-
-      <Card title="Research Hub" subtitle="Save and export research notes">
-        <div className="table-toolbar" style={{ marginBottom: 10 }}>
-          <Input placeholder="Research title" value={title} onChange={(e) => setTitle(e.target.value)} />
-          <Input placeholder="Tags (comma separated)" value={tags} onChange={(e) => setTags(e.target.value)} />
-          <Button variant="primary" onClick={addResearch}>Save Research</Button>
-        </div>
-        <textarea className="ui-textarea" placeholder="Write research notes here..." value={notes} onChange={(e) => setNotes(e.target.value)} />
-
-        <div className="table-toolbar" style={{ marginTop: 10 }}>
-          <Input placeholder="Search research" value={query} onChange={(e) => setQuery(e.target.value)} />
-        </div>
-
-        <div style={{ display: 'grid', gap: 10, marginTop: 10 }}>
-          {filteredResearch.map((r) => (
-            <div key={r.id} className="ui-card" style={{ padding: 12 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                <div>
-                  <strong>{r.title}</strong>
-                  <div className="muted" style={{ fontSize: 12 }}>{new Date(r.createdAt).toLocaleString()}</div>
-                </div>
-                <Button variant="secondary" onClick={() => exportResearchPdf(r)}>Export PDF</Button>
-              </div>
-              <p style={{ marginBottom: 0 }}>{r.notes}</p>
-              {r.tags && <Badge style={{ marginTop: 6 }}>{r.tags}</Badge>}
-            </div>
-          ))}
-          {!filteredResearch.length && <p className="muted">No research notes saved yet.</p>}
-        </div>
       </Card>
 
       <Card title="Upload Center" subtitle="Upload CSV / XLSX / PDF for intake">

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, Req } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Patch, Post, Query, Req } from '@nestjs/common';
 import { DraftsService } from './drafts.service';
 import { CreateDraftDto, UpdateDraftDto } from './dto/draft.dto';
 import { assertAdminToken, assertAdminRole, getActorRole } from '../../common/auth.util';
@@ -60,6 +60,48 @@ export class DraftsController {
     assertAdminToken(req);
     const actorId = req?.headers?.['x-actor-id'] ? String(req.headers['x-actor-id']) : undefined;
     return this.drafts.approvalDecision(id, 'edit-inline-approve', body, getActorRole(req), actorId);
+  }
+
+  @Post(':id/send-email')
+  sendEmail(@Req() req: any, @Param('id') id: string) {
+    assertAdminToken(req);
+    return this.drafts.sendApprovedEmail(id, getActorRole(req), req?.auth?.uid);
+  }
+
+  @Get('email-send-history')
+  emailSendHistory(@Req() req: any, @Query('limit') limit?: string) {
+    assertAdminToken(req);
+    return this.drafts.listEmailSendHistory(Number(limit) || 50);
+  }
+
+  @Get('send-history')
+  sendHistory(@Req() req: any, @Query('limit') limit?: string) {
+    assertAdminToken(req);
+    return this.drafts.listSendHistory(Number(limit) || 100);
+  }
+
+  @Post('email/delivery-hook')
+  emailDeliveryHook(@Req() req: any, @Body() body: any) {
+    const expected = String(process.env.EMAIL_WEBHOOK_SECRET || '').trim();
+    if (expected) {
+      const provided = String(req?.headers?.['x-email-webhook-secret'] || body?.secret || '').trim();
+      if (!provided || provided !== expected) {
+        throw new BadRequestException('Invalid webhook secret');
+      }
+    }
+    return this.drafts.handleEmailDeliveryHook(body);
+  }
+
+  @Post(':id/send-linkedin')
+  sendLinkedin(@Req() req: any, @Param('id') id: string) {
+    assertAdminToken(req);
+    return this.drafts.sendApprovedLinkedin(id, getActorRole(req));
+  }
+
+  @Post(':id/send-facebook')
+  sendFacebook(@Req() req: any, @Param('id') id: string) {
+    assertAdminToken(req);
+    return this.drafts.sendApprovedFacebook(id, getActorRole(req));
   }
 
   @Post(':id/mark-sent-manual')

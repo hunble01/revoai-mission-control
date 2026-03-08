@@ -14,6 +14,14 @@ import { AuditModule } from './modules/audit/audit.module';
 import { SeedModule } from './modules/seed/seed.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AlertsModule } from './modules/alerts/alerts.module';
+import { ConnectionsModule } from './modules/connections/connections.module';
+import { ResearchModule } from './modules/research/research.module';
+import { SearchModule } from './modules/search/search.module';
+import { SocialPostsModule } from './modules/social-posts/social-posts.module';
+import { LinkedinModule } from './modules/linkedin/linkedin.module';
+import { LinkedinDmModule } from './modules/linkedin-dm/linkedin-dm.module';
+import { FacebookModule } from './modules/facebook/facebook.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
 
 @Module({
   imports: [
@@ -31,6 +39,14 @@ import { AlertsModule } from './modules/alerts/alerts.module';
     SeedModule,
     AuthModule,
     AlertsModule,
+    ConnectionsModule,
+    ResearchModule,
+    SearchModule,
+    SocialPostsModule,
+    LinkedinModule,
+    LinkedinDmModule,
+    FacebookModule,
+    AnalyticsModule,
   ],
   controllers: [HealthController],
 })

@@ -8,8 +8,14 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 export class SchedulerService {
   constructor(private readonly prisma: PrismaService, private readonly events: EventsService) {}
 
-  listJobs() {
-    return this.prisma.schedulerJob.findMany({ orderBy: { createdAt: 'asc' } });
+  private humanNextRun(cronExpr: string, timezone: string) {
+    // lightweight placeholder until cron parser is introduced
+    return `Next run based on ${cronExpr} (${timezone})`;
+  }
+
+  async listJobs() {
+    const rows = await this.prisma.schedulerJob.findMany({ orderBy: { createdAt: 'asc' } });
+    return rows.map((r: any) => ({ ...r, nextRunHuman: this.humanNextRun(r.cronExpr, r.timezone || 'UTC') }));
   }
 
   createJob(data: any) {
@@ -168,6 +174,13 @@ export class SchedulerService {
 
     try {
       const summary = await this.withRetry(async () => {
+        const type = String((job as any).jobType || '').toUpperCase();
+        if (type === 'RESEARCH_RUN') return this.runLeadResearch(campaignId);
+        if (type === 'EMAIL_BATCH') return this.runOutreachDrafting(campaignId);
+        if (type === 'LINKEDIN_DM_BATCH') return this.runOutreachDrafting(campaignId);
+        if (type === 'POST_LINKEDIN') return this.runContentDrafting(campaignId);
+        if (type === 'POST_FACEBOOK') return this.runContentDrafting(campaignId);
+
         if (job.name.includes('Lead Research')) return this.runLeadResearch(campaignId);
         if (job.name.includes('Enrichment')) return this.runEnrichmentScoring(campaignId);
         if (job.name.includes('Outreach')) return this.runOutreachDrafting(campaignId);
@@ -217,6 +230,7 @@ export class SchedulerService {
         data: {
           campaignId,
           name: d.name,
+          jobType: d.name.includes('Lead Research') ? 'RESEARCH_RUN' : d.name.includes('Outreach') ? 'EMAIL_BATCH' : d.name.includes('Content') ? 'POST_LINKEDIN' : 'EMAIL_BATCH',
           cronExpr: d.cronExpr,
           timezone: 'America/Toronto',
           enabled: true,

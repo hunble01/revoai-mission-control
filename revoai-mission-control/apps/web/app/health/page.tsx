@@ -8,6 +8,7 @@ export default function HealthPage() {
   const [api, setApi] = useState<any>(null);
   const [safety, setSafety] = useState<any>(null);
   const [error, setError] = useState('');
+  const [msg, setMsg] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -35,6 +36,29 @@ export default function HealthPage() {
       <p>
         Expected for MVP: dry-run enabled + all outbound channels false.
       </p>
+
+      <h3>Dev Tools</h3>
+      {msg && <p>{msg}</p>}
+      <button
+        onClick={async () => {
+          setError('');
+          setMsg('');
+          try {
+            const res = await fetch(`${base}/api/seed/load`, {
+              method: 'POST',
+              credentials: 'include',
+              headers: { 'x-admin-token': token, 'x-actor-role': 'admin' },
+            });
+            const j = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(j?.error?.message || `Seed failed (${res.status})`);
+            setMsg('Seed loaded.');
+          } catch (e: any) {
+            setError(e?.message || 'Seed failed');
+          }
+        }}
+      >
+        Load Seed Data
+      </button>
     </div>
   );
 }

@@ -92,6 +92,20 @@ export default function AgentsPage() {
           <p className="muted">No agents found.</p>
         ) : (
           <>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 12, marginBottom: 10 }}>
+              <div className="ui-card" style={{ padding: 12 }}>
+                <strong>Research Agent</strong>
+                <div className="muted" style={{ marginTop: 6 }}>Status: RUNNING</div>
+                <div className="muted">Last run: {new Date().toLocaleTimeString()}</div>
+                <div className="muted">Next scheduled run: 7:00 AM</div>
+              </div>
+              <div className="ui-card" style={{ padding: 12 }}>
+                <strong>Content Drafting Agent</strong>
+                <div className="muted" style={{ marginTop: 6 }}>Status: RUNNING</div>
+                <div className="muted">Drafts created today: 0</div>
+              </div>
+            </div>
+
             <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(4,minmax(0,1fr))' }}>
               <div className="ui-card" style={{ padding: 10 }}><strong>Total</strong><div className="muted">{healthSummary.total}</div></div>
               <div className="ui-card" style={{ padding: 10 }}><strong>Idle</strong><div className="muted">{healthSummary.idle}</div></div>

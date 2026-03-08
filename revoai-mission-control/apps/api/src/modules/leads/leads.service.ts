@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventsService } from '../events/events.service';
 
@@ -69,6 +69,42 @@ export class LeadsService {
     });
 
     return lead;
+  }
+
+  async enrichLead(id: string) {
+    const lead = await this.prisma.lead.findUnique({ where: { id } });
+    if (!lead) throw new NotFoundException('Lead not found');
+
+    const hunterApiKey = String(process.env.HUNTER_API_KEY || '').trim();
+    let linkedinUrl: string | undefined;
+    let phone: string | undefined;
+
+    if (hunterApiKey && lead.website) {
+      try {
+        const domain = lead.website.replace(/^https?:\/\//, '').split('/')[0];
+        const res = await fetch(`https://api.hunter.io/v2/domain-search?domain=${encodeURIComponent(domain)}&api_key=${encodeURIComponent(hunterApiKey)}`);
+        const json: any = await res.json().catch(() => ({}));
+        const emailRow = Array.isArray(json?.data?.emails) ? json.data.emails[0] : null;
+        linkedinUrl = emailRow?.linkedin || undefined;
+      } catch {
+        // graceful fallback below
+      }
+    }
+
+    if (!linkedinUrl) linkedinUrl = lead.linkedinUrl || `https://www.linkedin.com/search/results/all/?keywords=${encodeURIComponent(lead.businessName)}`;
+    if (!phone) phone = lead.phone || null as any;
+
+    const updated = await this.prisma.lead.update({
+      where: { id },
+      data: {
+        linkedinUrl,
+        phone,
+        status: lead.status === 'NEW' ? 'ENRICHED' : lead.status,
+      },
+    });
+
+    await this.events.publish({ eventType: 'lead.enriched', campaignId: updated.campaignId, payload: { leadId: updated.id } });
+    return { ok: true, lead: updated };
   }
 
   async importMappedCsv(data: {

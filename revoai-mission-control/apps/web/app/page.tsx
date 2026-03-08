@@ -13,6 +13,9 @@ export default function Home() {
   const [drafts, setDrafts] = useState<any[]>([]);
   const [safety, setSafety] = useState<any>(null);
   const [alerts, setAlerts] = useState<any[]>([]);
+  const [researchRuns, setResearchRuns] = useState<any[]>([]);
+  const [sendHistory, setSendHistory] = useState<any[]>([]);
+  const [lastRefresh, setLastRefresh] = useState<string>('—');
 
   useEffect(() => {
     const headers = { 'x-admin-token': token };
@@ -21,11 +24,16 @@ export default function Home() {
       fetch(`${base}/api/drafts`, { credentials: 'include', headers }).then((r) => r.json()).catch(() => []),
       fetch(`${base}/api/settings/safety`, { credentials: 'include', headers }).then((r) => r.json()).catch(() => null),
       fetch(`${base}/api/alerts`, { credentials: 'include', headers }).then((r) => r.json()).catch(() => ({ alerts: [] })),
-    ]).then(([l, d, s, a]) => {
+      fetch(`${base}/api/research/runs`, { credentials: 'include', headers }).then((r) => r.json()).catch(() => []),
+      fetch(`${base}/api/drafts/email-send-history?limit=100`, { credentials: 'include', headers }).then((r) => r.json()).catch(() => []),
+    ]).then(([l, d, s, a, rr, sh]) => {
       setLeads(Array.isArray(l) ? l : []);
       setDrafts(Array.isArray(d) ? d : []);
       setSafety(s);
       setAlerts(Array.isArray(a?.alerts) ? a.alerts : []);
+      setResearchRuns(Array.isArray(rr) ? rr : []);
+      setSendHistory(Array.isArray(sh) ? sh : []);
+      setLastRefresh(new Date().toLocaleTimeString());
     });
   }, []);
 
@@ -33,14 +41,19 @@ export default function Home() {
     const statusCount = (value: string) => leads.filter((l) => String(l.status || '').toUpperCase() === value).length;
     const approved = drafts.filter((d) => String(d.status || '').toUpperCase() === 'APPROVED').length;
     const needsApproval = drafts.filter((d) => String(d.status || '').toUpperCase() === 'NEEDS_APPROVAL').length;
+    const socialDrafted = drafts.filter((d) => ['LINKEDIN', 'FACEBOOK'].includes(String(d.channel || '').toUpperCase()) && ['DRAFT', 'NEEDS_APPROVAL'].includes(String(d.status || '').toUpperCase())).length;
+    const socialApproved = drafts.filter((d) => ['LINKEDIN', 'FACEBOOK'].includes(String(d.channel || '').toUpperCase()) && String(d.status || '').toUpperCase() === 'APPROVED').length;
+    const socialScheduled = 0;
 
     return [
       { label: 'Total Leads', value: String(leads.length), meta: 'Inbound records' },
-      { label: 'Qualified', value: String(statusCount('QUALIFIED')), meta: 'High intent' },
-      { label: 'Contacted', value: String(statusCount('CONTACTED')), meta: 'Active follow-up' },
-      { label: 'Booked', value: String(statusCount('BOOKED')), meta: 'Appointments won' },
-      { label: 'Approved Drafts', value: String(approved), meta: 'Ready to send' },
+      { label: 'Research Leads Today', value: String(statusCount('RESEARCHED')), meta: 'Agent sourced' },
+      { label: 'Posts Drafted', value: String(socialDrafted), meta: 'Content pipeline' },
+      { label: 'Posts Approved', value: String(socialApproved), meta: 'Ready to publish' },
+      { label: 'Posts Scheduled', value: String(socialScheduled), meta: 'Scheduled queue' },
       { label: 'Needs Approval', value: String(needsApproval), meta: 'Queue pressure' },
+      { label: 'Approved Drafts', value: String(approved), meta: 'Ready to send' },
+      { label: 'Booked', value: String(statusCount('BOOKED')), meta: 'Appointments won' },
     ];
   }, [leads, drafts]);
 
@@ -52,14 +65,15 @@ export default function Home() {
             <h3>Mission Control Overview</h3>
             <p>Live operational snapshot: lead flow, approval pressure, and channel safety from a single pane.</p>
           </div>
-          <Badge tone="info">Last refresh: {new Date().toLocaleTimeString()}</Badge>
+          <Badge tone="info">Last refresh: {lastRefresh}</Badge>
         </div>
 
         <div className="demo-steps" style={{ marginTop: 10 }}>
-          <a className="demo-step active" href="/campaigns">1. Import (Campaigns)</a>
+          <a className="demo-step active" href="/research">1. Research</a>
           <a className="demo-step" href="/leads">2. Leads</a>
           <a className="demo-step" href="/approvals">3. Approvals</a>
-          <a className="demo-step" href="/campaigns">4. Campaign Loop</a>
+          <a className="demo-step" href="/content">4. Content</a>
+          <a className="demo-step" href="/drafts">5. Send</a>
         </div>
       </section>
 
@@ -75,7 +89,14 @@ export default function Home() {
         </Card>
       )}
 
-      <section className="kpi-grid" style={{ gridTemplateColumns: 'repeat(6, minmax(0, 1fr))' }}>
+      <Card title="Research Agent Status" subtitle="Last run and today discovery">
+        <div className="table-toolbar" style={{ justifyContent: 'space-between' }}>
+          <span className="muted">Last run: {researchRuns[0]?.createdAt ? new Date(researchRuns[0].createdAt).toLocaleString() : '—'}</span>
+          <span className="muted">Leads found today: {leads.filter((l) => String(l.status || '').toUpperCase() === 'RESEARCHED').length}</span>
+        </div>
+      </Card>
+
+      <section className="kpi-grid" style={{ gridTemplateColumns: 'repeat(8, minmax(0, 1fr))' }}>
         {kpis.map((k) => (
           <Card key={k.label}>
             <p className="kpi-title">{k.label}</p>
@@ -142,6 +163,14 @@ export default function Home() {
           </Table>
         </Card>
       </section>
+
+      <Card title="Today's Activity Summary" subtitle="Sends, replies, bookings">
+        <div className="table-toolbar" style={{ justifyContent: 'space-between' }}>
+          <span className="muted">Sends today: {sendHistory.filter((s) => s.timestamp && new Date(s.timestamp).toDateString() === new Date().toDateString() && String(s.status).toLowerCase() === 'sent').length}</span>
+          <span className="muted">Replies: {leads.filter((l) => String(l.status || '').toUpperCase() === 'REPLIED').length}</span>
+          <span className="muted">Bookings: {leads.filter((l) => String(l.status || '').toUpperCase() === 'BOOKED').length}</span>
+        </div>
+      </Card>
 
       <Card title="Safety Status" subtitle="Outbound controls and runtime guardrails">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 8, marginBottom: 10 }}>

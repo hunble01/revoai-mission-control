@@ -18,7 +18,9 @@ export default function SchedulerPage() {
   const [savingId, setSavingId] = useState<string | null>(null);
 
   const [newName, setNewName] = useState('');
+  const [newJobType, setNewJobType] = useState('RESEARCH_RUN');
   const [newCron, setNewCron] = useState('0 9 * * *');
+  const [newTimezone, setNewTimezone] = useState('America/Toronto');
   const [newCampaignId, setNewCampaignId] = useState('');
 
   const load = async () => {
@@ -108,8 +110,9 @@ export default function SchedulerPage() {
         },
         body: JSON.stringify({
           name: newName.trim(),
+          jobType: newJobType,
           cronExpr: newCron.trim(),
-          timezone: 'America/Toronto',
+          timezone: newTimezone,
           enabled: true,
           campaignId: newCampaignId || undefined,
           config: {},
@@ -117,7 +120,9 @@ export default function SchedulerPage() {
       });
       setMsg('Scheduler job created.');
       setNewName('');
+      setNewJobType('RESEARCH_RUN');
       setNewCron('0 9 * * *');
+      setNewTimezone('America/Toronto');
       setNewCampaignId('');
       await load();
     } catch (e: any) {
@@ -125,15 +130,6 @@ export default function SchedulerPage() {
     }
   };
 
-  const seed = async () => {
-    try {
-      const out = await postJson('/seed/load');
-      setMsg(`Seed loaded: campaign ${out.campaign?.name}`);
-      await load();
-    } catch (e: any) {
-      setError(e?.message || 'Seed failed');
-    }
-  };
 
   const runStats = useMemo(() => {
     const total = runs.length;
@@ -145,7 +141,6 @@ export default function SchedulerPage() {
   return (
     <div className="dash-stack">
       <h1>Scheduler + Safety</h1>
-      <button onClick={seed}>Load Seed Data</button>
       {msg && <p className="muted">{msg}</p>}
       {error && <p style={{ color: '#ff9b9b' }}>{error}</p>}
 
@@ -157,11 +152,24 @@ export default function SchedulerPage() {
             <h3 style={{ marginTop: 0 }}>Job Lifecycle Controls</h3>
             <div className="table-toolbar" style={{ marginBottom: 8 }}>
               <input className="ui-input" placeholder="Job name" value={newName} onChange={(e) => setNewName(e.target.value)} />
+              <select className="ui-input" value={newJobType} onChange={(e) => setNewJobType(e.target.value)}>
+                <option value="RESEARCH_RUN">Research Run</option>
+                <option value="EMAIL_BATCH">Email Batch</option>
+                <option value="LINKEDIN_DM_BATCH">LinkedIn DM Batch</option>
+                <option value="POST_LINKEDIN">Post to LinkedIn</option>
+                <option value="POST_FACEBOOK">Post to Facebook</option>
+              </select>
               <input className="ui-input" placeholder="Cron (e.g. 0 9 * * *)" value={newCron} onChange={(e) => setNewCron(e.target.value)} />
+              <select className="ui-input" value={newTimezone} onChange={(e) => setNewTimezone(e.target.value)}>
+                <option value="America/Toronto">America/Toronto</option>
+                <option value="UTC">UTC</option>
+                <option value="America/New_York">America/New_York</option>
+              </select>
               <input className="ui-input" placeholder="Campaign ID (optional)" value={newCampaignId} onChange={(e) => setNewCampaignId(e.target.value)} />
               <button className="ui-input" onClick={createJob}>Create Job</button>
+              <button className="ui-input" onClick={() => { setNewName('Research Agent Daily'); setNewJobType('RESEARCH_RUN'); setNewCron('0 7 * * *'); setNewTimezone('America/Toronto'); }}>Research Agent Daily Preset</button>
             </div>
-            <p className="muted" style={{ margin: 0 }}>Timezone: America/Toronto · Dry-run safety: {String(!!safety?.dryRun)}</p>
+            <p className="muted" style={{ margin: 0 }}>Timezone: {newTimezone} · Dry-run safety: {String(!!safety?.dryRun)}</p>
           </div>
 
           <h3>Jobs</h3>
@@ -172,8 +180,9 @@ export default function SchedulerPage() {
               {jobs.map((j: any) => (
                 <div key={j.id} className="ui-card" style={{ padding: 10, display: 'grid', gap: 6 }}>
                   <strong>{j.name}</strong>
-                  <div className="muted">Cron: {j.cronExpr} · {j.enabled ? 'enabled' : 'disabled'}</div>
+                  <div className="muted">Type: {j.jobType || 'EMAIL_BATCH'} · Cron: {j.cronExpr} · {j.enabled ? 'enabled' : 'disabled'}</div>
                   <div className="muted">Campaign: {j.campaignId || 'active campaign fallback'}</div>
+                  <div className="muted">Next run: {j.nextRunHuman || '—'}</div>
                   <div className="table-toolbar">
                     <button className="ui-input" disabled={savingId === j.id} onClick={() => runNow(j.id)}>Run now</button>
                     <button className="ui-input" disabled={savingId === j.id} onClick={() => toggleEnabled(j)}>{j.enabled ? 'Disable' : 'Enable'}</button>

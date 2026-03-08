@@ -58,4 +58,11 @@ export class LeadsController {
     assertAdminRole(getActorRole(req), 'lead score override');
     return this.leads.overrideScore(id, body.score, body.reason);
   }
+
+  @Post(':id/enrich')
+  enrich(@Req() req: any, @Param('id') id: string) {
+    assertAdminToken(req);
+    assertAdminRole(getActorRole(req), 'lead enrich');
+    return this.leads.enrichLead(id);
+  }
 }
