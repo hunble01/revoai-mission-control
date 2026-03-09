@@ -457,7 +457,7 @@ export default function CampaignsPage() {
       </Card>
 
       {mounted && modalOpen && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.75)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, boxSizing: 'border-box' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.75)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', boxSizing: 'border-box' }}>
           <div style={{ width: '100%', maxWidth: 700, maxHeight: '90vh', background: '#0D1117', border: '1px solid #1C2333', borderRadius: 8, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
             <div style={{ flexShrink: 0, padding: '16px 20px', borderBottom: '1px solid #1C2333' }}>
               <div className="page-eyebrow">Campaign Setup</div>
