@@ -1,781 +1,719 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
-import { Input } from '../../components/ui/Input';
 import { Table } from '../../components/ui/Table';
 
-type ResearchItem = {
-  id: string;
-  title: string;
+type SourceKey = 'apollo' | 'hunter' | 'gmaps' | 'linkedin' | 'web' | 'sheet';
+
+type CampaignForm = {
+  id?: string;
+  name: string;
+  status: 'Active' | 'Paused' | 'Archived';
+  niche: string;
+  subNiche: string;
+  geographyCity: string;
+  geographyRadius: string;
+  geographyRegion: string;
+  companySize: string[];
+  revenueRange: string;
+  contactType: string[];
+  hasContactInfo: string[];
+  defaultChannel: 'Email' | 'LinkedIn' | 'Both';
+  dailySendLimit: number;
   notes: string;
-  tags: string;
-  createdAt: string;
-};
-
-type ParsedUpload = {
-  fileName: string;
-  fileType: string;
-  rows: string[][];
-  headers: string[];
-};
-
-type ImportSummary = {
-  imported: number;
-  skippedDuplicates: number;
-  invalidRows: number;
-  totalRows: number;
-  errorModel?: {
-    reasonCounts?: Record<string, number>;
-    rowIssues?: Array<{ rowNumber: number; code: string; reason: string }>;
+  dataSources: Record<SourceKey, boolean>;
+  sourcePriority: SourceKey[];
+  spreadsheet: null | { fileName: string; headers: string[]; rows: string[][]; mapping: Record<string, string> };
+  messaging: {
+    painPoint: string;
+    yourOffer: string;
+    yourProof: string;
+    emailSubject: string;
+    emailBody: string;
+    aiEmail: boolean;
+    dmBody: string;
+    aiDm: boolean;
+    followupEnabled: boolean;
+    followups: Array<{ delay: string; subject: string; body: string; ai: boolean }>;
+    sendWindowFrom: string;
+    sendWindowTo: string;
+    sendDays: string[];
   };
 };
 
-type ImportRunMeta = {
-  at: string;
-  fileName: string;
-  campaignName: string;
-  stage: 'complete' | 'failed';
-  imported?: number;
-  skippedDuplicates?: number;
-  invalidRows?: number;
-  totalRows?: number;
-  reasonCounts?: Record<string, number>;
-  rowIssues?: Array<{ rowNumber: number; code: string; reason: string }>;
+const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const vars = ['{{first_name}}','{{business_name}}','{{city}}','{{niche}}','{{pain_point}}','{{your_offer}}','{{your_name}}','{{your_company}}'];
+const delayOptions = ['2 days', '3 days', '5 days', '7 days', '14 days'];
+const dayOptions = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const mappingOptions = ['Company Name', 'Website URL', 'Contact Name', 'Email', 'Phone', 'LinkedIn URL', 'City', 'Notes', 'Skip'];
+
+const nicheOptions = ['Any', 'Home Services', 'Dental', 'Medical Clinics', 'Legal', 'Real Estate', 'Financial Services', 'Restaurants', 'Retail', 'Fitness', 'Education', 'Rentals', 'Spas', 'Nail Salons', 'Barber Shops', 'Other'];
+const statusOptions: Array<'Active' | 'Paused' | 'Archived'> = ['Active', 'Paused', 'Archived'];
+const radiusOptions = ['Any', '10km', '25km', '50km', '100km'];
+const revenueOptions = ['Any', 'Under $500k', '$500k-$2M', '$2M-$10M', '$10M+'];
+const companySizes = ['Solo 1', 'Small 2-10', 'Medium 11-50', 'Growing 51-200', 'Enterprise 200+'];
+const contactTypes = ['Owner/Founder', 'Manager', 'Any Decision Maker'];
+const infoTypes = ['Has Email', 'Has Phone', 'Has LinkedIn', 'Has All'];
+const channelOptions: Array<'Email' | 'LinkedIn' | 'Both'> = ['Email', 'LinkedIn', 'Both'];
+
+const sourceDefs: Array<{ key: SourceKey; name: string; description: string; needsKey?: boolean; dot: string }> = [
+  { key: 'apollo', name: 'Apollo.io', description: 'Rich B2B data', needsKey: true, dot: '#8B5CF6' },
+  { key: 'hunter', name: 'Hunter.io', description: 'Email finder', needsKey: true, dot: '#10D68A' },
+  { key: 'gmaps', name: 'Google Maps', description: 'Local business discovery', needsKey: true, dot: '#00C9FF' },
+  { key: 'linkedin', name: 'LinkedIn Scraper', description: 'Company/contact discovery', dot: '#3B82F6' },
+  { key: 'web', name: 'Web Scraper', description: 'Google/web discovery', dot: '#F5A623' },
+  { key: 'sheet', name: 'Spreadsheet Upload', description: 'Use your own list', dot: '#7B8799' },
+];
+
+const inputStyle: React.CSSProperties = {
+  background: '#0A0E17',
+  border: '1px solid #1C2333',
+  borderRadius: 4,
+  padding: '8px 12px',
+  color: 'var(--text)',
+  width: '100%',
 };
 
-const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-const token = process.env.NEXT_PUBLIC_ADMIN_TOKEN || 'change-me';
+const emptyForm: CampaignForm = {
+  name: '',
+  status: 'Active',
+  niche: 'Any',
+  subNiche: '',
+  geographyCity: '',
+  geographyRadius: 'Any',
+  geographyRegion: '',
+  companySize: [],
+  revenueRange: 'Any',
+  contactType: [],
+  hasContactInfo: [],
+  defaultChannel: 'Email',
+  dailySendLimit: 20,
+  notes: '',
+  dataSources: { apollo: false, hunter: false, gmaps: false, linkedin: false, web: false, sheet: false },
+  sourcePriority: ['apollo', 'hunter', 'gmaps', 'linkedin', 'web', 'sheet'],
+  spreadsheet: null,
+  messaging: {
+    painPoint: '',
+    yourOffer: '',
+    yourProof: '',
+    emailSubject: 'Quick question for {{business_name}}',
+    emailBody: '',
+    aiEmail: true,
+    dmBody: '',
+    aiDm: true,
+    followupEnabled: false,
+    followups: [
+      { delay: '3 days', subject: '', body: '', ai: true },
+      { delay: '7 days', subject: '', body: '', ai: true },
+      { delay: '14 days', subject: '', body: '', ai: true },
+    ],
+    sendWindowFrom: '09:00',
+    sendWindowTo: '11:00',
+    sendDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+  },
+};
 
-function parseCsv(text: string): string[][] {
-  return text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => line.split(',').map((v) => v.trim()));
+function GhostButton({ children, onClick }: any) {
+  return <button className="ui-btn" style={{ border: '1px solid #243044', color: 'var(--text2)', background: 'transparent' }} onClick={onClick}>{children}</button>;
+}
+
+function PrimaryButton({ children, onClick, disabled }: any) {
+  return <button className="ui-btn" disabled={disabled} style={{ background: 'linear-gradient(135deg, #00C9FF, #0080FF)', color: '#fff', boxShadow: '0 0 16px rgba(0,201,255,0.25)', border: 'none' }} onClick={onClick}>{children}</button>;
+}
+
+function DangerButton({ children, onClick }: any) {
+  return <button className="ui-btn" style={{ border: '1px solid rgba(255,91,122,0.3)', color: '#FF5B7A', background: 'transparent' }} onClick={onClick}>{children}</button>;
+}
+
+function AmberGhostButton({ children, onClick }: any) {
+  return <button className="ui-btn" style={{ border: '1px solid rgba(245,166,35,0.3)', color: '#F5A623', background: 'transparent' }} onClick={onClick}>{children}</button>;
+}
+
+function Chip({ label, onClick }: { label: string; onClick: () => void }) {
+  return <button type="button" onClick={onClick} style={{ background: 'rgba(0,201,255,0.1)', border: '1px solid rgba(0,201,255,0.2)', color: '#00C9FF', borderRadius: 12, padding: '3px 10px', fontSize: 10, fontFamily: 'JetBrains Mono, monospace', cursor: 'pointer' }}>{label}</button>;
+}
+
+function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
+  return (
+    <button type="button" onClick={onToggle} style={{ width: 40, height: 22, borderRadius: 11, border: '1px solid #243044', background: on ? '#00C9FF' : '#1C2333', position: 'relative', transition: 'all .2s ease' }}>
+      <span style={{ position: 'absolute', top: 1.5, left: on ? 20 : 2, width: 18, height: 18, borderRadius: 9, background: '#fff', transition: 'all .2s ease' }} />
+    </button>
+  );
+}
+
+function Group({ label, children }: any) {
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 9, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--text-dim)', marginBottom: 6 }}>{label}</div>
+      <div style={{ background: '#0A0E17', border: '1px solid #1C2333', borderRadius: 6, padding: 14 }}>{children}</div>
+    </div>
+  );
 }
 
 export default function CampaignsPage() {
   const [campaigns, setCampaigns] = useState<any[]>([]);
-  const [allLeads, setAllLeads] = useState<any[]>([]);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1);
+  const [importStep, setImportStep] = useState(1);
+  const [editingCampaign, setEditingCampaign] = useState<any | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<any | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const [form, setForm] = useState<CampaignForm>(emptyForm);
+  const [importCampaignId, setImportCampaignId] = useState('');
+  const [importData, setImportData] = useState<any>(null);
+  const [enrichMissing, setEnrichMissing] = useState(true);
+  const [activeField, setActiveField] = useState<string>('');
+  const fieldRefs = useRef<Record<string, HTMLInputElement | HTMLTextAreaElement | null>>({});
 
-  const [research, setResearch] = useState<ResearchItem[]>([]);
-  const [title, setTitle] = useState('');
-  const [notes, setNotes] = useState('');
-  const [tags, setTags] = useState('');
-  const [query, setQuery] = useState('');
+  useEffect(() => { setMounted(true); }, []);
 
-  const [uploads, setUploads] = useState<ParsedUpload[]>([]);
-  const [map, setMap] = useState<Record<string, string>>({});
-  const [selectedCampaignId, setSelectedCampaignId] = useState('');
-  const [importSummary, setImportSummary] = useState<ImportSummary | null>(null);
-  const [importError, setImportError] = useState('');
-  const [importing, setImporting] = useState(false);
-  const [importStage, setImportStage] = useState<'idle' | 'validating' | 'importing' | 'complete' | 'failed'>('idle');
-  const [lastImportMeta, setLastImportMeta] = useState<ImportRunMeta | null>(null);
-  const [importRuns, setImportRuns] = useState<ImportRunMeta[]>([]);
-  const [runFilterStatus, setRunFilterStatus] = useState<'all' | 'complete' | 'failed'>('all');
-  const [runFilterCampaign, setRunFilterCampaign] = useState('all');
-  const [expandedRun, setExpandedRun] = useState<string | null>(null);
-
-  const fetchImportRuns = async () => {
-    try {
-      const res = await fetch(`${base}/api/leads/import/runs?limit=10`, {
-        credentials: 'include',
-        headers: { 'x-admin-token': token },
-      });
-      if (!res.ok) return;
-      const data = await res.json();
-      const runs = Array.isArray(data) ? data : [];
-      const mapped: ImportRunMeta[] = runs.map((r: any) => ({
-        at: r.createdAt || new Date().toISOString(),
-        fileName: r.fileName || 'csv-import',
-        campaignName: r.campaignName || r.campaignId || 'Unknown campaign',
-        stage: r.invalidRows > 0 && r.imported === 0 ? 'failed' : 'complete',
-        imported: r.imported,
-        skippedDuplicates: r.skippedDuplicates,
-        invalidRows: r.invalidRows,
-        totalRows: r.totalRows,
-        reasonCounts: r?.errorModel?.reasonCounts || {},
-        rowIssues: Array.isArray(r?.errorModel?.rowIssues) ? r.errorModel.rowIssues : [],
-      }));
-      setImportRuns(mapped);
-      if (mapped[0]) setLastImportMeta(mapped[0]);
-    } catch {
-      // no-op: history is optional in UI
-    }
+  const toast = (type: 'success' | 'error', text: string) => {
+    window.dispatchEvent(new CustomEvent('app-toast', { detail: { type, text } }));
   };
 
-  useEffect(() => {
-    Promise.all([
-      fetch(`${base}/api/campaigns`, { credentials: 'include', headers: { 'x-admin-token': token } }).then((r) => r.json()).catch(() => []),
-      fetch(`${base}/api/leads`, { credentials: 'include', headers: { 'x-admin-token': token } }).then((r) => r.json()).catch(() => []),
-    ])
-      .then(([d, leads]) => {
-        const list = Array.isArray(d) ? d : [];
-        setCampaigns(list);
-        setAllLeads(Array.isArray(leads) ? leads : []);
-        const firstActive = list.find((c: any) => c.isActive);
-        if (firstActive?.id) setSelectedCampaignId(firstActive.id);
-      })
-      .catch(() => {
-        setCampaigns([]);
-        setAllLeads([]);
-      });
+  const loadCampaigns = async () => {
+    const res = await fetch(`${base}/api/campaigns`, { credentials: 'include' });
+    const data = await res.json().catch(() => []);
+    const list = Array.isArray(data) ? data : [];
+    setCampaigns(list);
+    const firstActive = list.find((c: any) => String(c.status || '').toLowerCase() === 'active');
+    if (firstActive?.id) setImportCampaignId(firstActive.id);
+  };
 
-    fetchImportRuns();
-  }, []);
+  useEffect(() => { loadCampaigns(); }, []);
 
-  const filteredResearch = useMemo(() => {
-    const q = query.toLowerCase().trim();
-    if (!q) return research;
-    return research.filter((r) => `${r.title} ${r.notes} ${r.tags}`.toLowerCase().includes(q));
-  }, [research, query]);
-
-  const activeCampaigns = useMemo(
-    () => campaigns.filter((c: any) => c.isActive),
+  const selectedCampaigns = useMemo(
+    () => campaigns.filter((c: any) => String(c.status || '').toLowerCase() === 'active'),
     [campaigns],
   );
 
-  const campaignStats = useMemo(() => {
-    const byCampaign: Record<string, any> = {};
-    for (const l of allLeads) {
-      const cid = String(l.campaignId || '');
-      if (!cid) continue;
-      if (!byCampaign[cid]) byCampaign[cid] = { leads: 0, contacted: 0, replied: 0, booked: 0, source: 'CSV Import' };
-      byCampaign[cid].leads += 1;
-      const st = String(l.status || '').toUpperCase();
-      if (st === 'CONTACTED') byCampaign[cid].contacted += 1;
-      if (st === 'REPLIED') byCampaign[cid].replied += 1;
-      if (st === 'BOOKED') byCampaign[cid].booked += 1;
-      const src = String(l.source || '').toLowerCase();
-      if (src.includes('research') || src.includes('agent') || src.includes('hunter') || src.includes('apollo')) {
-        byCampaign[cid].source = 'Research Agent';
-      }
-    }
-    return byCampaign;
-  }, [allLeads]);
+  const resetForm = () => {
+    setForm(JSON.parse(JSON.stringify(emptyForm)));
+    setCurrentStep(1);
+    setEditingCampaign(null);
+    setModalOpen(true);
+  };
 
-  const activeCsv = useMemo(
-    () => uploads.find((u) => u.fileType === 'CSV' && u.headers.length > 0),
-    [uploads],
-  );
-
-  const mappedCount = useMemo(() => {
-    if (!activeCsv) return 0;
-    return activeCsv.headers.filter((h) => !!map[h]).length;
-  }, [activeCsv, map]);
-
-  const totalColumns = activeCsv?.headers.length || 0;
-  const hasRequiredMapping = Object.values(map).some((v) => v === 'name' || v === 'company');
-  const hasActiveCampaign = activeCampaigns.length > 0;
-  const importReady = mappedCount > 0 && hasRequiredMapping && hasActiveCampaign;
-
-  const duplicatePreview = useMemo(() => {
-    if (!activeCsv) return { email: 0, phone: 0 };
-
-    const mappedEmailHeader = activeCsv.headers.find((h) => map[h] === 'email');
-    const mappedPhoneHeader = activeCsv.headers.find((h) => map[h] === 'phone');
-
-    const emailIdx = mappedEmailHeader
-      ? activeCsv.headers.indexOf(mappedEmailHeader)
-      : activeCsv.headers.findIndex((h) => h.toLowerCase().includes('email'));
-    const phoneIdx = mappedPhoneHeader
-      ? activeCsv.headers.indexOf(mappedPhoneHeader)
-      : activeCsv.headers.findIndex((h) => h.toLowerCase().includes('phone'));
-
-    const countDupes = (idx: number) => {
-      if (idx < 0) return 0;
-      const counts = new Map<string, number>();
-      for (const row of activeCsv.rows) {
-        const val = (row[idx] || '').trim().toLowerCase();
-        if (!val) continue;
-        counts.set(val, (counts.get(val) || 0) + 1);
-      }
-      let dupes = 0;
-      counts.forEach((n) => {
-        if (n > 1) dupes += n - 1;
-      });
-      return dupes;
-    };
-
-    return {
-      email: countDupes(emailIdx),
-      phone: countDupes(phoneIdx),
-    };
-  }, [activeCsv, map]);
-
-  const invalidRowAnalysis = useMemo(() => {
-    if (!activeCsv) {
-      return {
-        preview: [] as Array<{ rowNumber: number; reason: string }>,
-        counts: { missingIdentity: 0, missingContact: 0, total: 0 },
-      };
-    }
-
-    const byMappedOrHeader = (field: string, fallback: string) => {
-      const mappedHeader = activeCsv.headers.find((h) => map[h] === field);
-      if (mappedHeader) return activeCsv.headers.indexOf(mappedHeader);
-      return activeCsv.headers.findIndex((h) => h.toLowerCase().includes(fallback));
-    };
-
-    const idxName = byMappedOrHeader('name', 'name');
-    const idxCompany = byMappedOrHeader('company', 'company');
-    const idxEmail = byMappedOrHeader('email', 'email');
-    const idxPhone = byMappedOrHeader('phone', 'phone');
-
-    const invalid: Array<{ rowNumber: number; reason: string }> = [];
-    let missingIdentity = 0;
-    let missingContact = 0;
-
-    activeCsv.rows.forEach((row, i) => {
-      const name = idxName >= 0 ? (row[idxName] || '').trim() : '';
-      const company = idxCompany >= 0 ? (row[idxCompany] || '').trim() : '';
-      const email = idxEmail >= 0 ? (row[idxEmail] || '').trim() : '';
-      const phone = idxPhone >= 0 ? (row[idxPhone] || '').trim() : '';
-
-      if (!name && !company) {
-        missingIdentity += 1;
-        invalid.push({ rowNumber: i + 2, reason: 'Missing Name/Company' });
-        return;
-      }
-      if (!email && !phone) {
-        missingContact += 1;
-        invalid.push({ rowNumber: i + 2, reason: 'Missing Email/Phone' });
-      }
-    });
-
-    return {
-      preview: invalid.slice(0, 5),
-      counts: {
-        missingIdentity,
-        missingContact,
-        total: invalid.length,
+  const openEdit = (campaign: any) => {
+    setEditingCampaign(campaign);
+    setForm({
+      ...JSON.parse(JSON.stringify(emptyForm)),
+      ...campaign,
+      status: (String(campaign.status || 'active').replace(/^./, (x) => x.toUpperCase()) as any),
+      companySize: Array.isArray(campaign.companySize) ? campaign.companySize : [],
+      contactType: Array.isArray(campaign.contactType) ? campaign.contactType : [],
+      hasContactInfo: Array.isArray(campaign.hasContactInfo) ? campaign.hasContactInfo : [],
+      sourcePriority: Array.isArray(campaign?.dataSources?.priority) ? campaign.dataSources.priority : ['apollo', 'hunter', 'gmaps', 'linkedin', 'web', 'sheet'],
+      dataSources: {
+        apollo: !!campaign?.dataSources?.apollo,
+        hunter: !!campaign?.dataSources?.hunter,
+        gmaps: !!campaign?.dataSources?.gmaps,
+        linkedin: !!campaign?.dataSources?.linkedin,
+        web: !!campaign?.dataSources?.web,
+        sheet: !!campaign?.dataSources?.sheet,
       },
-    };
-  }, [activeCsv, map]);
-
-  const filteredRuns = useMemo(() => {
-    return importRuns.filter((r) => {
-      if (runFilterStatus !== 'all' && r.stage !== runFilterStatus) return false;
-      if (runFilterCampaign !== 'all' && r.campaignName !== runFilterCampaign) return false;
-      return true;
-    });
-  }, [importRuns, runFilterStatus, runFilterCampaign]);
-
-  const importInsights = useMemo(() => {
-    const total = filteredRuns.length;
-    const failed = filteredRuns.filter((r) => r.stage === 'failed').length;
-    const importedRows = filteredRuns.reduce((sum, r) => sum + (r.imported || 0), 0);
-    const invalidRows = filteredRuns.reduce((sum, r) => sum + (r.invalidRows || 0), 0);
-    const duplicateRows = filteredRuns.reduce((sum, r) => sum + (r.skippedDuplicates || 0), 0);
-    const failureRate = total ? Math.round((failed / total) * 100) : 0;
-    return { total, failed, importedRows, invalidRows, duplicateRows, failureRate };
-  }, [filteredRuns]);
-
-  const saveResearch = (next: ResearchItem[]) => {
-    setResearch(next);
-    localStorage.setItem('revoai_research_items', JSON.stringify(next));
-  };
-
-  const addResearch = () => {
-    if (!title.trim() || !notes.trim()) return;
-    const next: ResearchItem[] = [
-      {
-        id: crypto.randomUUID(),
-        title: title.trim(),
-        notes: notes.trim(),
-        tags: tags.trim(),
-        createdAt: new Date().toISOString(),
+      messaging: {
+        ...emptyForm.messaging,
+        ...(campaign?.outreachTemplates || {}),
       },
-      ...research,
-    ];
-    saveResearch(next);
-    setTitle('');
-    setNotes('');
-    setTags('');
+    });
+    setCurrentStep(1);
+    setModalOpen(true);
   };
 
-  const exportResearchPdf = (item: ResearchItem) => {
-    const w = window.open('', '_blank', 'width=900,height=900');
-    if (!w) return;
-    w.document.write(`
-      <html><head><title>${item.title}</title>
-      <style>body{font-family:Inter,Arial,sans-serif;padding:28px;line-height:1.5} h1{margin-top:0}</style>
-      </head><body>
-      <h1>${item.title}</h1>
-      <p><strong>Created:</strong> ${new Date(item.createdAt).toLocaleString()}</p>
-      <p><strong>Tags:</strong> ${item.tags || '—'}</p>
-      <hr/>
-      <p>${item.notes.replace(/\n/g, '<br/>')}</p>
-      </body></html>
-    `);
-    w.document.close();
-    w.focus();
-    w.print();
+  const updateMulti = (key: 'companySize' | 'contactType' | 'hasContactInfo', value: string) => {
+    setForm((prev) => ({
+      ...prev,
+      [key]: prev[key].includes(value) ? prev[key].filter((x: string) => x !== value) : [...prev[key], value],
+    }));
   };
 
-  const onFiles = async (files: FileList | null) => {
-    if (!files?.length) return;
-    const parsed: ParsedUpload[] = [];
+  const insertVariable = (variable: string) => {
+    if (!activeField) return;
+    const ref = fieldRefs.current[activeField];
+    if (!ref) return;
+    const start = (ref as any).selectionStart ?? ref.value.length;
+    const end = (ref as any).selectionEnd ?? ref.value.length;
 
-    for (const file of Array.from(files)) {
-      const ext = file.name.toLowerCase();
+    const setMsg = (key: string, value: string) => {
+      setForm((prev) => ({ ...prev, messaging: { ...prev.messaging, [key]: value } }));
+    };
 
-      if (ext.endsWith('.csv')) {
-        const text = await file.text();
-        const rows = parseCsv(text);
-        parsed.push({
-          fileName: file.name,
-          fileType: 'CSV',
-          rows: rows.slice(1),
-          headers: rows[0] || [],
-        });
-      } else if (ext.endsWith('.xlsx')) {
-        parsed.push({ fileName: file.name, fileType: 'XLSX', rows: [], headers: [] });
-      } else if (ext.endsWith('.pdf')) {
-        parsed.push({ fileName: file.name, fileType: 'PDF', rows: [], headers: [] });
-      }
-    }
-
-    setUploads(parsed);
-    setImportSummary(null);
-    setImportError('');
-    setImportStage('idle');
-    if (parsed[0]?.headers?.length) {
-      const initial: Record<string, string> = {};
-      for (const h of parsed[0].headers) initial[h] = '';
-      setMap(initial);
-    }
+    const current = String((form.messaging as any)[activeField] || '');
+    const next = `${current.slice(0, start)}${variable}${current.slice(end)}`;
+    setMsg(activeField, next);
   };
 
-  const resetImportState = () => {
-    setUploads([]);
-    setMap({});
-    setImportSummary(null);
-    setImportError('');
-    setImporting(false);
-    setImportStage('idle');
+  const parseUpload = async (file?: File | null) => {
+    if (!file) return null;
+    const lower = file.name.toLowerCase();
+    if (!lower.endsWith('.csv') && !lower.endsWith('.xlsx')) return null;
+
+    let headers: string[] = [];
+    let rows: string[][] = [];
+
+    if (lower.endsWith('.csv')) {
+      const text = await file.text();
+      const parsed = text
+        .split(/\r?\n/)
+        .filter(Boolean)
+        .map((line) => line.split(',').map((v) => v.trim()));
+      headers = parsed[0] || [];
+      rows = parsed.slice(1);
+    } else {
+      headers = ['Company Name', 'Website URL', 'Contact Name', 'Email', 'Phone', 'LinkedIn URL', 'City', 'Notes'];
+    }
+
+    const mapping: Record<string, string> = {};
+    headers.forEach((h) => { mapping[h] = 'Skip'; });
+    return { fileName: file.name, headers, rows, mapping };
   };
 
-  const applyAutoMap = () => {
-    if (!activeCsv?.headers?.length) return;
-
-    const next: Record<string, string> = {};
-    const rules: Array<{ field: string; tests: RegExp[] }> = [
-      { field: 'name', tests: [/contact.?name/i, /^name$/i, /owner/i] },
-      { field: 'company', tests: [/company/i, /business/i, /clinic/i] },
-      { field: 'email', tests: [/email/i, /e-mail/i] },
-      { field: 'phone', tests: [/phone/i, /mobile/i, /tel/i] },
-      { field: 'source', tests: [/source/i, /channel/i, /utm/i] },
-    ];
-
-    for (const header of activeCsv.headers) {
-      let mapped = '';
-      for (const rule of rules) {
-        if (rule.tests.some((rx) => rx.test(header))) {
-          mapped = rule.field;
-          break;
-        }
-      }
-      next[header] = mapped;
-    }
-
-    setMap((prev) => ({ ...prev, ...next }));
-  };
-
-  const importCsvToLeads = async () => {
-    const csv = uploads.find((u) => u.fileType === 'CSV' && u.headers.length > 0);
-    if (!csv) {
-      setImportError('Please upload a CSV file first.');
-      setImportStage('failed');
-      return;
-    }
-
-    if (!Object.values(map).some((v) => v === 'name' || v === 'company')) {
-      setImportError('Map at least one required field: Name or Company.');
-      setImportStage('failed');
-      return;
-    }
-
-    setImporting(true);
-    setImportError('');
-    setImportSummary(null);
-    setImportStage('validating');
-    const startedAt = Date.now();
-
-    const campaignName = campaigns.find((c: any) => c.id === selectedCampaignId)?.name || 'Default campaign';
-
+  const saveCampaign = async () => {
     try {
+      const payload = {
+        name: form.name,
+        status: String(form.status).toLowerCase(),
+        niche: form.niche,
+        subNiche: form.subNiche,
+        geography: `${form.geographyCity}${form.geographyRegion ? `, ${form.geographyRegion}` : ''}`,
+        geographyCity: form.geographyCity,
+        geographyRadius: form.geographyRadius,
+        geographyRegion: form.geographyRegion,
+        companySize: form.companySize,
+        revenueRange: form.revenueRange,
+        contactType: form.contactType,
+        hasContactInfo: form.hasContactInfo,
+        defaultChannel: form.defaultChannel,
+        dailySendLimit: Number(form.dailySendLimit || 20),
+        notes: form.notes,
+        dataSources: { ...form.dataSources, priority: form.sourcePriority },
+        spreadsheetData: form.spreadsheet,
+        outreachTemplates: form.messaging,
+      };
+
+      const url = editingCampaign ? `${base}/api/campaigns/${editingCampaign.id}` : `${base}/api/campaigns`;
+      const method = editingCampaign ? 'PATCH' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        credentials: 'include',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error?.message || 'Save failed');
+
+      if (editingCampaign) {
+        setCampaigns((prev) => prev.map((c) => (c.id === editingCampaign.id ? { ...c, ...data } : c)));
+      } else {
+        setCampaigns((prev) => [data, ...prev]);
+      }
+
+      setModalOpen(false);
+      toast('success', editingCampaign ? 'Campaign updated' : 'Campaign created');
+    } catch (e: any) {
+      toast('error', e?.message || 'Save failed');
+    }
+  };
+
+  const actionClone = async (id: string) => {
+    try {
+      const res = await fetch(`${base}/api/campaigns/${id}/clone`, { method: 'POST', credentials: 'include' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error?.message || 'Clone failed');
+      setCampaigns((prev) => [data, ...prev]);
+      toast('success', 'Campaign cloned');
+    } catch (e: any) {
+      toast('error', e?.message || 'Clone failed');
+    }
+  };
+
+  const actionArchive = async (id: string) => {
+    try {
+      const res = await fetch(`${base}/api/campaigns/${id}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ status: 'archived' }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error?.message || 'Archive failed');
+      setCampaigns((prev) => prev.map((c) => (c.id === id ? { ...c, ...data, status: 'archived' } : c)));
+      toast('success', 'Campaign archived');
+    } catch (e: any) {
+      toast('error', e?.message || 'Archive failed');
+    }
+  };
+
+  const actionDelete = async (id: string) => {
+    try {
+      const res = await fetch(`${base}/api/campaigns/${id}`, { method: 'DELETE', credentials: 'include' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok && res.status !== 404) throw new Error(data?.error?.message || 'Delete failed');
+      setCampaigns((prev) => prev.filter((c) => c.id !== id));
+      setConfirmDelete(null);
+      toast('success', 'Campaign deleted');
+    } catch (e: any) {
+      toast('error', e?.message || 'Delete failed');
+    }
+  };
+
+  const importLeads = async () => {
+    try {
+      if (!importCampaignId || !importData) throw new Error('Select campaign and upload file first');
       const res = await fetch(`${base}/api/leads/import/csv`, {
         method: 'POST',
         credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-admin-token': token,
-          'x-actor-role': 'admin',
-        },
+        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          campaignId: selectedCampaignId || undefined,
-          fileName: csv.fileName,
-          headers: csv.headers,
-          rows: csv.rows,
-          mapping: map,
+          campaignId: importCampaignId,
+          fileName: importData.fileName,
+          headers: importData.headers,
+          rows: importData.rows,
+          mapping: importData.mapping,
+          enrichMissingFields: enrichMissing,
         }),
       });
-
-      setImportStage('importing');
-      const raw = await res.text();
-      let payload: any = null;
-      if (raw) {
-        try {
-          payload = JSON.parse(raw);
-        } catch {
-          payload = { message: raw };
-        }
-      }
-
-      if (!res.ok) {
-        const apiMessage = payload?.message || payload?.error?.message;
-        const apiCode = payload?.code || payload?.error?.code;
-        throw new Error(apiCode ? `${apiMessage || 'CSV import failed.'} [${apiCode}]` : (apiMessage || `CSV import failed (HTTP ${res.status}).`));
-      }
-
-      setImportSummary(payload);
-      setImportStage('complete');
-      const latestRun = {
-        at: new Date().toISOString(),
-        fileName: csv.fileName,
-        campaignName,
-        stage: 'complete' as const,
-        imported: payload?.imported,
-        skippedDuplicates: payload?.skippedDuplicates,
-        invalidRows: payload?.invalidRows,
-        totalRows: payload?.totalRows,
-        reasonCounts: payload?.errorModel?.reasonCounts || {},
-        rowIssues: Array.isArray(payload?.errorModel?.rowIssues) ? payload.errorModel.rowIssues : [],
-      };
-      setLastImportMeta(latestRun);
-      setImportRuns((prev) => [latestRun, ...prev].slice(0, 10));
-      fetchImportRuns();
-    } catch (err: any) {
-      setImportError(err?.message || 'CSV import failed.');
-      setImportStage('failed');
-      const failedRun = {
-        at: new Date().toISOString(),
-        fileName: csv.fileName,
-        campaignName,
-        stage: 'failed' as const,
-      };
-      setLastImportMeta(failedRun);
-      setImportRuns((prev) => [failedRun, ...prev].slice(0, 10));
-    } finally {
-      const elapsed = Date.now() - startedAt;
-      if (elapsed < 600) {
-        await new Promise((resolve) => setTimeout(resolve, 600 - elapsed));
-      }
-      setImporting(false);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error?.message || 'Import failed');
+      toast('success', 'Leads imported');
+      setImportModalOpen(false);
+    } catch (e: any) {
+      toast('error', e?.message || 'Import failed');
     }
   };
 
+  const sourceDots = (row: any) => sourceDefs.filter((s) => row?.dataSources?.[s.key]);
+  const replyRate = (row: any) => {
+    const contacted = Number(row.contactedCount || 0);
+    const replied = Number(row.repliedCount || 0);
+    if (!contacted) return '—';
+    return `${Math.round((replied / contacted) * 100)}%`;
+  };
+  const healthColor = (row: any) => {
+    const st = String(row.status || '').toLowerCase();
+    const leads = Number(row.leadsCount || 0);
+    if (st === 'paused' || st === 'archived') return '#7B8799';
+    if (st === 'active' && leads > 0) return '#10D68A';
+    return '#F5A623';
+  };
+
   return (
-    <div className="dash-stack">
-      <section className="page-hero">
-        <h3>Campaign Setup & Import Start</h3>
-        <p>Begin demo flow here: upload CSV, map fields, and push leads into active campaign context.</p>
-        <div className="demo-steps">
-          <span className="demo-step active">1. Import</span>
-          <span className="demo-step">2. Leads</span>
-          <span className="demo-step">3. Approvals</span>
-          <span className="demo-step">4. Campaign Loop</span>
+    <div className="dash-stack fade-in" style={{ overflowX: 'hidden' }}>
+      <section className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: 12 }}>
+        <div>
+          <div className="page-eyebrow">PIPELINE / CAMPAIGNS</div>
+          <h2 className="page-title" style={{ margin: 0 }}>Campaigns</h2>
+          <p className="page-desc">Create and manage campaign targeting, sources, and message templates</p>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <GhostButton onClick={() => { setImportStep(1); setImportModalOpen(true); }}>Import Leads</GhostButton>
+          <PrimaryButton onClick={resetForm}>+ New Campaign</PrimaryButton>
         </div>
       </section>
 
-      <Card title="Campaigns" subtitle="Current campaign records">
+      <Card title="Campaign List" subtitle="Targeting, source stack, and performance snapshot">
         <Table>
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Niche</th>
-              <th>Geography</th>
-              <th>Source</th>
-              <th>Leads</th>
-              <th>Contacted</th>
-              <th>Replied</th>
-              <th>Booked</th>
+              <th>Name</th><th>Niche</th><th>Geography</th><th>Status</th><th>Sources</th><th>Leads</th><th>Contacted</th><th>Replied</th><th>Booked</th><th>Reply Rate</th><th>Health</th><th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {campaigns.map((c: any) => {
-              const s = campaignStats[c.id] || { source: 'CSV Import', leads: 0, contacted: 0, replied: 0, booked: 0 };
-              return (
-                <tr key={c.id}>
-                  <td>{c.name}</td>
-                  <td>{c.niche}</td>
-                  <td>{c.geography}</td>
-                  <td>{s.source}</td>
-                  <td>{s.leads}</td>
-                  <td>{s.contacted}</td>
-                  <td>{s.replied}</td>
-                  <td>{s.booked}</td>
-                </tr>
-              );
-            })}
+            {campaigns.map((row: any) => (
+              <tr key={row.id}>
+                <td>{row.name}</td>
+                <td>{row.niche}</td>
+                <td>{row.geographyCity || row.geography}</td>
+                <td><Badge tone={String(row.status || '').toLowerCase() === 'active' ? 'success' : String(row.status || '').toLowerCase() === 'paused' ? 'warning' : 'default'}>{String(row.status || 'active').toUpperCase()}</Badge></td>
+                <td>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {sourceDots(row).map((s) => <span key={s.key} title={s.name} style={{ width: 10, height: 10, borderRadius: 999, display: 'inline-block', background: s.dot }} />)}
+                    {!sourceDots(row).length && <span className="muted">—</span>}
+                  </div>
+                </td>
+                <td>{row.leadsCount || 0}</td>
+                <td>{row.contactedCount || 0}</td>
+                <td>{row.repliedCount || 0}</td>
+                <td>{row.bookedCount || 0}</td>
+                <td>{replyRate(row)}</td>
+                <td><span style={{ width: 10, height: 10, borderRadius: 999, display: 'inline-block', background: healthColor(row) }} /></td>
+                <td style={{ whiteSpace: 'nowrap' }}>
+                  <GhostButton onClick={() => openEdit(row)}>Edit</GhostButton>{' '}
+                  <GhostButton onClick={() => actionClone(row.id)}>Clone</GhostButton>{' '}
+                  <AmberGhostButton onClick={() => actionArchive(row.id)}>Archive</AmberGhostButton>{' '}
+                  <DangerButton onClick={() => setConfirmDelete(row)}>Delete</DangerButton>
+                </td>
+              </tr>
+            ))}
+            {!campaigns.length && <tr><td colSpan={12} className="muted">No campaigns yet.</td></tr>}
           </tbody>
         </Table>
       </Card>
 
-      <Card title="Upload Center" subtitle="Upload CSV / XLSX / PDF for intake">
-        <input type="file" accept=".csv,.xlsx,.pdf" multiple onChange={(e) => onFiles(e.target.files)} />
-
-        <div className="table-toolbar" style={{ marginTop: 10 }}>
-          <select
-            className="ui-input"
-            value={selectedCampaignId}
-            onChange={(e) => setSelectedCampaignId(e.target.value)}
-            aria-label="Campaign"
-          >
-            {activeCampaigns.map((c: any) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-          <Button variant="primary" onClick={importCsvToLeads} disabled={importing || !importReady}>
-            {importing ? '⏳ Importing…' : 'Import CSV to Leads'}
-          </Button>
-          <Button variant="secondary" onClick={applyAutoMap} disabled={!activeCsv}>
-            Auto-map Headers
-          </Button>
-          <Button variant="secondary" onClick={resetImportState}>
-            Reset Import State
-          </Button>
-        </div>
-
-        {!activeCampaigns.length && (
-          <p style={{ color: '#ff9b9b', marginTop: 8 }}>
-            No active campaign available. Activate a campaign before importing leads.
-          </p>
-        )}
-
-        {activeCsv && (
-          <p className="muted" style={{ marginTop: 8 }}>
-            Mapped: {mappedCount}/{totalColumns} columns • {importReady ? 'Ready to import' : hasRequiredMapping ? 'Map at least 1 field to continue' : 'Map required field: Name or Company'}
-          </p>
-        )}
-
-        {lastImportMeta && (
-          <div className="ui-card" style={{ padding: 12, marginTop: 10 }}>
-            <strong>Last Import Run</strong>
-            <div style={{ display: 'grid', gap: 4, marginTop: 8 }}>
-              <div className="muted">Time: {new Date(lastImportMeta.at).toLocaleString()}</div>
-              <div className="muted">File: {lastImportMeta.fileName}</div>
-              <div className="muted">Campaign: {lastImportMeta.campaignName}</div>
-              <div className="muted">Result: {lastImportMeta.stage === 'complete' ? 'Complete' : 'Failed'}</div>
-              {lastImportMeta.stage === 'complete' && (
-                <div className="muted">
-                  Imported {lastImportMeta.imported ?? 0} • Duplicates {lastImportMeta.skippedDuplicates ?? 0} • Invalid {lastImportMeta.invalidRows ?? 0} • Total {lastImportMeta.totalRows ?? 0}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {!!importRuns.length && (
-          <div className="ui-card" style={{ padding: 12, marginTop: 10 }}>
-            <strong>Import Run History</strong>
-
-            <div className="table-toolbar" style={{ marginTop: 8 }}>
-              <select className="ui-input" value={runFilterStatus} onChange={(e) => setRunFilterStatus(e.target.value as any)} aria-label="Filter import status">
-                <option value="all">All outcomes</option>
-                <option value="complete">Complete</option>
-                <option value="failed">Failed</option>
-              </select>
-              <select className="ui-input" value={runFilterCampaign} onChange={(e) => setRunFilterCampaign(e.target.value)} aria-label="Filter import campaign">
-                <option value="all">All campaigns</option>
-                {Array.from(new Set(importRuns.map((r) => r.campaignName))).map((name) => (
-                  <option key={name} value={name}>{name}</option>
-                ))}
-              </select>
+      {mounted && modalOpen && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.75)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, boxSizing: 'border-box' }}>
+          <div style={{ width: '100%', maxWidth: 700, maxHeight: '90vh', background: '#0D1117', border: '1px solid #1C2333', borderRadius: 8, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+            <div style={{ flexShrink: 0, padding: '16px 20px', borderBottom: '1px solid #1C2333' }}>
+              <div className="page-eyebrow">Campaign Setup</div>
+              <div style={{ fontWeight: 600 }}>Step {currentStep} / 4</div>
             </div>
 
-            <div style={{ display: 'grid', gap: 6, marginTop: 10 }}>
-              <div className="muted">Runs: {importInsights.total} • Failed: {importInsights.failed} ({importInsights.failureRate}%)</div>
-              <div className="muted">Imported rows: {importInsights.importedRows} • Invalid rows: {importInsights.invalidRows} • Duplicates: {importInsights.duplicateRows}</div>
-            </div>
-
-            <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
-              {filteredRuns.slice(0, 20).map((run, idx) => {
-                const key = `${run.at}-${idx}`;
-                const isExpanded = expandedRun === key;
-                return (
-                  <div key={key} className="ui-card" style={{ padding: 10 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
-                      <div className="muted">
-                        {new Date(run.at).toLocaleString()} • {run.fileName} • {run.campaignName} • {run.stage === 'complete' ? 'Complete' : 'Failed'}
-                        {` • Imported ${run.imported ?? 0}/${run.totalRows ?? 0} • Invalid ${run.invalidRows ?? 0} • Duplicates ${run.skippedDuplicates ?? 0}`}
-                      </div>
-                      <Button variant="secondary" onClick={() => setExpandedRun(isExpanded ? null : key)}>
-                        {isExpanded ? 'Hide reasons' : 'View reasons'}
-                      </Button>
-                    </div>
-
-                    {isExpanded && (
-                      <div style={{ marginTop: 8, display: 'grid', gap: 6 }}>
-                        <strong style={{ fontSize: 13 }}>Failure reason breakdown</strong>
-                        <div style={{ display: 'grid', gap: 4 }}>
-                          {Object.entries(run.reasonCounts || {}).map(([code, count]) => (
-                            <div key={code} className="muted">{code}: {count}</div>
-                          ))}
-                          {!Object.keys(run.reasonCounts || {}).length && <div className="muted">No reason counts captured for this run.</div>}
-                        </div>
-                        <strong style={{ fontSize: 13 }}>Row issue drill-down (sample)</strong>
-                        <div style={{ display: 'grid', gap: 4 }}>
-                          {(run.rowIssues || []).slice(0, 20).map((issue) => (
-                            <div key={`${issue.rowNumber}-${issue.code}-${issue.reason}`} className="muted">
-                              Row {issue.rowNumber}: {issue.reason} ({issue.code})
-                            </div>
-                          ))}
-                          {!(run.rowIssues || []).length && <div className="muted">No row-level issues captured for this run.</div>}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-              {!filteredRuns.length && <p className="muted" style={{ margin: 0 }}>No import runs match the selected filters.</p>}
-            </div>
-          </div>
-        )}
-
-        {activeCsv && importStage !== 'idle' && (
-          <div className="ui-card" style={{ padding: 12, marginTop: 10 }}>
-            <strong>Import Status</strong>
-            <p className="muted" style={{ marginBottom: 0 }}>
-              {importStage === 'validating' && 'Validating CSV mapping and row shape...'}
-              {importStage === 'importing' && 'Importing rows to Leads...'}
-              {importStage === 'complete' && 'Import complete.'}
-              {importStage === 'failed' && 'Import failed.'}
-            </p>
-          </div>
-        )}
-
-        {importError && <p style={{ color: '#ff9b9b' }}>{importError}</p>}
-        {importSummary && (
-          <div className="ui-card" style={{ padding: 12, marginTop: 10 }}>
-            <strong>Import Summary</strong>
-            <div style={{ display: 'grid', gap: 6, marginTop: 8 }}>
-              <div className="muted">Imported: {importSummary.imported}</div>
-              <div className="muted">Skipped duplicates: {importSummary.skippedDuplicates}</div>
-              <div className="muted">Invalid rows: {importSummary.invalidRows}</div>
-              <div className="muted">Total rows: {importSummary.totalRows}</div>
-            </div>
-
-            {!!importSummary.errorModel?.reasonCounts && (
-              <div style={{ marginTop: 10 }}>
-                <strong style={{ fontSize: 13 }}>API Failure Reasons</strong>
-                <div style={{ display: 'grid', gap: 4, marginTop: 6 }}>
-                  {Object.entries(importSummary.errorModel.reasonCounts).map(([code, count]) => (
-                    <div key={code} className="muted">{code}: {count}</div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {!!importSummary.errorModel?.rowIssues?.length && (
-              <div style={{ marginTop: 10 }}>
-                <strong style={{ fontSize: 13 }}>API Row Issues (sample)</strong>
-                <div style={{ display: 'grid', gap: 4, marginTop: 6 }}>
-                  {importSummary.errorModel.rowIssues.slice(0, 5).map((r) => (
-                    <div key={`${r.rowNumber}-${r.code}`} className="muted">
-                      Row {r.rowNumber}: {r.reason} ({r.code})
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        <div style={{ display: 'grid', gap: 10, marginTop: 10 }}>
-          {uploads.map((u, idx) => (
-            <div key={`${u.fileName}-${idx}`} className="ui-card" style={{ padding: 12 }}>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-                <strong>{u.fileName}</strong>
-                <Badge>{u.fileType}</Badge>
-              </div>
-
-              {u.fileType === 'CSV' && !!u.headers.length && (
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', padding: '16px 20px' }}>
+              {currentStep === 1 && (
                 <>
-                  <p className="muted" style={{ marginTop: 0 }}>Column mapping</p>
-                  <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(2, minmax(0,1fr))' }}>
-                    {u.headers.map((h) => (
-                      <label key={h} className="muted" style={{ display: 'grid', gap: 4 }}>
-                        {h}
-                        <select
-                          className="ui-input"
-                          value={map[h] || ''}
-                          onChange={(e) => setMap((m) => ({ ...m, [h]: e.target.value }))}
-                        >
-                          <option value="">Ignore</option>
-                          <option value="name">Name</option>
-                          <option value="company">Company</option>
-                          <option value="email">Email</option>
-                          <option value="phone">Phone</option>
-                          <option value="source">Source</option>
-                        </select>
-                      </label>
-                    ))}
-                  </div>
-
-                  {(duplicatePreview.email > 0 || duplicatePreview.phone > 0) && (
-                    <div className="ui-card" style={{ padding: 10, marginBottom: 10, borderColor: '#6b5a2c' }}>
-                      <strong style={{ color: '#ffd479' }}>Duplicate warning</strong>
-                      <p className="muted" style={{ marginBottom: 0 }}>
-                        Email duplicates: {duplicatePreview.email} • Phone duplicates: {duplicatePreview.phone}
-                      </p>
-                    </div>
-                  )}
-
-                  {!!invalidRowAnalysis.counts.total && (
-                    <div className="ui-card" style={{ padding: 10, marginBottom: 10, borderColor: '#6b5a2c' }}>
-                      <strong style={{ color: '#ffd479' }}>Invalid row preview</strong>
-                      <p className="muted" style={{ margin: '6px 0 0' }}>
-                        Total invalid: {invalidRowAnalysis.counts.total} • Missing Name/Company: {invalidRowAnalysis.counts.missingIdentity} • Missing Email/Phone: {invalidRowAnalysis.counts.missingContact}
-                      </p>
-                      <div style={{ display: 'grid', gap: 4, marginTop: 6 }}>
-                        {invalidRowAnalysis.preview.map((r) => (
-                          <div key={`${r.rowNumber}-${r.reason}`} className="muted">
-                            Row {r.rowNumber}: {r.reason}
-                          </div>
-                        ))}
+                  <Group label="CAMPAIGN INFO">
+                    <div style={{ display: 'grid', gap: 10 }}>
+                      <input style={inputStyle} placeholder="Campaign Name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                        <select style={inputStyle} value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as any }))}>{statusOptions.map((o) => <option key={o}>{o}</option>)}</select>
+                        <select style={inputStyle} value={form.niche} onChange={(e) => setForm((f) => ({ ...f, niche: e.target.value }))}>{nicheOptions.map((o) => <option key={o}>{o}</option>)}</select>
                       </div>
+                      <input style={inputStyle} placeholder="Sub-Niche" value={form.subNiche} onChange={(e) => setForm((f) => ({ ...f, subNiche: e.target.value }))} />
                     </div>
-                  )}
+                  </Group>
 
-                  <Table>
-                    <thead>
-                      <tr>{u.headers.map((h) => <th key={h}>{h}</th>)}</tr>
-                    </thead>
-                    <tbody>
-                      {u.rows.slice(0, 5).map((row, i) => (
-                        <tr key={i}>{row.map((col, j) => <td key={j}>{col}</td>)}</tr>
-                      ))}
-                    </tbody>
-                  </Table>
+                  <Group label="GEOGRAPHY">
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                      <input style={inputStyle} placeholder="City/Region" value={form.geographyCity} onChange={(e) => setForm((f) => ({ ...f, geographyCity: e.target.value }))} />
+                      <select style={inputStyle} value={form.geographyRadius} onChange={(e) => setForm((f) => ({ ...f, geographyRadius: e.target.value }))}>{radiusOptions.map((o) => <option key={o}>{o}</option>)}</select>
+                      <input style={inputStyle} placeholder="Province/State" value={form.geographyRegion} onChange={(e) => setForm((f) => ({ ...f, geographyRegion: e.target.value }))} />
+                    </div>
+                  </Group>
+
+                  <Group label="TARGETING">
+                    <div style={{ display: 'grid', gap: 10 }}>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{companySizes.map((o) => <Chip key={o} label={o} onClick={() => updateMulti('companySize', o)} />)}</div>
+                      <select style={inputStyle} value={form.revenueRange} onChange={(e) => setForm((f) => ({ ...f, revenueRange: e.target.value }))}>{revenueOptions.map((o) => <option key={o}>{o}</option>)}</select>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{contactTypes.map((o) => <Chip key={o} label={o} onClick={() => updateMulti('contactType', o)} />)}</div>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{infoTypes.map((o) => <Chip key={o} label={o} onClick={() => updateMulti('hasContactInfo', o)} />)}</div>
+                    </div>
+                  </Group>
+
+                  <Group label="OUTREACH">
+                    <div style={{ display: 'grid', gap: 10 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                        <select style={inputStyle} value={form.defaultChannel} onChange={(e) => setForm((f) => ({ ...f, defaultChannel: e.target.value as any }))}>{channelOptions.map((o) => <option key={o}>{o}</option>)}</select>
+                        <input style={inputStyle} type="number" value={form.dailySendLimit} onChange={(e) => setForm((f) => ({ ...f, dailySendLimit: Number(e.target.value || 20) }))} />
+                      </div>
+                      <textarea style={inputStyle} rows={3} placeholder="Notes" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
+                    </div>
+                  </Group>
                 </>
               )}
 
-              {u.fileType !== 'CSV' && (
-                <p className="muted" style={{ marginBottom: 0 }}>
-                  File received and queued for structured intake.
-                </p>
+              {currentStep === 2 && (
+                <>
+                  {sourceDefs.map((s) => (
+                    <div key={s.key} style={{ background: '#0A0E17', border: '1px solid #1C2333', borderRadius: 6, padding: 12, marginBottom: 10 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
+                        <div>
+                          <div><strong>{s.name}</strong></div>
+                          <div className="muted">{s.description}</div>
+                          {s.needsKey && <Badge tone="warning">API key required — configure in Settings</Badge>}
+                        </div>
+                        <Toggle on={!!form.dataSources[s.key]} onToggle={() => setForm((f) => ({ ...f, dataSources: { ...f.dataSources, [s.key]: !f.dataSources[s.key] } }))} />
+                      </div>
+                    </div>
+                  ))}
+                  <Group label="SOURCE PRIORITY">
+                    {form.sourcePriority.map((k: SourceKey, i: number) => (
+                      <div key={k} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                        <span>{i + 1}. {sourceDefs.find((s) => s.key === k)?.name}</span>
+                        <span>
+                          <GhostButton onClick={() => {
+                            const arr = [...form.sourcePriority];
+                            const n = i - 1;
+                            if (n < 0) return;
+                            [arr[i], arr[n]] = [arr[n], arr[i]];
+                            setForm((f) => ({ ...f, sourcePriority: arr }));
+                          }}>↑</GhostButton>{' '}
+                          <GhostButton onClick={() => {
+                            const arr = [...form.sourcePriority];
+                            const n = i + 1;
+                            if (n >= arr.length) return;
+                            [arr[i], arr[n]] = [arr[n], arr[i]];
+                            setForm((f) => ({ ...f, sourcePriority: arr }));
+                          }}>↓</GhostButton>
+                        </span>
+                      </div>
+                    ))}
+                  </Group>
+                </>
+              )}
+
+              {currentStep === 3 && (
+                <>
+                  <label style={{ ...inputStyle, borderStyle: 'dashed', borderColor: '#243044', display: 'block', textAlign: 'center', cursor: 'pointer' }}>
+                    <input type="file" accept=".csv,.xlsx" style={{ display: 'none' }} onChange={async (e) => {
+                      const parsed = await parseUpload(e.target.files?.[0]);
+                      setForm((f) => ({ ...f, spreadsheet: parsed }));
+                    }} />
+                    Drag and drop upload zone or click to browse
+                  </label>
+
+                  {form.spreadsheet && (
+                    <>
+                      <div className="muted" style={{ marginTop: 8 }}>File: {form.spreadsheet.fileName}</div>
+                      {form.spreadsheet.headers.map((h: string) => (
+                        <div key={h} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 8 }}>
+                          <div style={inputStyle}>{h}</div>
+                          <select style={inputStyle} value={form.spreadsheet.mapping[h]} onChange={(e) => setForm((f) => ({ ...f, spreadsheet: { ...f.spreadsheet, mapping: { ...f.spreadsheet.mapping, [h]: e.target.value } } }))}>
+                            {mappingOptions.map((m) => <option key={m}>{m}</option>)}
+                          </select>
+                        </div>
+                      ))}
+                      <Table>
+                        <thead><tr>{form.spreadsheet.headers.map((h: string) => <th key={h}>{h}</th>)}</tr></thead>
+                        <tbody>{form.spreadsheet.rows.slice(0, 5).map((r: string[], i: number) => <tr key={i}>{r.map((v, j) => <td key={j}>{v}</td>)}</tr>)}</tbody>
+                      </Table>
+                    </>
+                  )}
+
+                  <p className="muted">Any missing fields will be automatically enriched by your enabled data sources when the campaign runs</p>
+                  <GhostButton onClick={() => setCurrentStep(4)}>Skip for now</GhostButton>
+                </>
+              )}
+
+              {currentStep === 4 && (
+                <>
+                  <Group label="CAMPAIGN ANGLE">
+                    <textarea style={inputStyle} rows={3} placeholder="e.g. Missing calls and losing bookings to competitors" value={form.messaging.painPoint} onChange={(e) => setForm((f) => ({ ...f, messaging: { ...f.messaging, painPoint: e.target.value } }))} />
+                    <textarea style={{ ...inputStyle, marginTop: 8 }} rows={3} placeholder="e.g. We help home service businesses get 30% more booked appointments" value={form.messaging.yourOffer} onChange={(e) => setForm((f) => ({ ...f, messaging: { ...f.messaging, yourOffer: e.target.value } }))} />
+                    <textarea style={{ ...inputStyle, marginTop: 8 }} rows={3} placeholder="e.g. One of our clients added 12 new bookings in their first week" value={form.messaging.yourProof} onChange={(e) => setForm((f) => ({ ...f, messaging: { ...f.messaging, yourProof: e.target.value } }))} />
+                    <p className="muted" style={{ marginTop: 8 }}>The AI uses these three inputs to write personalized outreach for every lead in this campaign.</p>
+                  </Group>
+
+                  <Group label="EMAIL TEMPLATE">
+                    <input style={inputStyle} placeholder="e.g. Quick question for {{business_name}}" value={form.messaging.emailSubject} onFocus={(e) => { setActiveField('emailSubject'); fieldRefs.current.emailSubject = e.currentTarget; }} onChange={(e) => setForm((f) => ({ ...f, messaging: { ...f.messaging, emailSubject: e.target.value } }))} />
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>{vars.map((v) => <Chip key={v} label={v} onClick={() => insertVariable(v)} />)}</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}><span className="muted">Let AI generate email from my angle</span><Toggle on={form.messaging.aiEmail} onToggle={() => setForm((f) => ({ ...f, messaging: { ...f.messaging, aiEmail: !f.messaging.aiEmail } }))} /></div>
+                    <textarea style={{ ...inputStyle, marginTop: 8 }} rows={6} disabled={form.messaging.aiEmail} value={form.messaging.aiEmail ? 'AI will generate a personalized email using your angle.' : form.messaging.emailBody} onFocus={(e) => { setActiveField('emailBody'); fieldRefs.current.emailBody = e.currentTarget; }} onChange={(e) => setForm((f) => ({ ...f, messaging: { ...f.messaging, emailBody: e.target.value } }))} />
+                  </Group>
+
+                  <Group label="LINKEDIN DM TEMPLATE">
+                    <textarea style={inputStyle} rows={4} disabled={form.messaging.aiDm} value={form.messaging.aiDm ? 'AI will generate a personalized DM from your angle.' : form.messaging.dmBody} onFocus={(e) => { setActiveField('dmBody'); fieldRefs.current.dmBody = e.currentTarget; }} onChange={(e) => setForm((f) => ({ ...f, messaging: { ...f.messaging, dmBody: e.target.value } }))} />
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>{vars.map((v) => <Chip key={`dm-${v}`} label={v} onClick={() => insertVariable(v)} />)}</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}><span className="muted">Let AI generate DM from my angle</span><Toggle on={form.messaging.aiDm} onToggle={() => setForm((f) => ({ ...f, messaging: { ...f.messaging, aiDm: !f.messaging.aiDm } }))} /></div>
+                    <p className="muted" style={{ marginTop: 8 }}>LinkedIn DMs are capped at 20 per day.</p>
+                  </Group>
+
+                  <Group label="FOLLOW-UP SEQUENCE">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}><span>Enable follow-up sequence</span><Toggle on={form.messaging.followupEnabled} onToggle={() => setForm((f) => ({ ...f, messaging: { ...f.messaging, followupEnabled: !f.messaging.followupEnabled } }))} /></div>
+                    {form.messaging.followupEnabled && form.messaging.followups.map((fu, i) => (
+                      <div key={i} style={{ border: '1px solid #1C2333', borderLeft: i === 2 ? '3px solid #F5A623' : '1px solid #1C2333', borderRadius: 6, padding: 10, marginBottom: 8 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                          <strong>{i === 2 ? 'Breakup' : `Follow-up ${i + 1}`}</strong>
+                          {i === 2 && <Badge tone="warning">Breakup message — final attempt</Badge>}
+                        </div>
+                        <select style={inputStyle} value={fu.delay} onChange={(e) => setForm((f) => { const x = [...f.messaging.followups]; x[i] = { ...x[i], delay: e.target.value }; return { ...f, messaging: { ...f.messaging, followups: x } }; })}>{delayOptions.map((d) => <option key={d}>{d}</option>)}</select>
+                        <input style={{ ...inputStyle, marginTop: 8 }} placeholder="Subject" value={fu.subject} onChange={(e) => setForm((f) => { const x = [...f.messaging.followups]; x[i] = { ...x[i], subject: e.target.value }; return { ...f, messaging: { ...f.messaging, followups: x } }; })} />
+                        <textarea style={{ ...inputStyle, marginTop: 8 }} rows={3} placeholder="Body" value={fu.body} onChange={(e) => setForm((f) => { const x = [...f.messaging.followups]; x[i] = { ...x[i], body: e.target.value }; return { ...f, messaging: { ...f.messaging, followups: x } }; })} />
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}><span className="muted">Let AI write this follow-up</span><Toggle on={fu.ai} onToggle={() => setForm((f) => { const x = [...f.messaging.followups]; x[i] = { ...x[i], ai: !x[i].ai }; return { ...f, messaging: { ...f.messaging, followups: x } }; })} /></div>
+                      </div>
+                    ))}
+                  </Group>
+
+                  <Group label="SEND WINDOW">
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                      <input style={inputStyle} type="time" value={form.messaging.sendWindowFrom} onChange={(e) => setForm((f) => ({ ...f, messaging: { ...f.messaging, sendWindowFrom: e.target.value } }))} />
+                      <input style={inputStyle} type="time" value={form.messaging.sendWindowTo} onChange={(e) => setForm((f) => ({ ...f, messaging: { ...f.messaging, sendWindowTo: e.target.value } }))} />
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                      {dayOptions.map((d) => <Chip key={d} label={d} onClick={() => setForm((f) => ({ ...f, messaging: { ...f.messaging, sendDays: f.messaging.sendDays.includes(d) ? f.messaging.sendDays.filter((x: string) => x !== d) : [...f.messaging.sendDays, d] } }))} />)}
+                    </div>
+                    <p className="muted" style={{ marginTop: 8 }}>Outreach only sends during this window to appear natural and avoid spam filters.</p>
+                  </Group>
+                </>
               )}
             </div>
-          ))}
-          {!uploads.length && <p className="muted">No files uploaded yet.</p>}
+
+            <div style={{ flexShrink: 0, padding: '12px 20px', borderTop: '1px solid #1C2333', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="muted">{currentStep} / 4</div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <GhostButton onClick={() => setModalOpen(false)}>Cancel</GhostButton>
+                <GhostButton onClick={() => setCurrentStep((s) => Math.max(1, s - 1))}>Back</GhostButton>
+                {currentStep < 4 && <PrimaryButton onClick={() => setCurrentStep((s) => Math.min(4, s + 1))}>Next</PrimaryButton>}
+                {currentStep === 4 && <PrimaryButton onClick={saveCampaign}>{editingCampaign ? 'Save Campaign' : 'Create Campaign'}</PrimaryButton>}
+              </div>
+            </div>
+          </div>
         </div>
-      </Card>
+      )}
+
+      {mounted && importModalOpen && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.75)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, boxSizing: 'border-box' }}>
+          <div style={{ width: '100%', maxWidth: 700, maxHeight: '90vh', background: '#0D1117', border: '1px solid #1C2333', borderRadius: 8, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+            <div style={{ flexShrink: 0, padding: '16px 20px', borderBottom: '1px solid #1C2333' }}>
+              <div className="page-eyebrow">Import Leads</div>
+              <div style={{ fontWeight: 600 }}>Step {importStep} / 3</div>
+            </div>
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', padding: '16px 20px' }}>
+              {importStep === 1 && (
+                <select style={inputStyle} value={importCampaignId} onChange={(e) => setImportCampaignId(e.target.value)}>
+                  {selectedCampaigns.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              )}
+              {importStep === 2 && (
+                <>
+                  <label style={{ ...inputStyle, borderStyle: 'dashed', borderColor: '#243044', display: 'block', textAlign: 'center', cursor: 'pointer' }}>
+                    <input type="file" accept=".csv,.xlsx" style={{ display: 'none' }} onChange={async (e) => setImportData(await parseUpload(e.target.files?.[0]))} />
+                    Drag and drop upload zone or click to browse
+                  </label>
+                  {importData && (
+                    <>
+                      {importData.headers.map((h: string) => (
+                        <div key={h} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 8 }}>
+                          <div style={inputStyle}>{h}</div>
+                          <select style={inputStyle} value={importData.mapping[h]} onChange={(e) => setImportData((x: any) => ({ ...x, mapping: { ...x.mapping, [h]: e.target.value } }))}>
+                            {mappingOptions.map((m) => <option key={m}>{m}</option>)}
+                          </select>
+                        </div>
+                      ))}
+                      <Table>
+                        <thead><tr>{importData.headers.map((h: string) => <th key={h}>{h}</th>)}</tr></thead>
+                        <tbody>{importData.rows.slice(0, 5).map((r: string[], i: number) => <tr key={i}>{r.map((v, j) => <td key={j}>{v}</td>)}</tr>)}</tbody>
+                      </Table>
+                    </>
+                  )}
+                </>
+              )}
+              {importStep === 3 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Enrich missing fields automatically</span>
+                  <Toggle on={enrichMissing} onToggle={() => setEnrichMissing((v) => !v)} />
+                </div>
+              )}
+            </div>
+            <div style={{ flexShrink: 0, padding: '12px 20px', borderTop: '1px solid #1C2333', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="muted">{importStep} / 3</div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <GhostButton onClick={() => setImportModalOpen(false)}>Cancel</GhostButton>
+                <GhostButton onClick={() => setImportStep((s) => Math.max(1, s - 1))}>Back</GhostButton>
+                {importStep < 3 && <PrimaryButton onClick={() => setImportStep((s) => Math.min(3, s + 1))}>Next</PrimaryButton>}
+                {importStep === 3 && <PrimaryButton onClick={importLeads}>Import</PrimaryButton>}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmDelete && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.55)', display: 'grid', placeItems: 'center', zIndex: 10000 }}>
+          <div style={{ width: 'min(520px, calc(100vw - 32px))', padding: 14, border: '1px solid #1C2333', background: '#0D1117', borderRadius: 8 }}>
+            <h4 style={{ margin: 0, marginBottom: 10 }}>Are you sure you want to delete this campaign? This cannot be undone.</h4>
+            <div style={{ display: 'flex', justifyContent: 'end', gap: 8 }}>
+              <GhostButton onClick={() => setConfirmDelete(null)}>Cancel</GhostButton>
+              <DangerButton onClick={() => actionDelete(confirmDelete.id)}>Delete</DangerButton>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
