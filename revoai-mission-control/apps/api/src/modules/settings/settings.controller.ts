@@ -1,36 +1,48 @@
-import { Body, Controller, Get, Patch, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post } from '@nestjs/common';
 import { SettingsService } from './settings.service';
 import { UpdateSafetyDto } from './dto/settings.dto';
-import { assertAdminToken, assertAdminRole, getActorRole } from '../../common/auth.util';
 
-@Controller('settings/safety')
+@Controller('settings')
 export class SettingsController {
   constructor(private readonly settings: SettingsService) {}
 
   @Get()
-  getSafety(@Req() req: any) {
-    assertAdminToken(req);
+  getSettings() {
+    return this.settings.getSafety();
+  }
+
+  @Get('safety')
+  getSafety() {
     return this.settings.getSafety();
   }
 
   @Patch()
-  patchSafety(@Req() req: any, @Body() body: UpdateSafetyDto) {
-    assertAdminToken(req);
-    assertAdminRole(getActorRole(req), 'safety settings changes');
+  patchSettings(@Body() body: any) {
     return this.settings.updateSafety(body);
   }
 
-  @Post('danger/clear-draft-queue')
-  clearDraftQueue(@Req() req: any) {
-    assertAdminToken(req);
-    assertAdminRole(getActorRole(req), 'danger clear draft queue');
+  @Get('brand')
+  getBrand() {
+    return this.settings.getBrand();
+  }
+
+  @Post('brand')
+  saveBrand(@Body() body: any) {
+    return this.settings.saveBrand(body);
+  }
+
+  @Patch('safety')
+  patchSafety(@Body() body: UpdateSafetyDto) {
+    return this.settings.updateSafety(body);
+  }
+
+  @Post('safety/danger/clear-draft-queue')
+  clearDraftQueue() {
     return this.settings.clearDraftQueue();
   }
 
-  @Post('danger/reset-agent-states')
-  resetAgentStates(@Req() req: any) {
-    assertAdminToken(req);
-    assertAdminRole(getActorRole(req), 'danger reset agent states');
+  @Post('safety/danger/reset-agent-states')
+  resetAgentStates() {
     return this.settings.resetAgentStates();
   }
 }

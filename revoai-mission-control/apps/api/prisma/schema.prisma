@@ -99,11 +99,38 @@ model Campaign {
   id                String    @id @default(uuid())
   name              String
   niche             String
+  subNiche          String?   @map("sub_niche")
   geography         String
+  geographyCity     String?   @map("geography_city")
+  geographyRadius   String?   @map("geography_radius")
+  geographyRegion   String?   @map("geography_region")
   minScore          LeadScore @default(B)
   outreachTemplates Json
   contentThemes     Json
   metrics           Json
+  companySize       Json      @default("[]") @map("company_size")
+  revenueRange      String?   @map("revenue_range")
+  contactType       Json      @default("[]") @map("contact_type")
+  hasContactInfo    Json      @default("[]") @map("has_contact_info")
+  defaultChannel    String?   @map("default_channel")
+  dailySendLimit    Int       @default(20) @map("daily_send_limit")
+  dataSources       Json      @default("{}") @map("data_sources")
+  spreadsheetData   Json?     @map("spreadsheet_data")
+  notes             String?
+  painPoint         String?   @map("pain_point")
+  yourOffer         String?   @map("your_offer")
+  yourProof         String?   @map("your_proof")
+  emailSubjectTemplate String? @map("email_subject_template")
+  emailBodyTemplate String?   @map("email_body_template")
+  emailAiGenerate   Boolean   @default(true) @map("email_ai_generate")
+  dmBodyTemplate    String?   @map("dm_body_template")
+  dmAiGenerate      Boolean   @default(true) @map("dm_ai_generate")
+  followupEnabled   Boolean   @default(false) @map("followup_enabled")
+  followupSequence  Json      @default("[]") @map("followup_sequence")
+  sendWindowFrom    String?   @map("send_window_from")
+  sendWindowTo      String?   @map("send_window_to")
+  sendDays          Json      @default("[]") @map("send_days")
+  status            String    @default("active")
   isActive          Boolean   @default(true)
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
@@ -112,6 +139,7 @@ model Campaign {
   drafts        Draft[]
   tasks         Task[]
   schedulerJobs SchedulerJob[]
+  researchRuns ResearchRun[]
 }
 
 model Lead {
@@ -128,6 +156,8 @@ model Lead {
   phone               String?
   linkedinUrl         String?
   source              String?
+  sourceDetail        String?   @map("source_detail")
+  fitScore            String?   @map("fit_score")
   preferredChannel    Channel?
   leadScore           LeadScore?
   scoreOverride       LeadScore?
@@ -285,6 +315,20 @@ model Setting {
   updatedAt DateTime @default(now())
 }
 
+model BrandSettings {
+  id             String   @id @default("default")
+  yourName       String?
+  yourTitle      String?
+  companyName    String?
+  phoneNumber    String?
+  websiteUrl     String?
+  logoData       String?
+  signatureStyle String   @default("Professional")
+  updatedAt      DateTime @updatedAt
+
+  @@map("brand_settings")
+}
+
 model Session {
   id         String   @id @default(uuid())
   userId     String
@@ -320,11 +364,15 @@ model Connection {
 
 model ResearchRun {
   id          String   @id @default(uuid())
+  campaignId  String?  @map("campaign_id")
+  campaign    Campaign? @relation(fields: [campaignId], references: [id])
   status      String   @default("running")
   startedAt   DateTime @default(now())
   completedAt DateTime?
   notes       String?
   metadata    Json     @default("{}")
+  sourcesUsed Json     @default("[]") @map("sources_used")
+  searchParams Json    @default("{}") @map("search_params")
   createdAt   DateTime @default(now())
 
   leads   ResearchLead[]
@@ -346,6 +394,8 @@ model ResearchLead {
   linkedinUrl String?
   sourceUrl   String?
   sourceType  String   @default("research_agent")
+  source      String?
+  fitScore    String?  @map("fit_score")
   createdAt   DateTime @default(now())
 
   @@index([runId])
@@ -430,4 +480,37 @@ model LinkedinMessage {
   @@index([status])
   @@index([sentAt])
   @@map("linkedin_messages")
+}
+
+model ContentIdea {
+  id          String   @id @default(uuid())
+  platform    String
+  headline    String
+  source      String
+  sourceUrl   String?
+  contentType String
+  angle       String
+  aiDraft     String
+  dismissed   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([dismissed])
+  @@index([createdAt])
+  @@map("content_ideas")
+}
+
+model CompetitorIntel {
+  id               String   @id @default(uuid())
+  competitorName   String
+  linkedinUrl      String?
+  facebookUrl      String?
+  recentPosts      Json     @default("[]")
+  topTopics        Json     @default("[]")
+  contentGaps      Json     @default("[]")
+  postingFrequency String?
+  lastUpdated      DateTime @default(now())
+
+  @@index([competitorName])
+  @@index([lastUpdated])
+  @@map("competitor_intel")
 }

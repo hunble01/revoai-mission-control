@@ -15,6 +15,8 @@ export class SettingsService {
       'rate_limit_guardrails',
       'content_defaults',
       'notification_settings',
+      'content_intelligence',
+      'competitors',
     ];
     const rows = await this.prisma.setting.findMany({ where: { key: { in: keys } } });
     return Object.fromEntries(rows.map((r) => [r.key, r.value]));
@@ -43,6 +45,27 @@ export class SettingsService {
     if (payload?.notificationSettings) {
       updates.push({ key: 'notification_settings', value: payload.notificationSettings });
     }
+    if (payload?.contentTopics || payload?.contentExcludeTopics || payload?.youtubeChannels || payload?.youtubeSearchTerms || payload?.linkedinFrequency || payload?.linkedinDays || payload?.facebookFrequency || payload?.facebookDays || payload?.postTime || typeof payload?.offsetPlatforms === 'boolean' || payload?.newsSources) {
+      updates.push({
+        key: 'content_intelligence',
+        value: {
+          contentTopics: payload?.contentTopics || [],
+          contentExcludeTopics: payload?.contentExcludeTopics || [],
+          newsSources: payload?.newsSources || {},
+          youtubeChannels: payload?.youtubeChannels || [],
+          youtubeSearchTerms: payload?.youtubeSearchTerms || [],
+          linkedinFrequency: payload?.linkedinFrequency || 'EVERY_2_DAYS',
+          linkedinDays: payload?.linkedinDays || ['Mon', 'Wed', 'Fri'],
+          facebookFrequency: payload?.facebookFrequency || 'EVERY_2_DAYS',
+          facebookDays: payload?.facebookDays || ['Tue', 'Thu', 'Sat'],
+          postTime: payload?.postTime || '09:00',
+          offsetPlatforms: typeof payload?.offsetPlatforms === 'boolean' ? payload.offsetPlatforms : true,
+        },
+      });
+    }
+    if (payload?.competitors) {
+      updates.push({ key: 'competitors', value: payload.competitors });
+    }
 
     for (const u of updates) {
       await this.prisma.setting.upsert({ where: { key: u.key }, create: { key: u.key, value: u.value }, update: { value: u.value } });
@@ -50,6 +73,31 @@ export class SettingsService {
     }
 
     return this.getSafety();
+  }
+
+  async getBrand() {
+    const row = await this.prisma.brandSettings.findUnique({ where: { id: 'default' } });
+    if (row) return row;
+    return this.prisma.brandSettings.create({ data: { id: 'default' } as any });
+  }
+
+  async saveBrand(payload: any) {
+    const data = {
+      yourName: payload?.yourName || null,
+      yourTitle: payload?.yourTitle || null,
+      companyName: payload?.companyName || null,
+      phoneNumber: payload?.phoneNumber || null,
+      websiteUrl: payload?.websiteUrl || null,
+      logoData: payload?.logoData || null,
+      signatureStyle: payload?.signatureStyle || 'Professional',
+    };
+    const saved = await this.prisma.brandSettings.upsert({
+      where: { id: 'default' },
+      create: { id: 'default', ...(data as any) },
+      update: data as any,
+    });
+    await this.events.publish({ eventType: 'settings.brand.updated', payload: { signatureStyle: saved.signatureStyle } });
+    return saved;
   }
 
   async clearDraftQueue() {

@@ -22,6 +22,7 @@ import { LinkedinModule } from './modules/linkedin/linkedin.module';
 import { LinkedinDmModule } from './modules/linkedin-dm/linkedin-dm.module';
 import { FacebookModule } from './modules/facebook/facebook.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { ContentModule } from './modules/content/content.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
     LinkedinDmModule,
     FacebookModule,
     AnalyticsModule,
+    ContentModule,
   ],
   controllers: [HealthController],
 })

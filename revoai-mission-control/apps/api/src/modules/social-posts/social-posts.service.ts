@@ -15,14 +15,18 @@ export class SocialPostsService {
   }
 
   create(body: any) {
+    const platform = String(body?.platform || body?.channel || 'LINKEDIN').toUpperCase();
+    const content = String(body?.content || body?.body || '').trim();
+    const hashtags = Array.isArray(body?.hashtags) ? body.hashtags : [];
     return this.prisma.socialPost.create({
       data: {
-        channel: String(body?.channel || 'LINKEDIN').toUpperCase() as any,
-        body: String(body?.body || '').trim(),
+        channel: (platform === 'BOTH' ? 'LINKEDIN' : platform) as any,
+        body: content,
         mediaUrl: body?.mediaUrl || null,
         scheduledAt: body?.scheduledAt ? new Date(body.scheduledAt) : null,
         status: body?.status || 'draft',
         sourceType: body?.sourceType || 'manual',
+        engagementStats: { hashtags, requestedPlatform: platform } as any,
       },
     });
   }

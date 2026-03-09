@@ -12,6 +12,12 @@ export class ResearchController {
     return this.research.run(body || {});
   }
 
+  @Post('runs')
+  runV2(@Req() req: any, @Body() body: any) {
+    assertAdminToken(req);
+    return this.research.run(body || {});
+  }
+
   @Get('runs')
   runs(@Req() req: any) {
     assertAdminToken(req);
@@ -36,9 +42,27 @@ export class ResearchController {
     return this.research.getIntel(id);
   }
 
+  @Get('runs/:id/status')
+  runStatus(@Req() req: any, @Param('id') id: string) {
+    assertAdminToken(req);
+    return this.research.runStatus(id);
+  }
+
   @Post('runs/:id/export-leads')
   exportLeads(@Req() req: any, @Param('id') id: string, @Body() body: any) {
     assertAdminToken(req);
     return this.research.exportLeads(id, body?.campaignId);
+  }
+
+  @Post('competitor-intel')
+  competitorIntelRun(@Req() req: any, @Body() body: any) {
+    assertAdminToken(req);
+    return this.research.runCompetitorIntel(body?.competitorId, body?.competitor || null);
+  }
+
+  @Get('competitor-intel/:competitorId')
+  competitorIntelGet(@Req() req: any, @Param('competitorId') competitorId: string) {
+    assertAdminToken(req);
+    return this.research.getCompetitorIntel(competitorId);
   }
 }
