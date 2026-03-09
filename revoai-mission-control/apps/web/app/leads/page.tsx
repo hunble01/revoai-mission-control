@@ -202,17 +202,31 @@ export default function LeadsPage() {
         channel: lead.preferredChannel || 'EMAIL',
         draftType: 'OUTREACH',
         content: `Personalized outreach draft for ${lead.businessName || 'this lead'}`,
+        status: 'NEEDS_APPROVAL',
       };
-      const res = await fetch(`${base}/api/drafts`, {
+
+      const draftRes = await fetch(`${base}/api/drafts`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
         body: JSON.stringify(payload),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error?.message || data?.message || `Draft failed (HTTP ${res.status})`);
-      setLeads((curr) => curr.map((x) => (x.id === lead.id ? { ...x, status: 'DRAFTED' } : x)));
-      if (selectedLead?.id === lead.id) setSelectedLead((curr: any) => ({ ...curr, status: 'DRAFTED' }));
+      const draftData = await draftRes.json().catch(() => ({}));
+      if (!draftRes.ok) throw new Error(draftData?.error?.message || draftData?.message || `Draft failed (HTTP ${draftRes.status})`);
+
+      const leadPatchRes = await fetch(`${base}/api/leads/${lead.id}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': token, 'x-actor-role': 'admin' },
+        body: JSON.stringify({ status: 'DRAFTED' }),
+      });
+      const leadPatchData = await leadPatchRes.json().catch(() => ({}));
+      if (!leadPatchRes.ok) throw new Error(leadPatchData?.error?.message || leadPatchData?.message || `Lead status update failed (HTTP ${leadPatchRes.status})`);
+
+      await load();
+      if (selectedLead?.id === lead.id) {
+        setSelectedLead((curr: any) => (curr ? { ...curr, status: 'DRAFTED' } : curr));
+      }
       toast('success', 'Draft created — review in Approvals');
     } catch (e: any) {
       toast('error', e?.message || 'Draft failed');
