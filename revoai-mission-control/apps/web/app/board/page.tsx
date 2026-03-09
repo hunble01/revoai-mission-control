@@ -1,239 +1,112 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { Badge } from '../../components/ui/Badge';
+import { Button } from '../../components/ui/Button';
 
 const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-const token = process.env.NEXT_PUBLIC_ADMIN_TOKEN || 'change-me';
 
-const columns = ['BACKLOG', 'DOING', 'NEEDS_APPROVAL', 'DONE'] as const;
-
-type Task = {
-  id: string;
-  title: string;
-  description?: string;
-  columnName: string;
-  priority?: string;
-  campaignId?: string | null;
-  createdAt?: string;
-  updatedAt?: string;
-};
+const COLUMNS = [
+  { key: 'NEW', tone: 'default', label: 'NEW' },
+  { key: 'RESEARCHED', tone: 'info', label: 'RESEARCHED' },
+  { key: 'DRAFTED', tone: 'violet', label: 'DRAFTED' },
+  { key: 'CONTACTED', tone: 'warning', label: 'CONTACTED' },
+  { key: 'REPLIED', tone: 'success', label: 'REPLIED' },
+  { key: 'BOOKED', tone: 'success', label: 'BOOKED' },
+] as const;
 
 export default function BoardPage() {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-  const [replay, setReplay] = useState<any[]>([]);
-  const [replayLoading, setReplayLoading] = useState(false);
-  const [replayError, setReplayError] = useState('');
-  const [saving, setSaving] = useState(false);
+  const [leads, setLeads] = useState<any[]>([]);
+  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [campaignId, setCampaignId] = useState('ALL');
+  const [dragging, setDragging] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState<string | null>(null);
+
+  const toast = (type: 'success' | 'error' | 'info' | 'warning', text: string) => window.dispatchEvent(new CustomEvent('app-toast', { detail: { type, text } }));
 
   const load = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const res = await fetch(`${base}/api/tasks`, { credentials: 'include', headers: { 'x-admin-token': token } });
-      if (!res.ok) throw new Error(`Failed to load tasks (HTTP ${res.status})`);
-      const data = await res.json();
-      const list = Array.isArray(data) ? data : [];
-      setTasks(list);
-      if (!selectedTaskId && list[0]?.id) setSelectedTaskId(list[0].id);
-    } catch (e: any) {
-      setTasks([]);
-      setError(e?.message || 'Failed to load task board');
-    } finally {
-      setLoading(false);
-    }
+    const [l, c] = await Promise.all([
+      fetch(`${base}/api/leads`, { credentials: 'include' }).then((r) => r.json()).catch(() => []),
+      fetch(`${base}/api/campaigns`, { credentials: 'include' }).then((r) => r.json()).catch(() => []),
+    ]);
+    setLeads(Array.isArray(l) ? l : []);
+    setCampaigns(Array.isArray(c) ? c : []);
   };
 
-  const selectedTask = useMemo(
-    () => tasks.find((t) => t.id === selectedTaskId) || null,
-    [tasks, selectedTaskId],
-  );
+  useEffect(() => { load(); }, []);
 
-  const loadReplay = async (taskId: string) => {
-    setReplayLoading(true);
-    setReplayError('');
+  const filtered = useMemo(() => campaignId === 'ALL' ? leads : leads.filter((l: any) => l.campaignId === campaignId), [leads, campaignId]);
+
+  const moveLead = async (leadId: string, toStatus: string) => {
+    const prev = leads;
+    setLeads((curr) => curr.map((l: any) => l.id === leadId ? { ...l, status: toStatus } : l));
     try {
-      const res = await fetch(`${base}/api/tasks/${taskId}/replay`, {
-        credentials: 'include',
-        headers: { 'x-admin-token': token, 'x-actor-role': 'admin' },
-      });
-      if (!res.ok) throw new Error(`Failed replay load (HTTP ${res.status})`);
-      const data = await res.json();
-      setReplay(Array.isArray(data) ? data : []);
+      const res = await fetch(`${base}/api/leads/${leadId}`, { method: 'PATCH', credentials: 'include', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ status: toStatus }) });
+      if (!res.ok) throw new Error(`Move failed (${res.status})`);
     } catch (e: any) {
-      setReplay([]);
-      setReplayError(e?.message || 'Failed to load replay events');
-    } finally {
-      setReplayLoading(false);
+      setLeads(prev);
+      toast('error', e?.message || 'Move failed');
     }
-  };
-
-  useEffect(() => {
-    load();
-    const t = setInterval(load, 5000);
-    return () => clearInterval(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (selectedTaskId) loadReplay(selectedTaskId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedTaskId]);
-
-  const moveTask = async (task: Task, target: string) => {
-    setSaving(true);
-    setMessage('');
-    setError('');
-    const prev = tasks;
-    setTasks((curr) => curr.map((t) => (t.id === task.id ? { ...t, columnName: target } : t)));
-    try {
-      const res = await fetch(`${base}/api/tasks/${task.id}`, {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: {
-          'content-type': 'application/json',
-          'x-admin-token': token,
-          'x-actor-role': 'admin',
-        },
-        body: JSON.stringify({ columnName: target }),
-      });
-      if (!res.ok) throw new Error(`Task move failed (HTTP ${res.status})`);
-      setMessage(`Moved task to ${target}.`);
-      await load();
-      await loadReplay(task.id);
-    } catch (e: any) {
-      setTasks(prev);
-      setError(e?.message || 'Task move failed');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const nextMoves = (col: string) => {
-    if (col === 'BACKLOG') return ['DOING'];
-    if (col === 'DOING') return ['NEEDS_APPROVAL', 'BACKLOG'];
-    if (col === 'NEEDS_APPROVAL') return ['DOING', 'DONE'];
-    return [];
   };
 
   return (
-    <div className="dash-stack">
-      <h1>Task Board</h1>
-      {error && <p style={{ color: '#ff9b9b' }}>{error}</p>}
-      {message && <p className="muted">{message}</p>}
+    <div className="dash-stack fade-in">
+      <section className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <div className="page-eyebrow">OPERATIONS / BOARD</div>
+          <h2 className="page-title" style={{ margin: 0 }}>Pipeline Board</h2>
+          <p className="page-desc">Total pipeline leads: {filtered.length}</p>
+        </div>
+        <select className="ui-input" value={campaignId} onChange={(e) => setCampaignId(e.target.value)}>
+          <option value="ALL">All Campaigns</option>
+          {campaigns.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+      </section>
 
-      {loading ? (
-        <p className="muted">Loading task board...</p>
-      ) : !tasks.length ? (
-        <p className="muted">No tasks found.</p>
-      ) : (
-        <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-            {columns.map((col) => (
-              <section key={col} className="ui-card" style={{ padding: 10 }}>
-                <h3>{col.replace('_', ' ')}</h3>
-                {tasks.filter((t) => t.columnName === col).map((t) => (
-                  <button
-                    key={t.id}
-                    onClick={() => setSelectedTaskId(t.id)}
-                    style={{
-                      display: 'block',
-                      width: '100%',
-                      textAlign: 'left',
-                      background: selectedTaskId === t.id ? '#1a2242' : '#0f1528',
-                      border: '1px solid #273056',
-                      color: 'inherit',
-                      padding: 8,
-                      borderRadius: 6,
-                      marginBottom: 8,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <strong>{t.title}</strong>
-                    <div className="muted" style={{ fontSize: 12 }}>{t.priority || 'med'}</div>
-                  </button>
-                ))}
-              </section>
-            ))}
-          </div>
-
-          <section className="ui-card" style={{ marginTop: 12, padding: 12 }}>
-            <h3>Task Detail Panel</h3>
-            {!selectedTask ? (
-              <p className="muted">Select a task to inspect details.</p>
-            ) : (
-              <>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 8 }}>
-                  <div>
-                    <p className="kpi-title">Title</p>
-                    <p>{selectedTask.title}</p>
-                  </div>
-                  <div>
-                    <p className="kpi-title">Task ID</p>
-                    <p style={{ fontFamily: 'monospace' }}>{selectedTask.id}</p>
-                  </div>
-                  <div>
-                    <p className="kpi-title">Column</p>
-                    <p>{selectedTask.columnName}</p>
-                  </div>
-                  <div>
-                    <p className="kpi-title">Priority</p>
-                    <p>{selectedTask.priority || 'med'}</p>
-                  </div>
-                </div>
-
-                <div className="table-toolbar" style={{ marginTop: 8 }}>
-                  {nextMoves(selectedTask.columnName).map((target) => (
-                    <button
-                      key={target}
-                      className="ui-input"
-                      onClick={() => moveTask(selectedTask, target)}
-                      disabled={saving}
+      <div style={{ display: 'flex', flexDirection: 'row', gap: 12, overflowX: 'auto', height: 'calc(100vh - 180px)' }}>
+        {COLUMNS.map((col) => {
+          const rows = filtered.filter((l: any) => String(l.status || '').toUpperCase() === col.key);
+          return (
+            <div
+              key={col.key}
+              onDragOver={(e) => { e.preventDefault(); setDragOver(col.key); }}
+              onDragLeave={() => setDragOver(null)}
+              onDrop={(e) => { e.preventDefault(); const id = e.dataTransfer.getData('text/plain'); setDragOver(null); setDragging(null); if (id) moveLead(id, col.key); }}
+              style={{ minWidth: 240, maxWidth: 280, background: dragOver === col.key ? 'rgba(0,201,255,0.04)' : '#0D1117', border: dragOver === col.key ? '1px solid #00C9FF' : '1px solid #1C2333', borderRadius: 8, display: 'flex', flexDirection: 'column' }}
+            >
+              <div style={{ padding: '12px 16px', borderBottom: '1px solid #1C2333', flexShrink: 0, display: 'flex', justifyContent: 'space-between' }}>
+                <strong>{col.label}</strong>
+                <Badge tone={col.tone as any}>{rows.length}</Badge>
+              </div>
+              <div style={{ flex: 1, overflowY: 'auto', padding: 8 }}>
+                {rows.map((l: any) => {
+                  const campaign = campaigns.find((c: any) => c.id === l.campaignId);
+                  const days = Math.max(0, Math.floor((Date.now() - new Date(l.updatedAt || l.createdAt || Date.now()).getTime()) / 86400000));
+                  return (
+                    <div
+                      key={l.id}
+                      draggable
+                      onDragStart={(e) => { setDragging(l.id); e.dataTransfer.setData('text/plain', l.id); }}
+                      onDragEnd={() => setDragging(null)}
+                      style={{ background: '#111827', border: dragging === l.id ? '1px solid #00C9FF' : '1px solid #1C2333', opacity: dragging === l.id ? 0.5 : 1, borderRadius: 6, padding: 12, marginBottom: 8, cursor: 'grab' }}
                     >
-                      Move to {target.replace('_', ' ')}
-                    </button>
-                  ))}
-                  <button className="ui-input" onClick={() => loadReplay(selectedTask.id)} disabled={replayLoading}>
-                    Refresh Replay
-                  </button>
-                </div>
-
-                <h4 style={{ marginTop: 12 }}>Replay (in-page)</h4>
-                {replayError && <p style={{ color: '#ff9b9b' }}>{replayError}</p>}
-                {replayLoading ? (
-                  <p className="muted">Loading replay...</p>
-                ) : !replay.length ? (
-                  <p className="muted">No replay events for this task yet.</p>
-                ) : (
-                  <div style={{ maxHeight: 240, overflow: 'auto', border: '1px solid #273056', borderRadius: 8 }}>
-                    <table className="ui-table" style={{ margin: 0 }}>
-                      <thead>
-                        <tr>
-                          <th>Type</th>
-                          <th>By</th>
-                          <th>Time</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {replay.map((evt: any) => (
-                          <tr key={String(evt.id)}>
-                            <td>{evt.eventType}</td>
-                            <td>{evt.createdBy || evt.agentId || 'system'}</td>
-                            <td>{evt.createdAt ? new Date(evt.createdAt).toLocaleString() : '—'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </>
-            )}
-          </section>
-        </>
-      )}
+                      <div style={{ fontWeight: 700 }}>{l.businessName || 'Unknown'}</div>
+                      <div className="muted">{l.contactName || '—'}</div>
+                      <div style={{ marginTop: 6 }}><Badge tone="info">{campaign?.name || 'No campaign'}</Badge></div>
+                      <div style={{ marginTop: 6, display: 'flex', gap: 6 }}>
+                        <Badge tone={String(l.fitScore || '').toLowerCase() === 'high' ? 'success' : String(l.fitScore || '').toLowerCase() === 'medium' ? 'warning' : 'default'}>{l.fitScore || 'Low'}</Badge>
+                        <Badge tone={String(l.preferredChannel || 'EMAIL').toUpperCase() === 'EMAIL' ? 'info' : 'violet' as any}>{String(l.preferredChannel || 'EMAIL').toUpperCase()}</Badge>
+                      </div>
+                      <div className="muted" style={{ marginTop: 6 }}>{days} days</div>
+                      <Button variant="secondary" onClick={() => window.location.href = `/leads?leadId=${l.id}`} style={{ marginTop: 8 }}>View</Button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

@@ -188,6 +188,26 @@ export default function SettingsPage() {
         <div className="table-toolbar" style={{ justifyContent: 'flex-end', marginTop: 8 }}><Button variant="primary" onClick={saveCompetitors}>Save Competitors</Button></div>
       </Card>
 
+      <Card title="Notifications" subtitle="Alert preferences">
+        <div style={{ display: 'grid', gap: 10 }}>
+          {[
+            ['approvalNeeded', 'New lead requires approval'],
+            ['sendFailure', 'Send failure alerts'],
+            ['dailyDigest', 'Daily digest email'],
+            ['newReply', 'New reply notification'],
+            ['researchComplete', 'Research run complete'],
+          ].map(([k, label]) => (
+            <div key={k} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>{label}</span>
+              <button onClick={() => setCi((c: any) => ({ ...c, notifications: { ...(c.notifications || {}), [k]: !(c.notifications || {})[k] } }))} style={{ width: 40, height: 22, borderRadius: 999, border: '1px solid #1C2333', background: (ci.notifications || {})[k] ? 'rgba(0,201,255,.2)' : '#0D1117' }}>
+                <span style={{ display: 'block', width: 16, height: 16, borderRadius: 999, background: (ci.notifications || {})[k] ? '#00C9FF' : '#7B8799', transform: `translateX(${(ci.notifications || {})[k] ? 16 : 0}px)`, transition: 'all .2s' }} />
+              </button>
+            </div>
+          ))}
+          <Button variant="primary" onClick={async () => { await fetch(`${base}/api/settings`, { method: 'PATCH', credentials: 'include', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ notificationSettings: ci.notifications || {} }) }); setMsg('Notifications saved.'); }}>Save Notifications</Button>
+        </div>
+      </Card>
+
       <Card title="Brand & Signature" subtitle="Default sender identity used by AI-generated outreach">
         <div className="table-toolbar" style={{ display: 'grid', gap: 8 }}>
           <input className="ui-input" placeholder="Your Name" value={brand.yourName || ''} onChange={(e) => setBrand((b: any) => ({ ...b, yourName: e.target.value }))} />

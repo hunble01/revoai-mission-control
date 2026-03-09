@@ -3,50 +3,51 @@
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { SidebarNavItem } from './ui/SidebarNavItem';
-import { Input } from './ui/Input';
 
 const NAV_GROUPS = [
   {
     title: 'INTELLIGENCE',
     items: [
-      ['/', 'Overview'],
-      ['/research', 'Research Hub'],
+      { href: '/', label: 'Overview' },
+      { href: '/research', label: 'Research Hub', isNew: true },
+      { href: '/content-calendar', label: 'Content Calendar', isNew: true }
     ],
   },
   {
     title: 'PIPELINE',
     items: [
-      ['/campaigns', 'Campaigns'],
-      ['/leads', 'Leads'],
-      ['/approvals', 'Approvals'],
-      ['/drafts', 'Drafts'],
+      { href: '/campaigns', label: 'Campaigns' },
+      { href: '/leads', label: 'Leads', countKey: 'leads' },
+      { href: '/approvals', label: 'Approvals', countKey: 'approvals' },
+      { href: '/drafts', label: 'Drafts' },
     ],
   },
   {
     title: 'CHANNELS',
     items: [
-      ['/connections', 'Connections'],
-      ['/linkedin', 'LinkedIn Manager'],
-      ['/facebook', 'Facebook Manager'],
+      { href: '/connections', label: 'Connections' },
+      { href: '/linkedin', label: 'LinkedIn Manager', isNew: true },
+      { href: '/facebook', label: 'Facebook Manager', isNew: true },
+      { href: '/email', label: 'Email', isNew: true },
     ],
   },
   {
     title: 'OPERATIONS',
     items: [
-      ['/board', 'Board'],
-      ['/scheduler', 'Scheduler'],
-      ['/feed', 'Live Feed'],
-      ['/agents', 'Agents'],
+      { href: '/board', label: 'Board' },
+      { href: '/scheduler', label: 'Scheduler' },
+      { href: '/feed', label: 'Live Feed' },
+      { href: '/agents', label: 'Agents' },
     ],
   },
   {
     title: 'SYSTEM',
     items: [
-      ['/analytics', 'Analytics'],
-      ['/health', 'Health'],
-      ['/settings', 'Settings'],
-      ['/help', 'Help'],
-      ['/audit', 'Audit'],
+      { href: '/analytics', label: 'Analytics', isNew: true },
+      { href: '/health', label: 'Health' },
+      { href: '/settings', label: 'Settings' },
+      { href: '/help', label: 'Help' },
+      { href: '/audit', label: 'Audit' },
     ],
   },
 ] as const;
@@ -61,6 +62,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [showNotif, setShowNotif] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showProfile, setShowProfile] = useState(false);
+  const [navCounts, setNavCounts] = useState<{ approvals: number; leads: number }>({ approvals: 0, leads: 0 });
+  const [clock, setClock] = useState('00:00:00');
+  const [toasts, setToasts] = useState<Array<{ id: string; type: 'success' | 'warning' | 'error' | 'info'; text: string }>>([]);
 
   useEffect(() => {
     if (!searchQ.trim()) {
@@ -81,6 +85,32 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       .then((r) => r.json())
       .then((d) => setNotifications(Array.isArray(d?.items) ? d.items : []))
       .catch(() => setNotifications([]));
+
+    const t = setInterval(() => setClock(new Date().toISOString().slice(11, 19)), 1000);
+    setClock(new Date().toISOString().slice(11, 19));
+
+    const onToast = (ev: any) => {
+      const detail = ev?.detail || {};
+      const id = `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      setToasts((curr) => [...curr, { id, type: detail.type || 'info', text: detail.text || 'Update' }]);
+      setTimeout(() => setToasts((curr) => curr.filter((x) => x.id !== id)), 4000);
+    };
+    window.addEventListener('app-toast' as any, onToast as any);
+
+    Promise.all([
+      fetch(`${base}/api/drafts?status=NEEDS_APPROVAL`, { credentials: 'include', headers: { 'x-admin-token': token } }).then((r) => r.json()).catch(() => []),
+      fetch(`${base}/api/leads?status=NEW`, { credentials: 'include', headers: { 'x-admin-token': token } }).then((r) => r.json()).catch(() => []),
+    ]).then(([drafts, leads]) => {
+      setNavCounts({
+        approvals: Array.isArray(drafts) ? drafts.length : 0,
+        leads: Array.isArray(leads) ? leads.length : 0,
+      });
+    }).catch(() => setNavCounts({ approvals: 0, leads: 0 }));
+
+    return () => {
+      clearInterval(t);
+      window.removeEventListener('app-toast' as any, onToast as any);
+    };
   }, []);
 
   return (
@@ -100,27 +130,32 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <div key={group.title} className="nav-group">
                 <div className="nav-group-title">{group.title}</div>
                 <nav className="sidebar-nav" aria-label={group.title}>
-                  {group.items.map(([href, label]) => (
-                    <SidebarNavItem key={href} href={href} label={label} active={pathname === href} />
+                  {group.items.map((item) => (
+                    <SidebarNavItem
+                      key={item.href}
+                      href={item.href}
+                      label={item.label}
+                      active={pathname === item.href}
+                      isNew={!!item.isNew}
+                      count={item.countKey ? navCounts[item.countKey as 'approvals' | 'leads'] : undefined}
+                    />
                   ))}
                 </nav>
               </div>
             ))}
 
             <div className="sidebar-footer">
-              <a href="/help">Help Center</a>
-              <a href="/settings">Settings</a>
-              <a href="/login">Login</a>
-              <a href="#" onClick={async (e) => { e.preventDefault(); await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/auth/logout`, { method: 'POST', credentials: 'include' }); window.location.href = '/login'; }}>Logout</a>
-              <div className="profile-chip">Boss Workspace • Secure</div>
+              <div className="footer-status">
+                <span className="status-dot" />
+                <span className="footer-label">boss workspace</span>
+              </div>
             </div>
           </aside>
 
           <main className="content">
             <header className="topbar">
               <div>
-                <strong>Operations Console</strong>
-                <small>Speed-to-lead, approvals, booked appointments</small>
+                <div className="topbar-title">Operations Console <span className="topbar-sub">MISSION CONTROL · {clock}</span></div>
                 <div className="flow-links" aria-label="Pipeline flow">
                   <a href="/research">Research</a>
                   <span>→</span>
@@ -134,9 +169,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </div>
               </div>
               <div className="topbar-actions" style={{ position: 'relative' }}>
-                <Input aria-label="Search" placeholder="Search leads, drafts, campaigns..." value={searchQ} onChange={(e) => setSearchQ(e.target.value)} />
-                <button className="icon-btn" aria-label="Notifications" onClick={() => setShowNotif((v) => !v)}>◦</button>
-                <button className="icon-btn" aria-label="Profile" onClick={() => setShowProfile((v) => !v)}>⌁</button>
+                <div className="search-wrap">
+                  <span className="search-icon">⌕</span>
+                  <input className="topbar-search" aria-label="Search" placeholder="Search leads, drafts, campaigns..." value={searchQ} onChange={(e) => setSearchQ(e.target.value)} />
+                </div>
+                <button className="topbar-btn" aria-label="Notifications" onClick={() => setShowNotif((v) => !v)}>🔔<span className="notif-dot" /></button>
+                <button className="topbar-btn topbar-profile" aria-label="Profile" onClick={() => setShowProfile((v) => !v)}>B</button>
 
                 {!!searchQ.trim() && searchResults && (
                   <div className="ui-card" style={{ position: 'absolute', top: 42, right: 110, width: 340, padding: 10, zIndex: 40 }}>
@@ -154,7 +192,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 {showProfile && (
                   <div className="ui-card" style={{ position: 'absolute', top: 42, right: 0, width: 220, padding: 10, zIndex: 40 }}>
                     <div className="muted" style={{ marginBottom: 8 }}>Workspace: boss workspace</div>
-                    <a href="/login" className="demo-step">Logout</a>
+                    <div className="muted">Local mode (authless)</div>
                   </div>
                 )}
               </div>

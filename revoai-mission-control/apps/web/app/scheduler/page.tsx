@@ -1,214 +1,52 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { postJson } from '../../components/fetch-json';
+import { useEffect, useState } from 'react';
+import { Button } from '../../components/ui/Button';
+import { Card } from '../../components/ui/Card';
 
 const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-const token = process.env.NEXT_PUBLIC_ADMIN_TOKEN || 'change-me';
 
-const cronLike = /^([*\d/,\-]+\s){4}[*\d/,\-]+$/;
+const cronToText = (cron: string) => {
+  if (cron === '0 9 * * *') return 'Daily at 9:00 AM';
+  if (cron === '0 9 * * 1-5') return 'Weekdays at 9:00 AM';
+  if (cron === '0 */6 * * *') return 'Every 6 hours';
+  return cron;
+};
+
+const toCron = (freq: string, time: string, days: string[], custom: string) => {
+  if (freq === 'CUSTOM') return custom;
+  if (freq === 'HOURLY') return '0 * * * *';
+  if (freq === 'DAILY') return `0 ${time.split(':')[0]} * * *`;
+  if (freq === 'WEEKDAYS') return `0 ${time.split(':')[0]} * * 1-5`;
+  if (freq === 'WEEKLY') return `0 ${time.split(':')[0]} * * ${days.map((d) => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].indexOf(d)).join(',')}`;
+  return '0 9 * * *';
+};
 
 export default function SchedulerPage() {
   const [jobs, setJobs] = useState<any[]>([]);
-  const [safety, setSafety] = useState<any>({});
-  const [runs, setRuns] = useState<any[]>([]);
-  const [msg, setMsg] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [savingId, setSavingId] = useState<string | null>(null);
-
-  const [newName, setNewName] = useState('');
-  const [newJobType, setNewJobType] = useState('RESEARCH_RUN');
-  const [newCron, setNewCron] = useState('0 9 * * *');
-  const [newTimezone, setNewTimezone] = useState('America/Toronto');
-  const [newCampaignId, setNewCampaignId] = useState('');
+  const [editor, setEditor] = useState<Record<string, any>>({});
 
   const load = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const [j, s, r] = await Promise.all([
-        fetch(`${base}/api/scheduler/jobs`, { credentials: 'include', headers: { 'x-admin-token': token } }).then((x) => x.json()),
-        fetch(`${base}/api/settings/safety`, { credentials: 'include', headers: { 'x-admin-token': token } }).then((x) => x.json()),
-        fetch(`${base}/api/scheduler/runs`, { credentials: 'include', headers: { 'x-admin-token': token } }).then((x) => x.json()),
-      ]);
-      setJobs(Array.isArray(j) ? j : []);
-      setSafety(s || {});
-      setRuns(Array.isArray(r) ? r : []);
-    } catch (e: any) {
-      setJobs([]);
-      setRuns([]);
-      setError(e?.message || 'Failed to load scheduler state');
-    } finally {
-      setLoading(false);
-    }
+    const rows = await fetch(`${base}/api/scheduler/jobs`, { credentials: 'include' }).then((r) => r.json()).catch(() => []);
+    setJobs(Array.isArray(rows) ? rows : []);
   };
+  useEffect(() => { load(); }, []);
 
-  useEffect(() => {
-    load();
-  }, []);
-
-  const runNow = async (id: string) => {
-    setError('');
-    setMsg('');
-    setSavingId(id);
-    try {
-      await postJson(`/scheduler/jobs/${id}/run-now`);
-      setMsg('Job run triggered.');
-      await load();
-    } catch (e: any) {
-      setError(e?.message || 'Run now failed');
-    } finally {
-      setSavingId(null);
-    }
-  };
-
-  const toggleEnabled = async (job: any) => {
-    setError('');
-    setMsg('');
-    setSavingId(job.id);
-    try {
-      await fetch(`${base}/api/scheduler/jobs/${job.id}`, {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: {
-          'content-type': 'application/json',
-          'x-admin-token': token,
-          'x-actor-role': 'admin',
-        },
-        body: JSON.stringify({ enabled: !job.enabled }),
-      });
-      setMsg(`Job ${job.name} ${job.enabled ? 'disabled' : 'enabled'}.`);
-      await load();
-    } catch (e: any) {
-      setError(e?.message || 'Failed to toggle job');
-    } finally {
-      setSavingId(null);
-    }
-  };
-
-  const createJob = async () => {
-    setError('');
-    setMsg('');
-    if (!newName.trim()) {
-      setError('Job name is required.');
-      return;
-    }
-    if (!cronLike.test(newCron.trim())) {
-      setError('Cron expression must have 5 fields (basic validation).');
-      return;
-    }
-
-    try {
-      await fetch(`${base}/api/scheduler/jobs`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'content-type': 'application/json',
-          'x-admin-token': token,
-          'x-actor-role': 'admin',
-        },
-        body: JSON.stringify({
-          name: newName.trim(),
-          jobType: newJobType,
-          cronExpr: newCron.trim(),
-          timezone: newTimezone,
-          enabled: true,
-          campaignId: newCampaignId || undefined,
-          config: {},
-        }),
-      });
-      setMsg('Scheduler job created.');
-      setNewName('');
-      setNewJobType('RESEARCH_RUN');
-      setNewCron('0 9 * * *');
-      setNewTimezone('America/Toronto');
-      setNewCampaignId('');
-      await load();
-    } catch (e: any) {
-      setError(e?.message || 'Failed to create job');
-    }
-  };
-
-
-  const runStats = useMemo(() => {
-    const total = runs.length;
-    const completed = runs.filter((r) => r.status === 'completed').length;
-    const failed = runs.filter((r) => r.status === 'failed').length;
-    return { total, completed, failed };
-  }, [runs]);
-
-  return (
-    <div className="dash-stack">
-      <h1>Scheduler + Safety</h1>
-      {msg && <p className="muted">{msg}</p>}
-      {error && <p style={{ color: '#ff9b9b' }}>{error}</p>}
-
-      {loading ? (
-        <p>Loading scheduler state...</p>
-      ) : (
-        <>
-          <div className="ui-card" style={{ padding: 12 }}>
-            <h3 style={{ marginTop: 0 }}>Job Lifecycle Controls</h3>
-            <div className="table-toolbar" style={{ marginBottom: 8 }}>
-              <input className="ui-input" placeholder="Job name" value={newName} onChange={(e) => setNewName(e.target.value)} />
-              <select className="ui-input" value={newJobType} onChange={(e) => setNewJobType(e.target.value)}>
-                <option value="RESEARCH_RUN">Research Run</option>
-                <option value="EMAIL_BATCH">Email Batch</option>
-                <option value="LINKEDIN_DM_BATCH">LinkedIn DM Batch</option>
-                <option value="POST_LINKEDIN">Post to LinkedIn</option>
-                <option value="POST_FACEBOOK">Post to Facebook</option>
-              </select>
-              <input className="ui-input" placeholder="Cron (e.g. 0 9 * * *)" value={newCron} onChange={(e) => setNewCron(e.target.value)} />
-              <select className="ui-input" value={newTimezone} onChange={(e) => setNewTimezone(e.target.value)}>
-                <option value="America/Toronto">America/Toronto</option>
-                <option value="UTC">UTC</option>
-                <option value="America/New_York">America/New_York</option>
-              </select>
-              <input className="ui-input" placeholder="Campaign ID (optional)" value={newCampaignId} onChange={(e) => setNewCampaignId(e.target.value)} />
-              <button className="ui-input" onClick={createJob}>Create Job</button>
-              <button className="ui-input" onClick={() => { setNewName('Research Agent Daily'); setNewJobType('RESEARCH_RUN'); setNewCron('0 7 * * *'); setNewTimezone('America/Toronto'); }}>Research Agent Daily Preset</button>
-            </div>
-            <p className="muted" style={{ margin: 0 }}>Timezone: {newTimezone} · Dry-run safety: {String(!!safety?.dryRun)}</p>
-          </div>
-
-          <h3>Jobs</h3>
-          {!jobs.length ? (
-            <p>No scheduler jobs found.</p>
-          ) : (
-            <div style={{ display: 'grid', gap: 8 }}>
-              {jobs.map((j: any) => (
-                <div key={j.id} className="ui-card" style={{ padding: 10, display: 'grid', gap: 6 }}>
-                  <strong>{j.name}</strong>
-                  <div className="muted">Type: {j.jobType || 'EMAIL_BATCH'} · Cron: {j.cronExpr} · {j.enabled ? 'enabled' : 'disabled'}</div>
-                  <div className="muted">Campaign: {j.campaignId || 'active campaign fallback'}</div>
-                  <div className="muted">Next run: {j.nextRunHuman || '—'}</div>
-                  <div className="table-toolbar">
-                    <button className="ui-input" disabled={savingId === j.id} onClick={() => runNow(j.id)}>Run now</button>
-                    <button className="ui-input" disabled={savingId === j.id} onClick={() => toggleEnabled(j)}>{j.enabled ? 'Disable' : 'Enable'}</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <h3>Recent Runs</h3>
+  return <div className="dash-stack fade-in">
+    <section className="page-header"><div className="page-eyebrow">OPERATIONS / SCHEDULER</div><h2 className="page-title" style={{ margin: 0 }}>Scheduler</h2></section>
+    <div style={{ display: 'grid', gap: 10 }}>
+      {jobs.map((j: any) => {
+        const e = editor[j.id] || { frequency: 'DAILY', time: '09:00', days: ['Mon'], custom: j.cronExpr };
+        return <Card key={j.id} title={j.name} subtitle={cronToText(j.cronExpr)}>
           <div className="table-toolbar">
-            <span className="muted">Total: {runStats.total}</span>
-            <span className="muted">Completed: {runStats.completed}</span>
-            <span className="muted">Failed: {runStats.failed}</span>
+            <select className="ui-input" value={e.frequency} onChange={(x) => setEditor((s) => ({ ...s, [j.id]: { ...e, frequency: x.target.value } }))}><option value="HOURLY">Hourly</option><option value="DAILY">Daily</option><option value="WEEKDAYS">Weekdays</option><option value="WEEKLY">Weekly</option><option value="CUSTOM">Custom</option></select>
+            {['DAILY','WEEKDAYS','WEEKLY'].includes(e.frequency) && <input className="ui-input" type="time" value={e.time} onChange={(x) => setEditor((s) => ({ ...s, [j.id]: { ...e, time: x.target.value } }))} />}
+            {e.frequency === 'WEEKLY' && ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d) => <Button key={d} variant={e.days.includes(d) ? 'primary' : 'secondary'} onClick={() => setEditor((s) => ({ ...s, [j.id]: { ...e, days: e.days.includes(d) ? e.days.filter((x: string) => x !== d) : [...e.days, d] } }))}>{d}</Button>)}
+            {e.frequency === 'CUSTOM' && <input className="ui-input" value={e.custom} onChange={(x) => setEditor((s) => ({ ...s, [j.id]: { ...e, custom: x.target.value } }))} placeholder="cron" />}
+            <Button variant="primary" onClick={async () => { const cronExpr = toCron(e.frequency, e.time, e.days, e.custom); await fetch(`${base}/api/scheduler/jobs/${j.id}`, { method: 'PATCH', credentials: 'include', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ cronExpr }) }); await load(); }}>Save</Button>
           </div>
-          {!runs.length ? (
-            <p>No scheduler runs yet.</p>
-          ) : (
-            <ul>
-              {runs.slice(0, 15).map((r: any) => (
-                <li key={r.id}>{r.status} · {new Date(r.startedAt).toLocaleString()} · job {r.jobId}</li>
-              ))}
-            </ul>
-          )}
-        </>
-      )}
+        </Card>;
+      })}
     </div>
-  );
+  </div>;
 }

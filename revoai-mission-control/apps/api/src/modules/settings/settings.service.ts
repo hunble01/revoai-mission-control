@@ -19,7 +19,10 @@ export class SettingsService {
       'competitors',
     ];
     const rows = await this.prisma.setting.findMany({ where: { key: { in: keys } } });
-    return Object.fromEntries(rows.map((r) => [r.key, r.value]));
+    const out: any = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+    out.humanApprovalRequired = true;
+    out.requireApproval = true;
+    return out;
   }
 
   async updateSafety(payload: any) {

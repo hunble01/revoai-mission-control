@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Badge } from '../components/ui/Badge';
 import { Card } from '../components/ui/Card';
 import { Table } from '../components/ui/Table';
+import { CountUp } from '../components/ui/CountUp';
+import { SkeletonRows } from '../components/ui/Skeleton';
 
 const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 const token = process.env.NEXT_PUBLIC_ADMIN_TOKEN || 'change-me';
@@ -16,6 +18,7 @@ export default function Home() {
   const [researchRuns, setResearchRuns] = useState<any[]>([]);
   const [sendHistory, setSendHistory] = useState<any[]>([]);
   const [lastRefresh, setLastRefresh] = useState<string>('—');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const headers = { 'x-admin-token': token };
@@ -34,7 +37,7 @@ export default function Home() {
       setResearchRuns(Array.isArray(rr) ? rr : []);
       setSendHistory(Array.isArray(sh) ? sh : []);
       setLastRefresh(new Date().toLocaleTimeString());
-    });
+    }).finally(() => setLoading(false));
   }, []);
 
   const kpis = useMemo(() => {
@@ -59,11 +62,12 @@ export default function Home() {
 
   return (
     <div className="dash-stack">
-      <section className="page-hero" style={{ paddingBottom: 14 }}>
+      <section className="page-header">
+        <div className="page-eyebrow">MISSION CONTROL</div>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
           <div>
-            <h3>Mission Control Overview</h3>
-            <p>Live operational snapshot: lead flow, approval pressure, and channel safety from a single pane.</p>
+            <h2 className="page-title" style={{ margin: 0 }}>Operations Overview</h2>
+            <p className="page-desc">Live operational snapshot: lead flow, approval pressure, and channel safety from a single pane.</p>
           </div>
           <Badge tone="info">Last refresh: {lastRefresh}</Badge>
         </div>
@@ -89,6 +93,12 @@ export default function Home() {
         </Card>
       )}
 
+      {loading ? (
+        <Card title="Loading overview" subtitle="Fetching operational data">
+          <SkeletonRows rows={5} />
+        </Card>
+      ) : (
+      <>
       <Card title="Research Agent Status" subtitle="Last run and today discovery">
         <div className="table-toolbar" style={{ justifyContent: 'space-between' }}>
           <span className="muted">Last run: {researchRuns[0]?.createdAt ? new Date(researchRuns[0].createdAt).toLocaleString() : '—'}</span>
@@ -96,13 +106,13 @@ export default function Home() {
         </div>
       </Card>
 
-      <section className="kpi-grid" style={{ gridTemplateColumns: 'repeat(8, minmax(0, 1fr))' }}>
-        {kpis.map((k) => (
-          <Card key={k.label}>
-            <p className="kpi-title">{k.label}</p>
-            <p className="kpi-value" style={{ fontSize: 30 }}>{k.value}</p>
-            <p className="muted" style={{ margin: '4px 0 0', fontSize: 12 }}>{k.meta}</p>
-          </Card>
+      <section className="kpi-grid" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
+        {kpis.map((k, i) => (
+          <div key={k.label} className={`kpi-card ${i % 4 === 0 ? 'cyan' : i % 4 === 1 ? 'emerald' : i % 4 === 2 ? 'amber' : 'violet'}`}>
+            <div className="kpi-label">{k.label}</div>
+            <div className={`kpi-value ${i % 4 === 0 ? 'cyan' : i % 4 === 1 ? 'emerald' : i % 4 === 2 ? 'amber' : 'violet'}`}><CountUp value={Number(k.value) || 0} /></div>
+            <div className="kpi-delta">{k.meta}</div>
+          </div>
         ))}
       </section>
 
@@ -204,11 +214,13 @@ export default function Home() {
             </tr>
             <tr>
               <td>Human Approval Required</td>
-              <td><Badge tone={safety?.requireApproval ? 'warning' : 'default'}>{String(!!safety?.requireApproval)}</Badge></td>
+              <td><Badge tone="success">true</Badge></td>
             </tr>
           </tbody>
         </Table>
       </Card>
+      </>
+      )}
     </div>
   );
 }
