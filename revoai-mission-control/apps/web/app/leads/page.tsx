@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Badge } from '../../components/ui/Badge';
 import { Card } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
@@ -194,6 +194,31 @@ export default function LeadsPage() {
     }
   };
 
+  const createDraftForLead = async (lead: any) => {
+    try {
+      const payload = {
+        campaignId: lead.campaignId,
+        leadId: lead.id,
+        channel: lead.preferredChannel || 'EMAIL',
+        draftType: 'OUTREACH',
+        content: `Personalized outreach draft for ${lead.businessName || 'this lead'}`,
+      };
+      const res = await fetch(`${base}/api/drafts`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error?.message || data?.message || `Draft failed (HTTP ${res.status})`);
+      setLeads((curr) => curr.map((x) => (x.id === lead.id ? { ...x, status: 'DRAFTED' } : x)));
+      if (selectedLead?.id === lead.id) setSelectedLead((curr: any) => ({ ...curr, status: 'DRAFTED' }));
+      toast('success', 'Draft created — review in Approvals');
+    } catch (e: any) {
+      toast('error', e?.message || 'Draft failed');
+    }
+  };
+
   const enrichSelected = async () => {
     if (!selectedLeadIds.length) return;
     setEnrichingSelected(true);
@@ -311,11 +336,7 @@ export default function LeadsPage() {
                     <td><Badge tone={String(l.fitScore || '').toLowerCase() === 'high' ? 'success' : String(l.fitScore || '').toLowerCase() === 'medium' ? 'warning' : 'default'}>{l.fitScore || 'Low'}</Badge></td>
                     <td><Badge tone={statusTone(l.status)}>{l.status || 'NEW'}</Badge></td>
                     <td onClick={(e) => e.stopPropagation()}>
-                      <Button variant="secondary" style={{ padding: '4px 10px', fontSize: 11 }} onClick={() => {
-                        fetch(`${base}/api/drafts`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json', 'x-admin-token': token }, body: JSON.stringify({ leadId: l.id }) })
-                          .then((r) => { if (!r.ok) throw new Error(); toast('success', 'Draft created — review in Approvals'); })
-                          .catch(() => toast('error', 'Failed to create draft'));
-                      }}>Draft</Button>{' '}
+                      <Button variant="secondary" style={{ padding: '4px 10px', fontSize: 11 }} onClick={() => createDraftForLead(l)}>Draft</Button>{' '}
                       <Button variant="secondary" style={{ padding: '4px 10px', fontSize: 11 }} onClick={() => { setSelectedLead(l); setLeadNotes(l.notes || ''); }}>View</Button>
                     </td>
                   </tr>
@@ -395,7 +416,7 @@ export default function LeadsPage() {
             </div>
           </div>
           <div style={{ padding: 16, borderTop: '1px solid #1C2333', display: 'flex', gap: 8 }}>
-            <Button variant="primary" onClick={() => selectedLead?.id && fetch(`${base}/api/drafts`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json', 'x-admin-token': token }, body: JSON.stringify({ leadId: selectedLead.id }) }).then((r) => { if (!r.ok) throw new Error(); toast('success', 'Draft created — review in Approvals'); }).catch(() => toast('error', 'Draft failed'))}>Draft Outreach</Button>
+            <Button variant="primary" onClick={() => selectedLead?.id && createDraftForLead(selectedLead)}>Draft Outreach</Button>
             <Button variant="secondary" onClick={() => selectedLead?.id && enrichLead(selectedLead.id)}>Enrich</Button>
             <Button variant="ghost" style={{ border: '1px solid rgba(255,91,122,0.3)', color: '#FF5B7A' }} onClick={() => {
               if (!selectedLead?.id) return;
