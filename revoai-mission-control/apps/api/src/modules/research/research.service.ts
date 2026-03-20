@@ -285,6 +285,98 @@ export class ResearchService {
     return this.prisma.researchLead.findMany({ where: { runId }, orderBy: { createdAt: 'desc' } });
   }
 
+  async getRunSummary(runId: string) {
+    const run = await this.assertRun(runId);
+    const [leads, content, intel] = await Promise.all([
+      this.prisma.researchLead.findMany({ where: { runId } }),
+      this.prisma.researchContent.findMany({ where: { runId } }),
+      this.prisma.researchIntel.findMany({ where: { runId } }),
+    ]);
+
+    const withEmail = leads.filter((l: any) => !!l.email).length;
+    const withPhone = leads.filter((l: any) => !!l.phone).length;
+    const withLinkedin = leads.filter((l: any) => !!l.linkedinUrl).length;
+
+    return {
+      runId: run.id,
+      status: run.status,
+      campaignId: run.campaignId,
+      counts: {
+        leads: leads.length,
+        content: content.length,
+        intel: intel.length,
+        withEmail,
+        withPhone,
+        withLinkedin,
+      },
+      topLeadSources: Array.from(new Set(leads.map((l: any) => l.source || l.sourceType || 'unknown'))).slice(0, 5),
+      topCompetitors: intel.slice(0, 5).map((i: any) => ({ competitor: i.competitor, insight: i.insight })),
+      contentAngles: content.slice(0, 5).map((c: any) => ({ title: c.title, angle: c.videoAngle || null })),
+      completedAt: run.completedAt,
+      createdAt: run.createdAt,
+    };
+  }
+
+  async promoteLeads(runId: string, body: any) {
+    const run = await this.assertRun(runId);
+    const action = String(body?.action || 'APPROVE').toUpperCase();
+    const leadIds = Array.isArray(body?.leadIds) ? body.leadIds.filter(Boolean) : [];
+    const campaignId = body?.campaignId || run.campaignId || (await this.prisma.campaign.findFirst({ where: { isActive: true }, select: { id: true } }))?.id;
+    if (!campaignId) throw new NotFoundException('No active campaign available for lead promotion');
+
+    const sourceLeads = await this.prisma.researchLead.findMany({
+      where: {
+        runId,
+        ...(leadIds.length ? { id: { in: leadIds } as any } : {}),
+      } as any,
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!sourceLeads.length) return { ok: true, promoted: 0, action };
+
+    let promoted = 0;
+    for (const l of sourceLeads) {
+      const targetStatus = action === 'REJECT' ? 'LOST' : action === 'SNOOZE' ? 'RESEARCHED' : 'APPROVED';
+      const nextStep = action === 'SNOOZE' ? 'Review later' : action === 'REJECT' ? 'Do not contact' : 'Ready for outreach draft';
+      try {
+        const created = await this.prisma.lead.create({
+          data: {
+            campaignId,
+            businessName: l.companyName,
+            contactName: l.contactName || undefined,
+            email: l.email || undefined,
+            phone: l.phone || undefined,
+            linkedinUrl: l.linkedinUrl || undefined,
+            website: l.sourceUrl || undefined,
+            source: l.sourceType,
+            sourceDetail: l.source || undefined,
+            fitScore: l.fitScore || undefined,
+            status: targetStatus as any,
+            nextStep,
+          },
+        });
+
+        await this.prisma.leadIntel.createMany({
+          data: [
+            {
+              leadId: created.id,
+              intelType: 'research_summary',
+              title: `Imported from run ${run.id}`,
+              summary: `Action=${action}; Source=${l.source || l.sourceType || 'research'}`,
+              sourceUrl: l.sourceUrl || null,
+              confidence: l.fitScore === 'High' ? 90 : l.fitScore === 'Medium' ? 70 : 50,
+            },
+          ],
+        });
+
+        promoted += 1;
+      } catch {}
+    }
+
+    await this.events.publish({ eventType: 'research.run.promoted', payload: { runId, campaignId, action, promoted } });
+    return { ok: true, runId, campaignId, action, promoted, attempted: sourceLeads.length };
+  }
+
   async getContent(runId: string) {
     await this.assertRun(runId);
     return this.prisma.researchContent.findMany({ where: { runId }, orderBy: { createdAt: 'desc' } });

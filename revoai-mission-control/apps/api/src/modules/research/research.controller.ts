@@ -48,6 +48,18 @@ export class ResearchController {
     return this.research.runStatus(id);
   }
 
+  @Get('runs/:id/summary')
+  runSummary(@Req() req: any, @Param('id') id: string) {
+    assertAdminToken(req);
+    return this.research.getRunSummary(id);
+  }
+
+  @Post('runs/:id/promote')
+  promoteLeads(@Req() req: any, @Param('id') id: string, @Body() body: any) {
+    assertAdminToken(req);
+    return this.research.promoteLeads(id, body || {});
+  }
+
   @Post('runs/:id/export-leads')
   exportLeads(@Req() req: any, @Param('id') id: string, @Body() body: any) {
     assertAdminToken(req);
