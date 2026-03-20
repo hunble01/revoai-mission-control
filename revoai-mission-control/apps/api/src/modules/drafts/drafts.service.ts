@@ -696,6 +696,29 @@ export class DraftsService {
     return { ok: true, processed: results.length, results };
   }
 
+  async queueOverview() {
+    const rows = await this.prisma.outboundQueue.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    });
+
+    const byStatus = rows.reduce((acc: any, r: any) => {
+      const s = String(r.status || 'UNKNOWN');
+      acc[s] = (acc[s] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return {
+      counts: {
+        queued: byStatus.QUEUED || 0,
+        sending: byStatus.SENDING || 0,
+        sent: byStatus.SENT || 0,
+        failed: byStatus.FAILED || 0,
+      },
+      recent: rows.slice(0, 20),
+    };
+  }
+
   async retryFailedQueueJob(id: string) {
     const row = await this.prisma.outboundQueue.findUnique({ where: { id } });
     if (!row) throw new NotFoundException('Queue job not found');

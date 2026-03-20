@@ -78,6 +78,53 @@ export class SocialPostsService {
     return updated;
   }
 
+  async history(limit = 100) {
+    const take = Math.min(Math.max(Number(limit) || 100, 1), 300);
+    const posts = await this.prisma.socialPost.findMany({
+      orderBy: [{ postedAt: 'desc' }, { updatedAt: 'desc' }],
+      take,
+    });
+
+    const postIds = posts.map((p) => p.id);
+    const audits = postIds.length
+      ? await this.prisma.auditLog.findMany({
+          where: {
+            resourceType: 'social_post',
+            resourceId: { in: postIds },
+            action: { in: ['scheduler.social_publish.sent', 'scheduler.social_publish.failed', 'facebook.publish'] as any },
+          } as any,
+          orderBy: { createdAt: 'desc' },
+          take: take * 2,
+        })
+      : [];
+
+    const auditByPost = new Map<string, any[]>();
+    for (const a of audits as any[]) {
+      const arr = auditByPost.get(String(a.resourceId)) || [];
+      arr.push(a);
+      auditByPost.set(String(a.resourceId), arr);
+    }
+
+    return posts.map((p: any) => {
+      const related = auditByPost.get(String(p.id)) || [];
+      const lastFailure = related.find((a: any) => String(a.action).includes('failed'));
+      return {
+        id: p.id,
+        channel: p.channel,
+        status: p.status,
+        body: p.body,
+        scheduledAt: p.scheduledAt,
+        postedAt: p.postedAt,
+        externalPostId: p.externalPostId,
+        diagnostics: {
+          hasExternalPostId: !!p.externalPostId,
+          lastFailure: lastFailure ? ((lastFailure.metadata as any)?.error || 'publish failed') : null,
+          auditEvents: related.length,
+        },
+      };
+    });
+  }
+
   async captureFeedback(id: string, notes: string) {
     const existing = await this.prisma.socialPost.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Social post not found');

@@ -48,6 +48,12 @@ export class SocialPostsController {
     return this.social.transition(id, 'scheduled', undefined, body?.scheduledAt);
   }
 
+  @Get('history')
+  history(@Req() req: any, @Query('limit') limit?: string) {
+    assertAdminToken(req);
+    return this.social.history(Number(limit) || 100);
+  }
+
   @Post(':id/mark-posted')
   markPosted(@Req() req: any, @Param('id') id: string, @Body() body: any) {
     assertAdminToken(req);
