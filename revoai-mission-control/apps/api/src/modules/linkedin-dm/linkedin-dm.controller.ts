@@ -30,6 +30,12 @@ export class LinkedinDmController {
     return this.dm.send(id);
   }
 
+  @Post(':id/approve')
+  approve(@Req() req: any, @Param('id') id: string) {
+    assertAdminToken(req);
+    return this.dm.approve(id);
+  }
+
   @Post(':id/reject')
   reject(@Req() req: any, @Param('id') id: string) {
     assertAdminToken(req);

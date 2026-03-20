@@ -1,10 +1,11 @@
 import { Body, Controller, Get, Post, Query, Req } from '@nestjs/common';
 import { assertAdminToken } from '../../common/auth.util';
 import { FacebookService } from './facebook.service';
+import { SettingsService } from '../settings/settings.service';
 
 @Controller('facebook')
 export class FacebookController {
-  constructor(private readonly facebook: FacebookService) {}
+  constructor(private readonly facebook: FacebookService, private readonly settings: SettingsService) {}
 
   @Get('oauth-start')
   oauthStart(@Req() req: any) {
@@ -24,8 +25,9 @@ export class FacebookController {
   }
 
   @Post('publish')
-  publish(@Req() req: any, @Body() body: any) {
+  async publish(@Req() req: any, @Body() body: any) {
     assertAdminToken(req);
+    await this.settings.assertOutboundAllowed('facebook');
     return this.facebook.publishApproved(body?.socialPostId || body?.draftId, body?.mode || 'socialPost');
   }
 

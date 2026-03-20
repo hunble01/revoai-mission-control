@@ -373,6 +373,16 @@ export class ResearchService {
       } catch {}
     }
 
+    await this.prisma.auditLog.create({
+      data: {
+        actorType: 'user',
+        action: 'research.leads.promote',
+        resourceType: 'research_run',
+        resourceId: runId,
+        metadata: { action, promoted, attempted: sourceLeads.length, campaignId } as any,
+      },
+    });
+
     await this.events.publish({ eventType: 'research.run.promoted', payload: { runId, campaignId, action, promoted } });
     return { ok: true, runId, campaignId, action, promoted, attempted: sourceLeads.length };
   }

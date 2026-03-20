@@ -1,10 +1,15 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventsService } from '../events/events.service';
+import { SettingsService } from '../settings/settings.service';
 
 @Injectable()
 export class LinkedinDmService {
-  constructor(private readonly prisma: PrismaService, private readonly events: EventsService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly events: EventsService,
+    private readonly settings: SettingsService,
+  ) {}
 
   queue() {
     return this.prisma.linkedinMessage.findMany({ where: { status: { in: ['queued', 'approved'] as any } as any }, orderBy: { createdAt: 'desc' }, take: 200 });
@@ -20,15 +25,17 @@ export class LinkedinDmService {
         leadId: body?.leadId || null,
         draftId: body?.draftId || null,
         messageBody: String(body?.messageBody || body?.content || '').trim(),
-        status: body?.status || 'approved',
+        status: body?.status || 'queued',
       },
     });
   }
 
   async send(id: string) {
+    await this.settings.assertOutboundAllowed('linkedin');
+
     const msg = await this.prisma.linkedinMessage.findUnique({ where: { id } });
     if (!msg) throw new NotFoundException('LinkedIn message not found');
-    if (!['queued', 'approved'].includes(String(msg.status))) throw new BadRequestException('Message not sendable');
+    if (!['approved'].includes(String(msg.status))) throw new BadRequestException('Message must be approved before send');
 
     const today = new Date();
     const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -56,6 +63,13 @@ export class LinkedinDmService {
     const updated = await this.prisma.linkedinMessage.update({ where: { id }, data: { status: 'sent', sentAt: new Date(), externalThreadId } });
     await this.events.publish({ eventType: 'LINKEDIN_DM_SENT', payload: { id: updated.id } });
     return updated;
+  }
+
+  async approve(id: string) {
+    const msg = await this.prisma.linkedinMessage.findUnique({ where: { id } });
+    if (!msg) throw new NotFoundException('LinkedIn message not found');
+    if (String(msg.status) !== 'queued') throw new BadRequestException('Only queued messages can be approved');
+    return this.prisma.linkedinMessage.update({ where: { id }, data: { status: 'approved' } });
   }
 
   async reject(id: string) {
