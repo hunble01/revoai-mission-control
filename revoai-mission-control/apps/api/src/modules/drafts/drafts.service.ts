@@ -5,11 +5,12 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { EventsService } from '../events/events.service';
 import { SettingsService } from '../settings/settings.service';
 
-const allowedDraftTransitions: Record<DraftStatus, DraftStatus[]> = {
+const allowedDraftTransitions: Record<string, string[]> = {
   DRAFT: [DraftStatus.NEEDS_APPROVAL],
   NEEDS_APPROVAL: [DraftStatus.DRAFT, DraftStatus.APPROVED, DraftStatus.REJECTED],
-  APPROVED: [DraftStatus.DRAFT],
+  APPROVED: [DraftStatus.DRAFT, 'SENT'],
   REJECTED: [DraftStatus.DRAFT],
+  SENT: [],
 };
 
 @Injectable()
@@ -35,9 +36,10 @@ export class DraftsService {
   }
 
   async list(q?: { search?: string; status?: string }) {
+    const status = q?.status ? String(q.status).toUpperCase() : undefined;
     return this.prisma.draft.findMany({
       where: {
-        status: q?.status as any || undefined,
+        ...(status ? { status: status as any } : {}),
         OR: q?.search
           ? [
               { draftType: { contains: q.search, mode: 'insensitive' } },
@@ -45,7 +47,7 @@ export class DraftsService {
             ]
           : undefined,
       },
-      include: { versions: true, approvals: true },
+      include: { versions: true, approvals: true, lead: true },
       orderBy: { createdAt: 'desc' },
       take: 200,
     });
@@ -58,8 +60,11 @@ export class DraftsService {
         leadId: data.leadId,
         channel: data.channel,
         draftType: data.draftType,
+        status: (data?.status ? String(data.status).toUpperCase() : DraftStatus.NEEDS_APPROVAL) as any,
+        content: data.content ?? '',
+        subject: data.subject ?? null,
         createdBy: data.createdBy,
-      },
+      } as any,
     });
     await this.prisma.draftVersion.create({
       data: {
@@ -239,7 +244,7 @@ export class DraftsService {
     const version = await this.prisma.draftVersion.findFirst({
       where: { draftId: draft.id, versionNumber: draft.currentVersion },
     });
-    const body = (version?.content || '').trim();
+    const body = (version?.content || (draft as any).content || '').trim();
     if (!body) throw new BadRequestException('Draft content is empty');
 
     const connection = await this.prisma.connection.findUnique({ where: { provider: 'EMAIL' } });
@@ -356,6 +361,13 @@ export class DraftsService {
         sentAt: new Date(),
       },
     });
+
+    if (sendStatus === 'sent') {
+      await this.prisma.draft.update({ where: { id }, data: { status: 'SENT' as any } });
+      if (draft.leadId) {
+        await this.prisma.lead.update({ where: { id: draft.leadId }, data: { status: 'CONTACTED', lastActionAt: new Date() } }).catch(() => {});
+      }
+    }
 
     await this.prisma.auditLog.create({
       data: {
@@ -479,7 +491,7 @@ export class DraftsService {
     if (draft.status !== DraftStatus.APPROVED) throw new BadRequestException('Draft must be approved before send');
 
     const version = await this.prisma.draftVersion.findFirst({ where: { draftId: draft.id, versionNumber: draft.currentVersion } });
-    const messageBody = String(version?.content || '').trim();
+    const messageBody = (version?.content || (draft as any).content || '').trim();
     if (!messageBody) throw new BadRequestException('Draft content is empty');
 
     const today = new Date();
@@ -496,6 +508,11 @@ export class DraftsService {
       where: { id: msg.id },
       data: { status: 'sent', sentAt: new Date(), externalThreadId: `li_dm_stub_${Date.now()}` },
     });
+
+    await this.prisma.draft.update({ where: { id }, data: { status: 'SENT' as any } });
+    if (draft.leadId) {
+      await this.prisma.lead.update({ where: { id: draft.leadId }, data: { status: 'CONTACTED', lastActionAt: new Date() } }).catch(() => {});
+    }
 
     await this.prisma.auditLog.create({
       data: {
@@ -528,6 +545,8 @@ export class DraftsService {
     const j: any = await res.json().catch(() => ({}));
     if (!res.ok) throw new BadRequestException(j?.error?.message || `Facebook publish failed (${res.status})`);
 
+    await this.prisma.draft.update({ where: { id }, data: { status: 'SENT' as any } });
+
     await this.prisma.auditLog.create({
       data: {
         actorType: 'user',
@@ -538,6 +557,66 @@ export class DraftsService {
     });
 
     return { ok: true, externalPostId: j?.externalPostId || null };
+  }
+
+  async queueApprovedSend(id: string, actorRole: string, actorId?: string) {
+    if (actorRole !== 'admin') throw new BadRequestException('Admin only action');
+
+    const draft = await this.prisma.draft.findUnique({ where: { id } });
+    if (!draft) throw new NotFoundException('Draft not found');
+    if (draft.status !== DraftStatus.APPROVED) throw new BadRequestException('Draft must be approved before queueing');
+
+    const existingQueued = await this.prisma.outboundQueue.findFirst({
+      where: {
+        draftId: id,
+        status: { in: ['DRAFT', 'APPROVED', 'QUEUED', 'SENDING'] as any },
+      } as any,
+      orderBy: { createdAt: 'desc' },
+    });
+    if (existingQueued) {
+      throw new BadRequestException('Draft already has an active queue job');
+    }
+
+    const version = await this.prisma.draftVersion.findFirst({ where: { draftId: draft.id, versionNumber: draft.currentVersion } });
+    const payload = {
+      content: version?.content || (draft as any).content || '',
+      subject: (draft as any).subject || null,
+      draftType: draft.draftType,
+      leadId: draft.leadId,
+    };
+
+    const queued = await this.prisma.outboundQueue.create({
+      data: {
+        channel: draft.channel as any,
+        draftId: draft.id,
+        leadId: draft.leadId,
+        campaignId: draft.campaignId,
+        status: 'QUEUED',
+        approvedAt: new Date(),
+        approvedBy: actorId || null,
+        payload: payload as any,
+        metadata: { queuedFrom: 'drafts.queueApprovedSend' } as any,
+      } as any,
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorType: 'user',
+        actorId: actorId || null,
+        action: 'draft.queued_for_send',
+        resourceType: 'draft',
+        resourceId: draft.id,
+        metadata: { queueId: queued.id, channel: draft.channel } as any,
+      },
+    });
+
+    await this.events.publish({
+      eventType: 'draft.queued_for_send',
+      campaignId: draft.campaignId,
+      payload: { draftId: draft.id, queueId: queued.id, channel: draft.channel },
+    });
+
+    return { ok: true, queueId: queued.id, status: queued.status };
   }
 
   async listSendHistory(limit = 100) {
@@ -564,22 +643,15 @@ export class DraftsService {
   async markSentManual(id: string, actorRole: string) {
     if (actorRole !== 'admin') throw new BadRequestException('Admin only action');
 
-    const safety = await this.settings.getSafety();
-    const dry = (safety?.dry_run_mode as any)?.enabled;
-    const channels = (safety?.outbound_channels as any) || {};
+    await this.settings.assertOutboundAllowed('linkedin');
 
     const draft = await this.prisma.draft.findUnique({ where: { id } });
     if (!draft) throw new NotFoundException('Draft not found');
     if (draft.channel !== 'LINKEDIN') throw new BadRequestException('Manual mark sent is only enabled for LinkedIn drafts');
     if (draft.status !== DraftStatus.APPROVED) throw new BadRequestException('Draft must be approved before manual sent mark');
 
-    // No auto-send ever in MVP; this is only manual status marking.
-    if (dry === false) {
-      await this.settings.assertOutboundAllowed('linkedin');
-    }
-
     const result = await this.prisma.$transaction(async (tx) => {
-      const updatedDraft = await tx.draft.update({ where: { id }, data: { status: DraftStatus.APPROVED } });
+      const updatedDraft = await tx.draft.update({ where: { id }, data: { status: 'SENT' as any } });
       let updatedLead: any = null;
       if (draft.leadId) {
         updatedLead = await tx.lead.update({ where: { id: draft.leadId }, data: { status: 'CONTACTED', lastActionAt: new Date() } });
@@ -592,7 +664,7 @@ export class DraftsService {
           resourceId: draft.id,
           beforeState: { status: draft.status },
           afterState: { status: updatedDraft.status, leadStatus: updatedLead?.status },
-          metadata: { manual: true, channel: 'LINKEDIN', dryRun: dry },
+          metadata: { manual: true, channel: 'LINKEDIN', dryRun: false },
         },
       });
       return { updatedDraft, updatedLead };

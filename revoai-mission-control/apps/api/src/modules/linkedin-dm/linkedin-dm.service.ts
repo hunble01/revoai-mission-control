@@ -61,6 +61,7 @@ export class LinkedinDmService {
     }
 
     const updated = await this.prisma.linkedinMessage.update({ where: { id }, data: { status: 'sent', sentAt: new Date(), externalThreadId } });
+    await this.prisma.auditLog.create({ data: { actorType: 'user', action: 'linkedin_dm.sent', resourceType: 'linkedin_message', resourceId: id, metadata: { externalThreadId } as any } as any });
     await this.events.publish({ eventType: 'LINKEDIN_DM_SENT', payload: { id: updated.id } });
     return updated;
   }
@@ -69,12 +70,16 @@ export class LinkedinDmService {
     const msg = await this.prisma.linkedinMessage.findUnique({ where: { id } });
     if (!msg) throw new NotFoundException('LinkedIn message not found');
     if (String(msg.status) !== 'queued') throw new BadRequestException('Only queued messages can be approved');
-    return this.prisma.linkedinMessage.update({ where: { id }, data: { status: 'approved' } });
+    const updated = await this.prisma.linkedinMessage.update({ where: { id }, data: { status: 'approved' } });
+    await this.prisma.auditLog.create({ data: { actorType: 'user', action: 'linkedin_dm.approved', resourceType: 'linkedin_message', resourceId: id } as any });
+    return updated;
   }
 
   async reject(id: string) {
     const msg = await this.prisma.linkedinMessage.findUnique({ where: { id } });
     if (!msg) throw new NotFoundException('LinkedIn message not found');
-    return this.prisma.linkedinMessage.update({ where: { id }, data: { status: 'rejected' } });
+    const updated = await this.prisma.linkedinMessage.update({ where: { id }, data: { status: 'rejected' } });
+    await this.prisma.auditLog.create({ data: { actorType: 'user', action: 'linkedin_dm.rejected', resourceType: 'linkedin_message', resourceId: id } as any });
+    return updated;
   }
 }

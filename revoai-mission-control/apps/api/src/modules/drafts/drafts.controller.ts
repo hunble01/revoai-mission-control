@@ -104,6 +104,12 @@ export class DraftsController {
     return this.drafts.sendApprovedFacebook(id, getActorRole(req));
   }
 
+  @Post(':id/queue-send')
+  queueSend(@Req() req: any, @Param('id') id: string) {
+    assertAdminToken(req);
+    return this.drafts.queueApprovedSend(id, getActorRole(req), req?.auth?.uid);
+  }
+
   @Post(':id/mark-sent-manual')
   markSent(@Req() req: any, @Param('id') id: string) {
     assertAdminToken(req);

@@ -142,6 +142,16 @@ export class FacebookService {
       await this.prisma.outboundSend.create({ data: { provider: 'FACEBOOK', draftId: id, status: 'sent', externalMessageId: externalPostId, sentAt: new Date() } as any });
     }
 
+    await this.prisma.auditLog.create({
+      data: {
+        actorType: 'user',
+        action: 'facebook.publish',
+        resourceType: mode === 'socialPost' ? 'social_post' : 'draft',
+        resourceId: id,
+        metadata: { mode, externalPostId } as any,
+      },
+    });
+
     await this.events.publish({ eventType: 'POST_PUBLISHED', campaignId, payload: { id, channel: 'FACEBOOK', mode } });
     return { ok: true, externalPostId };
   }
