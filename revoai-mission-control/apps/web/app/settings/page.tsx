@@ -4,8 +4,9 @@ import { useEffect, useState } from 'react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
+import { API_BASE, apiHeaders } from '../../lib/api';
 
-const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const base = API_BASE;
 
 function TagInput({ value, onChange, placeholder }: { value: string[]; onChange: (v: string[]) => void; placeholder: string }) {
   const [draft, setDraft] = useState('');
@@ -58,17 +59,21 @@ export default function SettingsPage() {
   const [ytDraft, setYtDraft] = useState('');
   const [competitors, setCompetitors] = useState<any[]>([]);
   const [compDraft, setCompDraft] = useState({ name: '', linkedinUrl: '', facebookUrl: '' });
+  const [safety, setSafety] = useState<any>({ outboundKillSwitches: { email: false, facebook: false, instagram: false, linkedin: false } });
 
   useEffect(() => {
     (async () => {
       const [settingsRes, brandRes] = await Promise.all([
-        fetch(`${base}/api/settings`, { credentials: 'include' }),
-        fetch(`${base}/api/settings/brand`, { credentials: 'include' }),
+        fetch(`${base}/api/settings`, { credentials: 'include', headers: apiHeaders }),
+        fetch(`${base}/api/settings/brand`, { credentials: 'include', headers: apiHeaders }),
       ]);
       const s = await settingsRes.json().catch(() => ({}));
       const b = await brandRes.json().catch(() => ({}));
       if (s?.content_intelligence) setCi((prev: any) => ({ ...prev, ...s.content_intelligence }));
       if (Array.isArray(s?.competitors)) setCompetitors(s.competitors);
+      setSafety({
+        outboundKillSwitches: s?.outbound_kill_switches || { email: false, facebook: false, instagram: false, linkedin: false },
+      });
       if (b && typeof b === 'object') setBrand((prev: any) => ({ ...prev, ...b }));
     })().catch(() => {});
   }, []);
@@ -76,7 +81,7 @@ export default function SettingsPage() {
   const saveContentIntelligence = async () => {
     setErr(''); setMsg('');
     const res = await fetch(`${base}/api/settings`, {
-      method: 'PATCH', credentials: 'include', headers: { 'content-type': 'application/json' }, body: JSON.stringify(ci),
+      method: 'PATCH', credentials: 'include', headers: apiHeaders, body: JSON.stringify(ci),
     });
     if (!res.ok) { setErr(`Failed to save content intelligence (HTTP ${res.status})`); return; }
     setMsg('Content Intelligence saved.');
@@ -85,7 +90,7 @@ export default function SettingsPage() {
   const saveCompetitors = async () => {
     setErr(''); setMsg('');
     const res = await fetch(`${base}/api/settings`, {
-      method: 'PATCH', credentials: 'include', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ competitors }),
+      method: 'PATCH', credentials: 'include', headers: apiHeaders, body: JSON.stringify({ competitors }),
     });
     if (!res.ok) { setErr(`Failed to save competitors (HTTP ${res.status})`); return; }
     setMsg('Competitors saved.');
@@ -188,6 +193,20 @@ export default function SettingsPage() {
         <div className="table-toolbar" style={{ justifyContent: 'flex-end', marginTop: 8 }}><Button variant="primary" onClick={saveCompetitors}>Save Competitors</Button></div>
       </Card>
 
+      <Card title="Outbound Kill Switches" subtitle="Instantly stop outbound by channel">
+        <div style={{ display: 'grid', gap: 10 }}>
+          {['email', 'facebook', 'instagram', 'linkedin'].map((k) => (
+            <div key={k} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ textTransform: 'capitalize' }}>{k}</span>
+              <button onClick={() => setSafety((s: any) => ({ ...s, outboundKillSwitches: { ...(s.outboundKillSwitches || {}), [k]: !(s.outboundKillSwitches || {})[k] } }))} style={{ width: 40, height: 22, borderRadius: 999, border: '1px solid #1C2333', background: (safety.outboundKillSwitches || {})[k] ? 'rgba(255,91,122,.2)' : '#0D1117' }}>
+                <span style={{ display: 'block', width: 16, height: 16, borderRadius: 999, background: (safety.outboundKillSwitches || {})[k] ? '#FF5B7A' : '#7B8799', transform: `translateX(${(safety.outboundKillSwitches || {})[k] ? 16 : 0}px)`, transition: 'all .2s' }} />
+              </button>
+            </div>
+          ))}
+          <Button variant="primary" onClick={async () => { await fetch(`${base}/api/settings/safety`, { method: 'PATCH', credentials: 'include', headers: apiHeaders, body: JSON.stringify({ outboundKillSwitches: safety.outboundKillSwitches || {} }) }); setMsg('Kill switches updated.'); }}>Save Kill Switches</Button>
+        </div>
+      </Card>
+
       <Card title="Notifications" subtitle="Alert preferences">
         <div style={{ display: 'grid', gap: 10 }}>
           {[
@@ -204,7 +223,7 @@ export default function SettingsPage() {
               </button>
             </div>
           ))}
-          <Button variant="primary" onClick={async () => { await fetch(`${base}/api/settings`, { method: 'PATCH', credentials: 'include', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ notificationSettings: ci.notifications || {} }) }); setMsg('Notifications saved.'); }}>Save Notifications</Button>
+          <Button variant="primary" onClick={async () => { await fetch(`${base}/api/settings`, { method: 'PATCH', credentials: 'include', headers: apiHeaders, body: JSON.stringify({ notificationSettings: ci.notifications || {} }) }); setMsg('Notifications saved.'); }}>Save Notifications</Button>
         </div>
       </Card>
 
@@ -215,7 +234,7 @@ export default function SettingsPage() {
           <input className="ui-input" placeholder="Company Name" value={brand.companyName || ''} onChange={(e) => setBrand((b: any) => ({ ...b, companyName: e.target.value }))} />
           <input className="ui-input" placeholder="Phone Number" value={brand.phoneNumber || ''} onChange={(e) => setBrand((b: any) => ({ ...b, phoneNumber: e.target.value }))} />
           <input className="ui-input" placeholder="Website URL" value={brand.websiteUrl || ''} onChange={(e) => setBrand((b: any) => ({ ...b, websiteUrl: e.target.value }))} />
-          <Button variant="primary" onClick={async ()=>{ const res = await fetch(`${base}/api/settings/brand`, { method:'POST', credentials:'include', headers:{'content-type':'application/json'}, body:JSON.stringify(brand)}); if(!res.ok){setErr('Failed to save brand settings'); return;} setMsg('Brand settings saved.'); }}>Save Brand Settings</Button>
+          <Button variant="primary" onClick={async ()=>{ const res = await fetch(`${base}/api/settings/brand`, { method:'POST', credentials:'include', headers:apiHeaders, body:JSON.stringify(brand)}); if(!res.ok){setErr('Failed to save brand settings'); return;} setMsg('Brand settings saved.'); }}>Save Brand Settings</Button>
         </div>
       </Card>
     </div>

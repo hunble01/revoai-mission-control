@@ -1,70 +1,35 @@
-import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
-import { createHmac, timingSafeEqual } from 'crypto';
+import { UnauthorizedException } from '@nestjs/common';
 
 type Role = 'admin' | 'operator' | 'closer' | 'viewer';
 
-type SessionPayload = {
-  sid: string;
-  uid: string;
-  role: Role;
-  exp: number;
+const roleRank: Record<Role, number> = {
+  viewer: 1,
+  closer: 2,
+  operator: 3,
+  admin: 4,
 };
 
-function secret() {
-  return process.env.SESSION_SECRET || process.env.ADMIN_TOKEN || 'change-me';
-}
-
-function sign(payload: string) {
-  return createHmac('sha256', secret()).update(payload).digest('hex');
-}
-
-function decodeSessionToken(token?: string | null): SessionPayload | null {
-  if (!token) return null;
-  const [body, sig] = String(token).split('.');
-  if (!body || !sig) return null;
-
-  const expected = sign(body);
-  const a = Buffer.from(sig);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
-
-  try {
-    const parsed = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as SessionPayload;
-    if (!parsed?.uid || !parsed?.role || !parsed?.exp) return null;
-    if (Date.now() > parsed.exp) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
-function readSessionCookie(req: any) {
-  const cookieHeader = String(req?.headers?.cookie || '');
-  const part = cookieHeader
-    .split(';')
-    .map((p) => p.trim())
-    .find((p) => p.startsWith('mc_session='));
-  if (!part) return null;
-  return part.slice('mc_session='.length);
-}
-
-function authFromRequest(req: any): SessionPayload | null {
-  const cookieToken = readSessionCookie(req);
-  return decodeSessionToken(cookieToken);
-}
-
 export function assertAdminToken(req: any) {
-  const auth = authFromRequest(req);
-  if (!auth) throw new UnauthorizedException('Not authenticated');
-  req.auth = auth;
+  const expected = String(process.env.ADMIN_TOKEN || 'change-me').trim();
+  const provided = String(req?.headers?.['x-admin-token'] || '').trim();
+  if (!provided || provided !== expected) {
+    throw new UnauthorizedException('Invalid admin token');
+  }
+
+  const headerRole = String(req?.headers?.['x-actor-role'] || 'admin').toLowerCase();
+  const role = (['admin', 'operator', 'closer', 'viewer'].includes(headerRole) ? headerRole : 'admin') as Role;
+  const uid = String(req?.headers?.['x-actor-id'] || 'local');
+  req.auth = { uid, role };
 }
 
 export function getActorRole(req: any): Role {
-  const auth = req?.auth || authFromRequest(req);
-  if (!auth) return 'viewer';
-  return auth.role;
+  return (req?.auth?.role || 'admin') as Role;
 }
 
 export function assertAdminRole(role: string, action = 'this action') {
-  if (role !== 'admin') throw new ForbiddenException(`Admin required for ${action}`);
+  const normalized = (String(role || 'viewer').toLowerCase() as Role);
+  if ((roleRank[normalized] || 0) < roleRank.operator) {
+    throw new UnauthorizedException(`Insufficient role for ${action}`);
+  }
+  return true;
 }

@@ -1,48 +1,62 @@
-import { Body, Controller, Get, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post, Req } from '@nestjs/common';
 import { SettingsService } from './settings.service';
 import { UpdateSafetyDto } from './dto/settings.dto';
+import { assertAdminRole, assertAdminToken, getActorRole } from '../../common/auth.util';
 
 @Controller('settings')
 export class SettingsController {
   constructor(private readonly settings: SettingsService) {}
 
   @Get()
-  getSettings() {
+  getSettings(@Req() req: any) {
+    assertAdminToken(req);
     return this.settings.getSafety();
   }
 
   @Get('safety')
-  getSafety() {
+  getSafety(@Req() req: any) {
+    assertAdminToken(req);
     return this.settings.getSafety();
   }
 
   @Patch()
-  patchSettings(@Body() body: any) {
+  patchSettings(@Req() req: any, @Body() body: any) {
+    assertAdminToken(req);
+    assertAdminRole(getActorRole(req), 'settings patch');
     return this.settings.updateSafety(body);
   }
 
   @Get('brand')
-  getBrand() {
+  getBrand(@Req() req: any) {
+    assertAdminToken(req);
     return this.settings.getBrand();
   }
 
   @Post('brand')
-  saveBrand(@Body() body: any) {
+  saveBrand(@Req() req: any, @Body() body: any) {
+    assertAdminToken(req);
+    assertAdminRole(getActorRole(req), 'settings brand save');
     return this.settings.saveBrand(body);
   }
 
   @Patch('safety')
-  patchSafety(@Body() body: UpdateSafetyDto) {
+  patchSafety(@Req() req: any, @Body() body: UpdateSafetyDto) {
+    assertAdminToken(req);
+    assertAdminRole(getActorRole(req), 'settings safety patch');
     return this.settings.updateSafety(body);
   }
 
   @Post('safety/danger/clear-draft-queue')
-  clearDraftQueue() {
+  clearDraftQueue(@Req() req: any) {
+    assertAdminToken(req);
+    assertAdminRole(getActorRole(req), 'clear draft queue');
     return this.settings.clearDraftQueue();
   }
 
   @Post('safety/danger/reset-agent-states')
-  resetAgentStates() {
+  resetAgentStates(@Req() req: any) {
+    assertAdminToken(req);
+    assertAdminRole(getActorRole(req), 'reset agent states');
     return this.settings.resetAgentStates();
   }
 }
