@@ -74,6 +74,12 @@ export class DraftsController {
     return this.drafts.listEmailSendHistory(Number(limit) || 50);
   }
 
+  @Get('email-pipeline/status')
+  emailPipelineStatus(@Req() req: any) {
+    assertAdminToken(req);
+    return this.drafts.emailPipelineStatus();
+  }
+
   @Get('send-history')
   sendHistory(@Req() req: any, @Query('limit') limit?: string) {
     assertAdminToken(req);

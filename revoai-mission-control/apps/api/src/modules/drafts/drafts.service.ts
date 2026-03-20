@@ -404,6 +404,31 @@ export class DraftsService {
     return { ok: true, provider: 'EMAIL', status: sendStatus, attempts, externalMessageId: messageId };
   }
 
+  async emailPipelineStatus() {
+    const now = new Date();
+    const start = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const rows = await this.prisma.outboundSend.findMany({
+      where: { provider: 'EMAIL', sentAt: { gte: start } },
+      orderBy: { sentAt: 'desc' },
+      take: 500,
+    });
+
+    const sent = rows.filter((r: any) => String(r.status).toLowerCase() === 'sent').length;
+    const failed = rows.length - sent;
+    const failureRate = rows.length ? Math.round((failed / rows.length) * 100) : 0;
+
+    return {
+      windowHours: 24,
+      totals: { attempts: rows.length, sent, failed, failureRatePct: failureRate },
+      lastAttemptAt: rows[0]?.sentAt || null,
+      stable: failureRate < 20,
+      recentFailures: rows
+        .filter((r: any) => String(r.status).toLowerCase() !== 'sent')
+        .slice(0, 5)
+        .map((r: any) => ({ id: r.id, status: r.status, error: r.error, sentAt: r.sentAt })),
+    };
+  }
+
   async listEmailSendHistory(limit = 50) {
     const rows = await this.prisma.outboundSend.findMany({
       where: { provider: 'EMAIL' },

@@ -40,6 +40,13 @@ export class SchedulerController {
     return this.scheduler.listRuns();
   }
 
+  @Post('dry-run/e2e')
+  runE2EDryRun(@Req() req: any) {
+    assertAdminToken(req);
+    assertAdminRole(getActorRole(req), 'scheduler e2e dry-run');
+    return this.scheduler.runEndToEndDryRun();
+  }
+
   @Post('social-publish/run-now')
   runSocialPublish(@Req() req: any, @Body() body: any) {
     assertAdminToken(req);

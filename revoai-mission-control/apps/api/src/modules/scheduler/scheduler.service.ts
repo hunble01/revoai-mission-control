@@ -287,6 +287,43 @@ export class SchedulerService {
     }
   }
 
+  async runEndToEndDryRun() {
+    const [latestResearch, pendingApprovals, queueCounts, scheduledPosts, safetyRows] = await Promise.all([
+      this.prisma.researchRun.findFirst({ orderBy: { createdAt: 'desc' } }),
+      this.prisma.draft.count({ where: { status: 'NEEDS_APPROVAL' } as any }),
+      this.prisma.outboundQueue.groupBy({ by: ['status'], _count: { _all: true } as any }),
+      this.prisma.socialPost.count({ where: { status: 'scheduled' } }),
+      this.prisma.setting.findMany({ where: { key: { in: ['dry_run_mode', 'outbound_channels', 'global_pause'] } } }),
+    ]);
+
+    const safety = Object.fromEntries((safetyRows || []).map((r: any) => [r.key, r.value]));
+    const queue = (queueCounts || []).reduce((acc: any, r: any) => ({ ...acc, [r.status]: r._count?._all || 0 }), {} as any);
+
+    const checks = [
+      { key: 'research_run_exists', ok: !!latestResearch, detail: latestResearch?.id || 'none' },
+      { key: 'pending_approvals_visible', ok: pendingApprovals >= 0, detail: String(pendingApprovals) },
+      { key: 'outbound_queue_accessible', ok: true, detail: JSON.stringify(queue) },
+      { key: 'scheduled_posts_accessible', ok: true, detail: String(scheduledPosts) },
+      { key: 'safety_loaded', ok: !!safety?.dry_run_mode, detail: JSON.stringify(safety?.dry_run_mode || {}) },
+    ];
+
+    const blockers = checks.filter((c) => !c.ok);
+    const status = blockers.length ? 'failed' : 'passed';
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorType: 'system',
+        action: 'scheduler.e2e_dry_run',
+        resourceType: 'system',
+        resourceId: 'mission-control',
+        metadata: { status, checks, blockers } as any,
+      },
+    });
+
+    await this.events.publish({ eventType: 'scheduler.e2e_dry_run.completed', payload: { status, blockers: blockers.length } });
+    return { ok: status === 'passed', status, checks, blockers, generatedAt: new Date().toISOString() };
+  }
+
   async runScheduledSocialPublishing(limit = 20) {
     const max = Math.min(Math.max(Number(limit) || 20, 1), 100);
     const now = new Date();

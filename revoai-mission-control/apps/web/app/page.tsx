@@ -19,6 +19,8 @@ export default function Home() {
   const [socialPosts, setSocialPosts] = useState<any[]>([]);
   const [queueOverview, setQueueOverview] = useState<any>(null);
   const [needsApproval, setNeedsApproval] = useState<any[]>([]);
+  const [activityFeed, setActivityFeed] = useState<any[]>([]);
+  const [emailPipeline, setEmailPipeline] = useState<any>(null);
   const [lastRefresh, setLastRefresh] = useState<string>('—');
   const [loading, setLoading] = useState(true);
 
@@ -33,7 +35,9 @@ export default function Home() {
       fetch(`${base}/api/drafts/send-history?limit=100`, { credentials: 'include', headers }).then((r) => r.json()).catch(() => []),
       fetch(`${base}/api/social-posts/history?limit=100`, { credentials: 'include', headers }).then((r) => r.json()).catch(() => []),
       fetch(`${base}/api/drafts/queue/overview`, { credentials: 'include', headers }).then((r) => r.json()).catch(() => null),
-    ]).then(([l, d, na, s, rr, sh, sp, qo]) => {
+      fetch(`${base}/api/events/feed?limit=50`, { credentials: 'include', headers }).then((r) => r.json()).catch(() => []),
+      fetch(`${base}/api/drafts/email-pipeline/status`, { credentials: 'include', headers }).then((r) => r.json()).catch(() => null),
+    ]).then(([l, d, na, s, rr, sh, sp, qo, feed, email]) => {
       setLeads(Array.isArray(l) ? l : []);
       setDrafts(Array.isArray(d) ? d : []);
       setNeedsApproval(Array.isArray(na) ? na : []);
@@ -42,6 +46,8 @@ export default function Home() {
       setSendHistory(Array.isArray(sh) ? sh : []);
       setSocialPosts(Array.isArray(sp) ? sp : []);
       setQueueOverview(qo || null);
+      setActivityFeed(Array.isArray(feed) ? feed : []);
+      setEmailPipeline(email || null);
       setLastRefresh(new Date().toLocaleTimeString());
     }).finally(() => setLoading(false));
   }, []);
@@ -153,6 +159,30 @@ export default function Home() {
               {!socialPosts.length && <tr><td colSpan={4} className="muted">No social post history yet.</td></tr>}
             </tbody>
           </Table>
+        </Card>
+      </section>
+
+      <section className="split-panels">
+        <Card title="Activity Feed" subtitle="Recent cross-channel operations">
+          <Table>
+            <thead><tr><th>Event</th><th>When</th></tr></thead>
+            <tbody>
+              {activityFeed.slice(0, 8).map((e: any, idx: number) => (
+                <tr key={e.id || idx}><td>{e.eventType || e.type || 'unknown'}</td><td>{new Date(e.createdAt || e.timestamp || Date.now()).toLocaleString()}</td></tr>
+              ))}
+              {!activityFeed.length && <tr><td colSpan={2} className="muted">No activity events yet.</td></tr>}
+            </tbody>
+          </Table>
+        </Card>
+
+        <Card title="Email Pipeline Stability" subtitle="Last 24h email send health">
+          <div className="table-toolbar" style={{ justifyContent: 'space-between' }}>
+            <span className="muted">Attempts: {emailPipeline?.totals?.attempts ?? 0}</span>
+            <span className="muted">Sent: {emailPipeline?.totals?.sent ?? 0}</span>
+            <span className="muted">Failed: {emailPipeline?.totals?.failed ?? 0}</span>
+            <Badge tone={emailPipeline?.stable ? 'success' : 'warning'}>{emailPipeline?.stable ? 'Stable' : 'Watch'}</Badge>
+          </div>
+          <div className="muted" style={{ marginTop: 8 }}>Failure rate: {emailPipeline?.totals?.failureRatePct ?? 0}%</div>
         </Card>
       </section>
 
