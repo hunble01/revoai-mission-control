@@ -110,6 +110,13 @@ export class DraftsController {
     return this.drafts.queueApprovedSend(id, getActorRole(req), req?.auth?.uid);
   }
 
+  @Post('queue/process')
+  processQueue(@Req() req: any, @Body() body: any) {
+    assertAdminToken(req);
+    const channel = body?.channel ? String(body.channel).toUpperCase() : undefined;
+    return this.drafts.processQueuedOutbound(Number(body?.limit) || 10, channel as any);
+  }
+
   @Post(':id/mark-sent-manual')
   markSent(@Req() req: any, @Param('id') id: string) {
     assertAdminToken(req);

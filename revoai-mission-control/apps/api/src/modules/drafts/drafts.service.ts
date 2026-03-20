@@ -619,6 +619,49 @@ export class DraftsService {
     return { ok: true, queueId: queued.id, status: queued.status };
   }
 
+  async processQueuedOutbound(limit = 10, channel?: 'LINKEDIN' | 'FACEBOOK') {
+    const max = Math.min(Math.max(Number(limit) || 10, 1), 50);
+    const rows = await this.prisma.outboundQueue.findMany({
+      where: {
+        status: 'QUEUED' as any,
+        ...(channel ? { channel: channel as any } : { channel: { in: ['LINKEDIN', 'FACEBOOK'] as any } }),
+      } as any,
+      orderBy: [{ priority: 'asc' }, { createdAt: 'asc' }],
+      take: max,
+    });
+
+    const results: any[] = [];
+    for (const q of rows as any[]) {
+      await this.prisma.outboundQueue.update({ where: { id: q.id }, data: { status: 'SENDING', workerLockedAt: new Date() } as any });
+      try {
+        if (!q.draftId) throw new Error('Missing draftId in queue payload');
+        if (String(q.channel) === 'LINKEDIN') {
+          await this.sendApprovedLinkedin(q.draftId, 'admin');
+        } else if (String(q.channel) === 'FACEBOOK') {
+          await this.sendApprovedFacebook(q.draftId, 'admin');
+        } else {
+          throw new Error(`Unsupported queued channel: ${q.channel}`);
+        }
+
+        await this.prisma.outboundQueue.update({
+          where: { id: q.id },
+          data: { status: 'SENT', attemptCount: { increment: 1 }, failureReason: null, updatedAt: new Date() } as any,
+        });
+        results.push({ queueId: q.id, status: 'sent' });
+      } catch (e: any) {
+        const err = String(e?.message || 'Queue execution failed');
+        await this.prisma.outboundQueue.update({
+          where: { id: q.id },
+          data: { status: 'FAILED', attemptCount: { increment: 1 }, failureReason: err, updatedAt: new Date() } as any,
+        });
+        results.push({ queueId: q.id, status: 'failed', error: err });
+      }
+    }
+
+    await this.events.publish({ eventType: 'outbound.queue.processed', payload: { count: results.length, channel: channel || 'ALL' } });
+    return { ok: true, processed: results.length, results };
+  }
+
   async listSendHistory(limit = 100) {
     const emailHistory = await this.listEmailSendHistory(limit);
     const li = await this.prisma.linkedinMessage.findMany({ orderBy: { createdAt: 'desc' }, take: limit });
