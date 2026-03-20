@@ -40,6 +40,13 @@ export class SchedulerController {
     return this.scheduler.listRuns();
   }
 
+  @Post('social-publish/run-now')
+  runSocialPublish(@Req() req: any, @Body() body: any) {
+    assertAdminToken(req);
+    assertAdminRole(getActorRole(req), 'scheduler social publish run-now');
+    return this.scheduler.runScheduledSocialPublishing(Number(body?.limit) || 20);
+  }
+
   @Post('seed-defaults')
   seedDefaults(@Req() req: any, @Body() body: any) {
     assertAdminToken(req);

@@ -287,6 +287,67 @@ export class SchedulerService {
     }
   }
 
+  async runScheduledSocialPublishing(limit = 20) {
+    const max = Math.min(Math.max(Number(limit) || 20, 1), 100);
+    const now = new Date();
+    const due = await this.prisma.socialPost.findMany({
+      where: {
+        status: 'scheduled',
+        scheduledAt: { lte: now },
+      },
+      orderBy: { scheduledAt: 'asc' },
+      take: max,
+    });
+
+    const results: any[] = [];
+    for (const post of due) {
+      try {
+        if (String(post.channel) === 'LINKEDIN') {
+          const res = await fetch(`${process.env.PUBLIC_API_BASE || 'http://localhost:3001'}/api/linkedin/post`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', 'x-admin-token': process.env.ADMIN_TOKEN || 'change-me' },
+            body: JSON.stringify({ socialPostId: post.id }),
+          });
+          if (!res.ok) throw new Error(`LinkedIn publish failed (${res.status})`);
+        } else if (String(post.channel) === 'FACEBOOK') {
+          const res = await fetch(`${process.env.PUBLIC_API_BASE || 'http://localhost:3001'}/api/facebook/publish`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', 'x-admin-token': process.env.ADMIN_TOKEN || 'change-me' },
+            body: JSON.stringify({ socialPostId: post.id, mode: 'socialPost' }),
+          });
+          if (!res.ok) throw new Error(`Facebook publish failed (${res.status})`);
+        } else {
+          throw new Error(`Unsupported social channel: ${post.channel}`);
+        }
+
+        await this.prisma.auditLog.create({
+          data: {
+            actorType: 'system',
+            action: 'scheduler.social_publish.sent',
+            resourceType: 'social_post',
+            resourceId: post.id,
+            metadata: { channel: post.channel } as any,
+          },
+        });
+        results.push({ id: post.id, status: 'posted' });
+      } catch (e: any) {
+        await this.prisma.auditLog.create({
+          data: {
+            actorType: 'system',
+            action: 'scheduler.social_publish.failed',
+            resourceType: 'social_post',
+            resourceId: post.id,
+            metadata: { channel: post.channel, error: String(e?.message || 'failed') } as any,
+          },
+        });
+        results.push({ id: post.id, status: 'failed', error: String(e?.message || 'failed') });
+      }
+    }
+
+    await this.events.publish({ eventType: 'scheduler.social_publish.completed', payload: { processed: results.length } });
+    return { ok: true, processed: results.length, results };
+  }
+
   async seedDefaultPipeline(campaignId?: string) {
     const defaults = [
       { name: '09:00 Lead Research', cronExpr: '0 9 * * *' },

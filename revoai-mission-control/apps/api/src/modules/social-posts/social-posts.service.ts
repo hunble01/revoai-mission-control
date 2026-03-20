@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventsService } from '../events/events.service';
 
@@ -48,6 +48,17 @@ export class SocialPostsService {
   async transition(id: string, status: 'approved' | 'scheduled' | 'posted' | 'draft', notes?: string, scheduledAt?: string, externalPostId?: string) {
     const existing = await this.prisma.socialPost.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Social post not found');
+
+    const current = String(existing.status || '').toLowerCase();
+    if (status === 'approved' && !['draft', 'needs_approval'].includes(current)) {
+      throw new BadRequestException('Only draft/needs_approval posts can be approved');
+    }
+    if (status === 'scheduled' && current !== 'approved') {
+      throw new BadRequestException('Only approved posts can be scheduled');
+    }
+    if (status === 'posted' && !['approved', 'scheduled'].includes(current)) {
+      throw new BadRequestException('Only approved/scheduled posts can be posted');
+    }
 
     const updated = await this.prisma.socialPost.update({
       where: { id },
