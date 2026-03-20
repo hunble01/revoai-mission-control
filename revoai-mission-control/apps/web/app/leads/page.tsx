@@ -7,8 +7,7 @@ import { Table } from '../../components/ui/Table';
 import { Button } from '../../components/ui/Button';
 import { SkeletonRows } from '../../components/ui/Skeleton';
 
-const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-const token = process.env.NEXT_PUBLIC_ADMIN_TOKEN || 'change-me';
+import { API_BASE, apiHeaders } from '../../lib/api';
 
 export default function LeadsPage() {
   const [leads, setLeads] = useState<any[]>([]);
@@ -38,11 +37,11 @@ export default function LeadsPage() {
     const params = new URLSearchParams();
     if (q.trim()) params.set('search', q.trim());
     if (status) params.set('status', status);
-    const url = `${base}/api/leads${params.toString() ? `?${params.toString()}` : ''}`;
+    const url = `${API_BASE}/api/leads${params.toString() ? `?${params.toString()}` : ''}`;
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(url, { credentials: 'include', headers: { 'x-admin-token': token } });
+      const res = await fetch(url, { credentials: 'include', headers: apiHeaders });
       if (!res.ok) throw new Error(`Failed to load leads (HTTP ${res.status})`);
       const d = await res.json();
       setLeads(Array.isArray(d) ? d : []);
@@ -61,7 +60,7 @@ export default function LeadsPage() {
   }, [q, status]);
 
   useEffect(() => {
-    fetch(`${base}/api/campaigns`, { credentials: 'include', headers: { 'x-admin-token': token } })
+    fetch(`${API_BASE}/api/campaigns`, { credentials: 'include', headers: apiHeaders })
       .then((r) => r.json())
       .then((d) => {
         const rows = Array.isArray(d) ? d : [];
@@ -81,10 +80,10 @@ export default function LeadsPage() {
     setSavingLeadId(leadId);
     setLeads((curr) => curr.map((l: any) => (l.id === leadId ? { ...l, status: nextStatus } : l)));
     try {
-      const res = await fetch(`${base}/api/leads/${leadId}`, {
+      const res = await fetch(`${API_BASE}/api/leads/${leadId}`, {
         method: 'PATCH',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json', 'x-admin-token': token, 'x-actor-role': 'admin' },
+        headers: apiHeaders,
         body: JSON.stringify({ status: nextStatus }),
       });
       if (!res.ok) throw new Error(`Failed to update lead status (HTTP ${res.status})`);
@@ -103,10 +102,10 @@ export default function LeadsPage() {
     setSavingLeadId(leadId);
     setLeads((curr) => curr.map((l: any) => (l.id === leadId ? { ...l, preferredChannel } : l)));
     try {
-      const res = await fetch(`${base}/api/leads/${leadId}`, {
+      const res = await fetch(`${API_BASE}/api/leads/${leadId}`, {
         method: 'PATCH',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json', 'x-admin-token': token, 'x-actor-role': 'admin' },
+        headers: apiHeaders,
         body: JSON.stringify({ preferredChannel }),
       });
       if (!res.ok) throw new Error(`Failed to update preferred channel (HTTP ${res.status})`);
@@ -129,10 +128,10 @@ export default function LeadsPage() {
       return;
     }
     try {
-      const res = await fetch(`${base}/api/leads`, {
+      const res = await fetch(`${API_BASE}/api/leads`, {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
+        headers: apiHeaders,
         body: JSON.stringify({
           campaignId: newLead.campaignId,
           businessName: newLead.businessName.trim(),
@@ -162,8 +161,8 @@ export default function LeadsPage() {
     setSaveMessage('');
     setError('');
     try {
-      const res = await fetch(`${base}/api/leads/${leadId}/enrich`, {
-        method: 'POST', credentials: 'include', headers: { 'x-admin-token': token, 'x-actor-role': 'admin' },
+      const res = await fetch(`${API_BASE}/api/leads/${leadId}/enrich`, {
+        method: 'POST', credentials: 'include', headers: apiHeaders,
       });
       if (!res.ok) throw new Error(`Failed to enrich lead (HTTP ${res.status})`);
       setSaveMessage('Lead enriched.');
@@ -179,10 +178,10 @@ export default function LeadsPage() {
     setError('');
     try {
       await Promise.all(selectedLeadIds.map(async (id) => {
-        await fetch(`${base}/api/leads/${id}`, {
+        await fetch(`${API_BASE}/api/leads/${id}`, {
           method: 'PATCH',
           credentials: 'include',
-          headers: { 'Content-Type': 'application/json', 'x-admin-token': token, 'x-actor-role': 'admin' },
+          headers: apiHeaders,
           body: JSON.stringify({ status: bulkStatus, campaignId: bulkCampaignId || undefined }),
         });
       }));
@@ -196,38 +195,20 @@ export default function LeadsPage() {
 
   const createDraftForLead = async (lead: any) => {
     try {
-      const payload = {
-        campaignId: lead.campaignId,
-        leadId: lead.id,
-        channel: lead.preferredChannel || 'EMAIL',
-        draftType: 'OUTREACH',
-        content: `Personalized outreach draft for ${lead.businessName || 'this lead'}`,
-        status: 'NEEDS_APPROVAL',
-      };
-
-      const draftRes = await fetch(`${base}/api/drafts`, {
+      const draftRes = await fetch(`${API_BASE}/api/leads/${lead.id}/generate-draft`, {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
-        body: JSON.stringify(payload),
+        headers: apiHeaders,
+        body: JSON.stringify({ channel: lead.preferredChannel || 'EMAIL' }),
       });
       const draftData = await draftRes.json().catch(() => ({}));
       if (!draftRes.ok) throw new Error(draftData?.error?.message || draftData?.message || `Draft failed (HTTP ${draftRes.status})`);
-
-      const leadPatchRes = await fetch(`${base}/api/leads/${lead.id}`, {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json', 'x-admin-token': token, 'x-actor-role': 'admin' },
-        body: JSON.stringify({ status: 'DRAFTED' }),
-      });
-      const leadPatchData = await leadPatchRes.json().catch(() => ({}));
-      if (!leadPatchRes.ok) throw new Error(leadPatchData?.error?.message || leadPatchData?.message || `Lead status update failed (HTTP ${leadPatchRes.status})`);
 
       await load();
       if (selectedLead?.id === lead.id) {
         setSelectedLead((curr: any) => (curr ? { ...curr, status: 'DRAFTED' } : curr));
       }
-      toast('success', 'Draft created — review in Approvals');
+      toast('success', 'Draft generated — review in Approvals');
     } catch (e: any) {
       toast('error', e?.message || 'Draft failed');
     }
@@ -237,7 +218,7 @@ export default function LeadsPage() {
     if (!selectedLeadIds.length) return;
     setEnrichingSelected(true);
     try {
-      await Promise.all(selectedLeadIds.map((id) => fetch(`${base}/api/leads/${id}/enrich`, { method: 'POST', credentials: 'include', headers: { 'x-admin-token': token, 'x-actor-role': 'admin' } })));
+      await Promise.all(selectedLeadIds.map((id) => fetch(`${API_BASE}/api/leads/${id}/enrich`, { method: 'POST', credentials: 'include', headers: apiHeaders })));
       toast('success', `Enriched ${selectedLeadIds.length} leads`);
       await load();
     } catch {
@@ -417,8 +398,8 @@ export default function LeadsPage() {
               <div className="page-eyebrow">NOTES</div>
               <textarea className="ui-input" rows={4} value={leadNotes} onChange={(e) => setLeadNotes(e.target.value)} onBlur={async () => {
                 if (!selectedLead?.id) return;
-                await fetch(`${base}/api/leads/${selectedLead.id}`, {
-                  method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json', 'x-admin-token': token, 'x-actor-role': 'admin' }, body: JSON.stringify({ notes: leadNotes }),
+                await fetch(`${API_BASE}/api/leads/${selectedLead.id}`, {
+                  method: 'PATCH', credentials: 'include', headers: apiHeaders, body: JSON.stringify({ notes: leadNotes }),
                 });
                 setLeads((curr) => curr.map((l) => l.id === selectedLead.id ? { ...l, notes: leadNotes } : l));
               }} />
@@ -435,7 +416,7 @@ export default function LeadsPage() {
             <Button variant="ghost" style={{ border: '1px solid rgba(255,91,122,0.3)', color: '#FF5B7A' }} onClick={() => {
               if (!selectedLead?.id) return;
               if (!confirm('Delete this lead?')) return;
-              fetch(`${base}/api/leads/${selectedLead.id}`, { method: 'DELETE', credentials: 'include', headers: { 'x-admin-token': token } })
+              fetch(`${API_BASE}/api/leads/${selectedLead.id}`, { method: 'DELETE', credentials: 'include', headers: apiHeaders })
                 .then(() => {
                   setLeads((curr) => curr.filter((x) => x.id !== selectedLead.id));
                   setSelectedLead(null);

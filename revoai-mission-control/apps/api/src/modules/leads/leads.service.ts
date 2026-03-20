@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventsService } from '../events/events.service';
+import { Channel } from '@prisma/client';
 
 @Injectable()
 export class LeadsService {
@@ -105,6 +106,61 @@ export class LeadsService {
 
     await this.events.publish({ eventType: 'lead.enriched', campaignId: updated.campaignId, payload: { leadId: updated.id } });
     return { ok: true, lead: updated };
+  }
+
+  async generateDraftForLead(id: string, body: any, actorId?: string) {
+    const lead = await this.prisma.lead.findUnique({ where: { id } });
+    if (!lead) throw new NotFoundException('Lead not found');
+
+    const channel = String(body?.channel || lead.preferredChannel || 'EMAIL').toUpperCase() as Channel;
+    if (!['EMAIL', 'LINKEDIN', 'FACEBOOK'].includes(channel)) {
+      throw new BadRequestException('Unsupported draft channel');
+    }
+
+    const campaignId = body?.campaignId || lead.campaignId;
+    const opening = channel === 'EMAIL' ? `Hi ${lead.contactName || 'there'},` : `Hey ${lead.contactName || 'there'},`;
+    const pitch = `noticed ${lead.businessName} may be losing inbound leads due to delayed follow-up.`;
+    const cta = `Worth a quick 10-minute walkthrough to show how to recover more booked appointments?`;
+    const content = String(body?.content || `${opening}\n\nI ${pitch}\n\n${cta}`).trim();
+
+    const draft = await this.prisma.draft.create({
+      data: {
+        campaignId,
+        leadId: lead.id,
+        channel: channel as any,
+        draftType: 'OUTREACH',
+        status: 'NEEDS_APPROVAL' as any,
+        subject: channel === 'EMAIL' ? String(body?.subject || `Quick idea for ${lead.businessName}`) : null,
+        content,
+        createdBy: actorId || null,
+      } as any,
+    });
+
+    await this.prisma.draftVersion.create({
+      data: {
+        draftId: draft.id,
+        versionNumber: 1,
+        content,
+        changeNote: 'Generated from lead profile',
+        createdBy: actorId || null,
+      },
+    });
+
+    await this.prisma.lead.update({ where: { id: lead.id }, data: { status: 'DRAFTED', lastActionAt: new Date() } as any });
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorType: 'user',
+        actorId: actorId || null,
+        action: 'lead.draft.generated',
+        resourceType: 'lead',
+        resourceId: lead.id,
+        metadata: { draftId: draft.id, channel } as any,
+      },
+    });
+
+    await this.events.publish({ eventType: 'lead.draft.generated', campaignId: lead.campaignId, payload: { leadId: lead.id, draftId: draft.id, channel } });
+    return { ok: true, draftId: draft.id, status: draft.status };
   }
 
   async importMappedCsv(data: {

@@ -65,4 +65,12 @@ export class LeadsController {
     assertAdminRole(getActorRole(req), 'lead enrich');
     return this.leads.enrichLead(id);
   }
+
+  @Post(':id/generate-draft')
+  generateDraft(@Req() req: any, @Param('id') id: string, @Body() body: any) {
+    assertAdminToken(req);
+    assertAdminRole(getActorRole(req), 'lead draft generate');
+    const actorId = req?.headers?.['x-actor-id'] ? String(req.headers['x-actor-id']) : undefined;
+    return this.leads.generateDraftForLead(id, body || {}, actorId);
+  }
 }
