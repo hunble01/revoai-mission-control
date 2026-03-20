@@ -9,6 +9,7 @@ do $$ begin create type actor_type as enum ('user','agent','system'); exception 
 do $$ begin create type lead_score as enum ('A','B','C'); exception when duplicate_object then null; end $$;
 do $$ begin create type lead_status as enum ('new','enriched','drafted','approved','contacted','replied','booked','lost'); exception when duplicate_object then null; end $$;
 do $$ begin create type draft_status as enum ('draft','needs_approval','approved','rejected'); exception when duplicate_object then null; end $$;
+do $$ begin create type queue_status as enum ('draft','approved','queued','sending','sent','failed','canceled'); exception when duplicate_object then null; end $$;
 
 create table if not exists users (
   id uuid primary key default gen_random_uuid(),
@@ -56,6 +57,21 @@ create table if not exists leads (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+create table if not exists lead_intel (
+  id uuid primary key default gen_random_uuid(),
+  lead_id uuid not null references leads(id) on delete cascade,
+  intel_type text not null,
+  title text,
+  summary text not null,
+  source_url text,
+  confidence int,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_lead_intel_lead_id on lead_intel(lead_id);
+create index if not exists idx_lead_intel_type on lead_intel(intel_type);
 
 create table if not exists drafts (
   id uuid primary key default gen_random_uuid(),
@@ -129,6 +145,34 @@ create table if not exists approvals (
   decided_by uuid references users(id) on delete set null,
   decided_at timestamptz not null default now()
 );
+
+create table if not exists outbound_queue (
+  id uuid primary key default gen_random_uuid(),
+  channel text not null,
+  lead_id uuid references leads(id) on delete set null,
+  draft_id uuid references drafts(id) on delete set null,
+  campaign_id uuid references campaigns(id) on delete set null,
+  priority int not null default 100,
+  status queue_status not null default 'draft',
+  scheduled_at timestamptz,
+  approved_at timestamptz,
+  approved_by uuid references users(id) on delete set null,
+  send_after timestamptz,
+  failure_reason text,
+  worker_lock_id text,
+  worker_locked_at timestamptz,
+  attempt_count int not null default 0,
+  max_attempts int not null default 3,
+  payload jsonb not null default '{}'::jsonb,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_outbound_queue_status_sched on outbound_queue(status, scheduled_at);
+create index if not exists idx_outbound_queue_channel_status on outbound_queue(channel, status);
+create index if not exists idx_outbound_queue_lead on outbound_queue(lead_id);
+create index if not exists idx_outbound_queue_draft on outbound_queue(draft_id);
 
 create table if not exists scheduler_jobs (
   id uuid primary key default gen_random_uuid(),

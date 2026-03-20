@@ -52,6 +52,7 @@ enum DraftStatus {
   NEEDS_APPROVAL
   APPROVED
   REJECTED
+  SENT
 }
 
 enum ApprovalAction {
@@ -81,6 +82,16 @@ enum ConnectionHealth {
   HEALTHY
   DEGRADED
   FAILED
+}
+
+enum QueueStatus {
+  DRAFT
+  APPROVED
+  QUEUED
+  SENDING
+  SENT
+  FAILED
+  CANCELED
 }
 
 model User {
@@ -143,9 +154,9 @@ model Campaign {
 }
 
 model Lead {
-  id                  String     @id @default(uuid())
+  id                  String      @id @default(uuid())
   campaignId          String
-  campaign            Campaign   @relation(fields: [campaignId], references: [id])
+  campaign            Campaign    @relation(fields: [campaignId], references: [id])
   businessName        String
   niche               String?
   region              String?
@@ -156,20 +167,21 @@ model Lead {
   phone               String?
   linkedinUrl         String?
   source              String?
-  sourceDetail        String?   @map("source_detail")
-  fitScore            String?   @map("fit_score")
+  sourceDetail        String?     @map("source_detail")
+  fitScore            String?     @map("fit_score")
   preferredChannel    Channel?
   leadScore           LeadScore?
   scoreOverride       LeadScore?
   scoreOverrideReason String?
-  status              LeadStatus @default(NEW)
+  status              LeadStatus  @default(NEW)
   lastActionAt        DateTime?
   nextStep            String?
-  notes               Json       @default("[]")
-  createdAt           DateTime   @default(now())
-  updatedAt           DateTime   @updatedAt
+  notes               Json        @default("[]")
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
 
-  drafts Draft[]
+  drafts    Draft[]
+  intelRows LeadIntel[]
 }
 
 model Draft {
@@ -180,6 +192,8 @@ model Draft {
   lead            Lead?       @relation(fields: [leadId], references: [id])
   channel         Channel
   draftType       String
+  content         String?
+  subject         String?
   status          DraftStatus @default(DRAFT)
   currentVersion  Int         @default(1)
   approverId      String?
@@ -252,6 +266,35 @@ model Approval {
   editorContent String?
   decidedBy     String?
   decidedAt     DateTime       @default(now())
+}
+
+model OutboundQueue {
+  id              String      @id @default(uuid())
+  channel         Channel
+  leadId          String?
+  draftId         String?
+  campaignId      String?
+  priority        Int         @default(100)
+  status          QueueStatus @default(DRAFT)
+  scheduledAt     DateTime?
+  approvedAt      DateTime?
+  approvedBy      String?
+  sendAfter       DateTime?
+  failureReason   String?
+  workerLockId    String?
+  workerLockedAt  DateTime?
+  attemptCount    Int         @default(0)
+  maxAttempts     Int         @default(3)
+  payload         Json        @default("{}")
+  metadata        Json        @default("{}")
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([status, scheduledAt])
+  @@index([channel, status])
+  @@index([leadId])
+  @@index([draftId])
+  @@map("outbound_queue")
 }
 
 model OutboundSend {
@@ -497,6 +540,23 @@ model ContentIdea {
   @@index([dismissed])
   @@index([createdAt])
   @@map("content_ideas")
+}
+
+model LeadIntel {
+  id         String   @id @default(uuid())
+  leadId      String   @map("lead_id")
+  lead        Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  intelType   String   @map("intel_type")
+  title       String?
+  summary     String
+  sourceUrl   String?  @map("source_url")
+  confidence  Int?
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([leadId])
+  @@index([intelType])
+  @@map("lead_intel")
 }
 
 model CompetitorIntel {
