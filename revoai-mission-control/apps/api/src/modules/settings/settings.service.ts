@@ -6,11 +6,33 @@ import { EventsService } from '../events/events.service';
 export class SettingsService {
   constructor(private readonly prisma: PrismaService, private readonly events: EventsService) {}
 
+  private readonly defaultSafetySettings = {
+    dry_run_mode: { enabled: true },
+    outbound_channels: { email: false, facebook: false, instagram: false, linkedin: false },
+    global_pause: { paused: false },
+    outbound_daily_caps: { email: 500, facebook: 50, instagram: 50, linkedin: 20 },
+    outbound_kill_switches: { email: false, facebook: false, instagram: false, linkedin: false },
+  };
+
+  private async ensureSafetyDefaults() {
+    for (const [key, value] of Object.entries(this.defaultSafetySettings)) {
+      await this.prisma.setting.upsert({
+        where: { key },
+        create: { key, value: value as any },
+        update: {},
+      });
+    }
+  }
+
   async getSafety() {
+    await this.ensureSafetyDefaults();
+
     const keys = [
       'dry_run_mode',
       'outbound_channels',
       'global_pause',
+      'outbound_daily_caps',
+      'outbound_kill_switches',
       'research_agent_settings',
       'rate_limit_guardrails',
       'content_defaults',
@@ -38,6 +60,12 @@ export class SettingsService {
     }
     if (payload?.researchAgentSettings) {
       updates.push({ key: 'research_agent_settings', value: payload.researchAgentSettings });
+    }
+    if (payload?.outboundDailyCaps) {
+      updates.push({ key: 'outbound_daily_caps', value: payload.outboundDailyCaps });
+    }
+    if (payload?.outboundKillSwitches) {
+      updates.push({ key: 'outbound_kill_switches', value: payload.outboundKillSwitches });
     }
     if (payload?.rateLimitGuardrails) {
       updates.push({ key: 'rate_limit_guardrails', value: payload.rateLimitGuardrails });
@@ -117,11 +145,16 @@ export class SettingsService {
 
   async assertOutboundAllowed(channel: 'email' | 'facebook' | 'instagram' | 'linkedin') {
     const safety = await this.getSafety();
+    const paused = (safety?.global_pause as any)?.paused;
     const dry = (safety?.dry_run_mode as any)?.enabled;
     const channels = (safety?.outbound_channels as any) || {};
+    const killSwitches = (safety?.outbound_kill_switches as any) || {};
+    const caps = (safety?.outbound_daily_caps as any) || {};
 
+    if (paused) throw new BadRequestException('global pause is enabled; all outbound execution blocked');
     if (dry) throw new BadRequestException('dry-run mode is enabled; outbound execution blocked');
     if (!channels[channel]) throw new BadRequestException(`${channel} outbound toggle is OFF`);
+    if (killSwitches[channel]) throw new BadRequestException(`${channel} outbound kill-switch is ON`);
 
     const providerMap: Record<string, 'EMAIL' | 'FACEBOOK' | 'INSTAGRAM' | 'LINKEDIN'> = {
       email: 'EMAIL',
@@ -134,6 +167,31 @@ export class SettingsService {
     const connection = await this.prisma.connection.findUnique({ where: { provider } });
     if (!connection || connection.status !== 'CONNECTED' || connection.health !== 'HEALTHY') {
       throw new BadRequestException(`${channel} provider is not connected/healthy`);
+    }
+
+    const token = await this.prisma.providerToken.findUnique({ where: { provider: channel } });
+    if (!token || !token.accessToken) {
+      throw new BadRequestException(`${channel} provider token missing`);
+    }
+    if (token.expiresAt && token.expiresAt.getTime() <= Date.now()) {
+      throw new BadRequestException(`${channel} provider token expired`);
+    }
+
+    const start = new Date();
+    start.setUTCHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setUTCDate(end.getUTCDate() + 1);
+
+    const sentToday = await this.prisma.outboundSend.count({
+      where: {
+        provider: provider,
+        status: { equals: 'sent', mode: 'insensitive' },
+        sentAt: { gte: start, lt: end },
+      } as any,
+    });
+    const cap = Number(caps[channel] ?? 0);
+    if (cap > 0 && sentToday >= cap) {
+      throw new BadRequestException(`${channel} daily cap reached (${cap}/day)`);
     }
   }
 }

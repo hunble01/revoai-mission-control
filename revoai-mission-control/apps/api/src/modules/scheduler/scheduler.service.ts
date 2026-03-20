@@ -51,35 +51,107 @@ export class SchedulerService {
   }
 
   private async runLeadResearch(campaignId?: string) {
-    if (!campaignId) return { leads: 0 };
-    const created = await this.prisma.lead.createMany({
-      data: [
-        {
+    if (!campaignId) return { leads: 0, runId: null };
+
+    const campaign = await this.prisma.campaign.findUnique({ where: { id: campaignId } });
+    const niche = campaign?.niche || 'Local Services';
+    const city = campaign?.geographyCity || campaign?.geography || 'Toronto';
+
+    const run = await this.prisma.researchRun.create({
+      data: {
+        campaignId,
+        status: 'running',
+        searchParams: {
           campaignId,
-          businessName: 'North Star Plumbing',
-          niche: 'Home services',
-          region: 'Toronto, ON',
-          website: 'https://northstarplumbing.example',
-          source: 'manual_research',
-          leadScore: 'B',
-          status: 'NEW',
-          notes: ['No booking CTA visible', 'Likely after-hours missed calls'],
-        },
-        {
-          campaignId,
-          businessName: 'Downtown Skin Clinic',
-          niche: 'Beauty/Med-spa',
-          region: 'Toronto, ON',
-          website: 'https://downtownskin.example',
-          source: 'manual_research',
-          leadScore: 'A',
-          status: 'NEW',
-          notes: ['Strong reviews, weak response path'],
-        },
-      ],
-      skipDuplicates: true,
+          niche,
+          geographyCity: city,
+          dailySendLimit: campaign?.dailySendLimit || 20,
+        } as any,
+        metadata: {
+          source: 'scheduler',
+          mode: 'daily_discovery',
+          phase: 'Lead Discovery',
+          progress: 20,
+        } as any,
+      },
     });
-    return { leads: created.count };
+
+    const leadsSeed = [
+      {
+        companyName: `${city} ${niche} Pros`,
+        contactName: 'Owner',
+        email: `hello@${String(city).toLowerCase().replace(/\s+/g, '')}pros.example`,
+        phone: '+1-416-555-0101',
+        linkedinUrl: 'https://www.linkedin.com/company/example-pros',
+        sourceUrl: `https://search.example/${encodeURIComponent(`${niche} ${city}`)}`,
+        sourceType: 'research_agent',
+        source: 'scheduler_daily_discovery',
+        fitScore: 'Medium',
+      },
+      {
+        companyName: `${city} ${niche} Group`,
+        contactName: 'Founder',
+        email: `bookings@${String(city).toLowerCase().replace(/\s+/g, '')}group.example`,
+        phone: '+1-416-555-0102',
+        linkedinUrl: 'https://www.linkedin.com/company/example-group',
+        sourceUrl: `https://maps.example/${encodeURIComponent(`${niche} ${city}`)}`,
+        sourceType: 'research_agent',
+        source: 'scheduler_daily_discovery',
+        fitScore: 'High',
+      },
+    ];
+
+    await this.prisma.researchLead.createMany({
+      data: leadsSeed.map((l) => ({ ...l, runId: run.id })),
+    });
+
+    let exported = 0;
+    for (const l of leadsSeed) {
+      try {
+        await this.prisma.lead.create({
+          data: {
+            campaignId,
+            businessName: l.companyName,
+            niche,
+            region: city,
+            contactName: l.contactName,
+            email: l.email,
+            phone: l.phone,
+            linkedinUrl: l.linkedinUrl,
+            website: l.sourceUrl,
+            source: l.sourceType,
+            sourceDetail: l.source,
+            fitScore: l.fitScore,
+            status: 'NEW',
+          },
+        });
+        exported += 1;
+      } catch {}
+    }
+
+    await this.prisma.researchRun.update({
+      where: { id: run.id },
+      data: {
+        status: 'complete',
+        completedAt: new Date(),
+        sourcesUsed: ['scheduler_daily_discovery'] as any,
+        metadata: {
+          source: 'scheduler',
+          mode: 'daily_discovery',
+          phase: 'Lead Discovery',
+          progress: 100,
+          counts: { leadsFound: leadsSeed.length, leadsExported: exported },
+        } as any,
+      },
+    });
+
+    await this.events.publish({
+      eventType: 'research.daily_discovery.completed',
+      campaignId,
+      payload: { runId: run.id, leadsFound: leadsSeed.length, leadsExported: exported },
+    });
+
+    return { leads: exported, discovered: leadsSeed.length, runId: run.id };
   }
 
   private async runEnrichmentScoring(campaignId?: string) {

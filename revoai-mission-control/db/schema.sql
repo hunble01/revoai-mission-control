@@ -218,5 +218,7 @@ create table if not exists settings (
 insert into settings (key, value) values
 ('global_pause', '{"paused": false}'::jsonb),
 ('dry_run_mode', '{"enabled": true}'::jsonb),
-('outbound_channels', '{"email": false, "facebook": false, "instagram": false, "linkedin": false}'::jsonb)
+('outbound_channels', '{"email": false, "facebook": false, "instagram": false, "linkedin": false}'::jsonb),
+('outbound_daily_caps', '{"email": 500, "facebook": 50, "instagram": 50, "linkedin": 20}'::jsonb),
+('outbound_kill_switches', '{"email": false, "facebook": false, "instagram": false, "linkedin": false}'::jsonb)
 on conflict (key) do nothing;

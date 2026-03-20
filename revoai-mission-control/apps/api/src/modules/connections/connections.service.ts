@@ -232,6 +232,26 @@ export class ConnectionsService {
           },
         });
 
+        const expiresAt = expiresIn ? new Date(now.getTime() + expiresIn * 1000) : null;
+        await this.prisma.providerToken.upsert({
+          where: { provider },
+          update: {
+            accountId: tokenJson.user_id || tokenJson.email || 'email-account',
+            accessToken: encryptedAccessToken || '',
+            refreshToken: encryptedRefreshToken,
+            expiresAt,
+            scope: tokenJson.scope || cfg.scopes.join(' '),
+          },
+          create: {
+            provider,
+            accountId: tokenJson.user_id || tokenJson.email || 'email-account',
+            accessToken: encryptedAccessToken || '',
+            refreshToken: encryptedRefreshToken,
+            expiresAt,
+            scope: tokenJson.scope || cfg.scopes.join(' '),
+          },
+        });
+
         return { ok: true, provider, redirectUrl: `${webBase}/connections?provider=${provider}&connected=1` };
       }
     }
@@ -272,6 +292,25 @@ export class ConnectionsService {
         } as any,
         lastSyncAt: now,
         lastCheckedAt: now,
+      },
+    });
+
+    await this.prisma.providerToken.upsert({
+      where: { provider },
+      update: {
+        accountId,
+        accessToken: this.encryptSecret(`stub_access_${provider}_${state}`) || '',
+        refreshToken: this.encryptSecret(`stub_refresh_${provider}_${state}`),
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
+        scope: scopes.join(' '),
+      },
+      create: {
+        provider,
+        accountId,
+        accessToken: this.encryptSecret(`stub_access_${provider}_${state}`) || '',
+        refreshToken: this.encryptSecret(`stub_refresh_${provider}_${state}`),
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
+        scope: scopes.join(' '),
       },
     });
 
