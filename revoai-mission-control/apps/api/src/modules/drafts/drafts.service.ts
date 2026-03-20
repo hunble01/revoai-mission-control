@@ -624,11 +624,21 @@ export class DraftsService {
     const rows = await this.prisma.outboundQueue.findMany({
       where: {
         status: 'QUEUED' as any,
+        OR: [{ sendAfter: null }, { sendAfter: { lte: new Date() } }],
         ...(channel ? { channel: channel as any } : { channel: { in: ['LINKEDIN', 'FACEBOOK'] as any } }),
       } as any,
       orderBy: [{ priority: 'asc' }, { createdAt: 'asc' }],
       take: max,
     });
+
+    const classifyFailure = (msg: string) => {
+      const m = String(msg || '').toLowerCase();
+      if (m.includes('expired') || m.includes('missing') || m.includes('not connected') || m.includes('auth')) return 'AUTH_OR_TOKEN';
+      if (m.includes('daily cap') || m.includes('limit') || m.includes('kill-switch')) return 'POLICY_LIMIT';
+      if (m.includes('timeout') || m.includes('temporary') || m.includes('transient')) return 'TRANSIENT';
+      if (m.includes('unsupported') || m.includes('missing draft')) return 'CONFIG';
+      return 'PROVIDER_OR_UNKNOWN';
+    };
 
     const results: any[] = [];
     for (const q of rows as any[]) {
@@ -645,21 +655,64 @@ export class DraftsService {
 
         await this.prisma.outboundQueue.update({
           where: { id: q.id },
-          data: { status: 'SENT', attemptCount: { increment: 1 }, failureReason: null, updatedAt: new Date() } as any,
+          data: {
+            status: 'SENT',
+            attemptCount: { increment: 1 },
+            failureReason: null,
+            metadata: { ...(q.metadata as any), lastResult: 'SENT', lastProcessedAt: new Date().toISOString() } as any,
+            updatedAt: new Date(),
+          } as any,
         });
         results.push({ queueId: q.id, status: 'sent' });
       } catch (e: any) {
         const err = String(e?.message || 'Queue execution failed');
+        const nextAttempts = Number(q.attemptCount || 0) + 1;
+        const maxAttempts = Number(q.maxAttempts || 3);
+        const failureCode = classifyFailure(err);
+        const retryable = failureCode === 'TRANSIENT' && nextAttempts < maxAttempts;
+
         await this.prisma.outboundQueue.update({
           where: { id: q.id },
-          data: { status: 'FAILED', attemptCount: { increment: 1 }, failureReason: err, updatedAt: new Date() } as any,
+          data: {
+            status: retryable ? 'QUEUED' : 'FAILED',
+            attemptCount: { increment: 1 },
+            sendAfter: retryable ? new Date(Date.now() + 60 * 1000 * nextAttempts) : q.sendAfter,
+            failureReason: `${failureCode}: ${err}`,
+            metadata: {
+              ...(q.metadata as any),
+              lastResult: retryable ? 'REQUEUED' : 'FAILED',
+              failureCode,
+              retryable,
+              lastProcessedAt: new Date().toISOString(),
+            } as any,
+            updatedAt: new Date(),
+          } as any,
         });
-        results.push({ queueId: q.id, status: 'failed', error: err });
+        results.push({ queueId: q.id, status: retryable ? 'requeued' : 'failed', error: err, failureCode });
       }
     }
 
     await this.events.publish({ eventType: 'outbound.queue.processed', payload: { count: results.length, channel: channel || 'ALL' } });
     return { ok: true, processed: results.length, results };
+  }
+
+  async retryFailedQueueJob(id: string) {
+    const row = await this.prisma.outboundQueue.findUnique({ where: { id } });
+    if (!row) throw new NotFoundException('Queue job not found');
+    if (String(row.status) !== 'FAILED') throw new BadRequestException('Only FAILED jobs can be retried');
+
+    const reset = await this.prisma.outboundQueue.update({
+      where: { id },
+      data: {
+        status: 'QUEUED',
+        sendAfter: null,
+        failureReason: null,
+        metadata: { ...(row.metadata as any), manualRetryAt: new Date().toISOString() } as any,
+      } as any,
+    });
+
+    await this.events.publish({ eventType: 'outbound.queue.retry_requested', payload: { queueId: id } });
+    return { ok: true, queueId: reset.id, status: reset.status };
   }
 
   async listSendHistory(limit = 100) {

@@ -117,6 +117,12 @@ export class DraftsController {
     return this.drafts.processQueuedOutbound(Number(body?.limit) || 10, channel as any);
   }
 
+  @Post('queue/:id/retry')
+  retryQueueJob(@Req() req: any, @Param('id') id: string) {
+    assertAdminToken(req);
+    return this.drafts.retryFailedQueueJob(id);
+  }
+
   @Post(':id/mark-sent-manual')
   markSent(@Req() req: any, @Param('id') id: string) {
     assertAdminToken(req);
