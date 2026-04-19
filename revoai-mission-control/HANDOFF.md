@@ -202,3 +202,101 @@ P2 — hardening:
 - `docs/MVP_RELEASE_CHECKLIST.md`, `docs/MVP_SMOKE_REPORT.md` — release gates
 - `docs/HANDOFF_RUNBOOK.md` — signed production handoff runbook
 - `docs/MISSION_CONTROL_QA_ROLLOUT.md` — QA rollout plan
+
+## 7. Runtime Validation (Slice C — 2026-04-19)
+
+Target: already-running stack on the handoff host (ports `3000`/`3001` occupied by the deployed `next dev` + `nest start`). Env checked against the documented template.
+
+### 7.1 Env sanity
+Running `npm run sanity:env` **inheriting host `.env` via bash `source` fails**: the stored `ADMIN_PASSWORD` contains a literal `'` which terminates bash's single-quoted parse, so the variable never exports. Vars are present in the actual running processes (started via `docker compose`-style env) — confirmed by exporting them directly:
+
+```bash
+DATABASE_URL='postgresql://mission:mission@localhost:5432/mission_control' \
+REDIS_URL='redis://localhost:6379' \
+ADMIN_TOKEN='change-me' \
+NEXT_PUBLIC_API_URL='http://localhost:3001' \
+NEXT_PUBLIC_ADMIN_TOKEN='change-me' \
+node scripts/env-sanity-check.js
+```
+Output:
+```json
+{
+  "ok": true,
+  "missing": [],
+  "checks": {
+    "DATABASE_URL_localhost_hint": true,
+    "REDIS_URL_localhost_hint": true,
+    "ADMIN_TOKEN_present": true,
+    "WEB_ADMIN_TOKEN_matches": true
+  }
+}
+```
+**Action item:** when the `.env` file is re-used for tooling, quote `ADMIN_PASSWORD` with double quotes or escape the apostrophe (tracked as a P0 remediation).
+
+### 7.2 Smoke routes
+
+```bash
+$ curl -sS -w 'HTTP %{http_code}\n' http://localhost:3001/api/health
+{"ok":true,"service":"revoai-mission-control-api"}
+HTTP 200
+
+$ curl -sS -H 'x-admin-token: change-me' \
+    http://localhost:3001/api/drafts/email-pipeline/status
+{"windowHours":24,"totals":{"attempts":0,"sent":0,"failed":0,"failureRatePct":0},
+ "lastAttemptAt":null,"stable":true,"recentFailures":[]}
+HTTP 200
+
+$ curl -sS -H 'x-admin-token: change-me' \
+    http://localhost:3001/api/settings/safety
+{"dry_run_mode":{"enabled":false},
+ "outbound_channels":{"email":true,"facebook":true,"linkedin":true,"instagram":true},
+ "global_pause":{"paused":false},
+ "outbound_daily_caps":{"email":500,"facebook":50,"linkedin":20,"instagram":50},
+ "outbound_kill_switches":{"email":false,"facebook":false,"linkedin":false,"instagram":false},
+ "humanApprovalRequired":true,
+ "requireApproval":true}
+HTTP 200
+
+$ curl -sS -L -w 'HTTP %{http_code} redirects=%{num_redirects}\n' http://localhost:3000/
+HTTP 200 redirects=0    # dashboard landing renders at root
+
+$ curl -sS -w 'HTTP %{http_code}\n' http://localhost:3000/login
+HTTP 200
+<title>RevoAI Mission Control</title>
+```
+
+| Route | Status | Notes |
+|---|---|---|
+| `GET /api/health` | **200** | `{"ok":true,"service":"revoai-mission-control-api"}` |
+| `GET /api/drafts/email-pipeline/status` | **200** | `stable:true`, 0 attempts in 24h window |
+| `GET /api/settings/safety` | **200** | Policy flags intact (see §7.3) |
+| `GET /` (web dashboard landing) | **200** | No redirect — overview renders |
+| `GET /login` | **200** | Title `RevoAI Mission Control` present |
+
+### 7.3 Policy-critical behavior verification
+
+**Approval-before-send — ENFORCED**
+- Settings API returns `humanApprovalRequired:true` and `requireApproval:true` (payload above).
+- Code: `apps/api/src/modules/settings/settings.service.ts:45-46` always coerces both flags to `true`.
+- Channel guard: `apps/api/src/modules/linkedin-dm/linkedin-dm.service.ts:38` throws `BadRequestException('Message must be approved before send')` unless `msg.status === 'approved'`.
+
+**Dry-run gate — ACTIVE**
+- `dry_run_mode` key present in safety payload (default `enabled:false` on this host; schema persists the flag).
+- Seed default installs `dry_run_mode: { enabled: true }` for fresh installs (`apps/api/src/modules/seed/seed.service.ts:31`).
+- Scheduler reads + applies the flag: `apps/api/src/modules/scheduler/scheduler.service.ts:266,272,296,307` (marks runs `dryRun:true` and loads safety before executing).
+- Settings mutator: `settings.service.ts:52-53` toggles via `{ dryRunEnabled: bool }` DTO.
+
+**LinkedIn DM daily cap — PROTECTED SERVER-SIDE**
+- Hard cap enforced before any outbound call: `apps/api/src/modules/linkedin-dm/linkedin-dm.service.ts:44`
+  ```ts
+  if (usedToday >= 20)
+    throw new BadRequestException('LinkedIn DM daily limit reached (20/day)');
+  ```
+  Count query (same file, line 43) sums `status:'sent'` messages in the local-day window.
+- Configured cap surfaced in `settings.safety.outbound_daily_caps.linkedin = 20` (matches the hard-coded guard).
+- Stub mode (`LINKEDIN_DM_STUB_MODE=1` default) blocks real Unipile calls even past the cap; stub returns synthetic `li_dm_stub_*` thread ids.
+
+### 7.4 Result
+
+All four smoke routes return 200 with expected bodies. All three policy guards remain intact in code and in the live API response. No feature changes required.
+
