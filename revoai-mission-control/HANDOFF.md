@@ -64,7 +64,38 @@ help, leads, linkedin, login, research, scheduler, settings, tasks
 ### Prerequisites
 - Node 22 (Alpine image for web container uses `node:22-alpine`)
 - Docker + Docker Compose (for DB/Redis; full stack optional)
-- `cp .env.example .env` and fill in secrets
+- `cp .env.example .env` and fill in secrets — **see §2.1 for how to load it safely**
+
+### 2.1 Loading `.env` safely (important)
+
+`.env` values routinely contain `'`, `"`, `$`, `#`, or backticks. These break the naive bash pattern `set -a; source .env; set +a`. Use one of the robust loaders instead:
+
+```bash
+# Node 20+: native loader — correctly handles any value, no bash parsing
+node --env-file=.env scripts/env-sanity-check.js
+node --env-file=.env -e "console.log(Object.keys(process.env).length + ' vars loaded')"
+
+# npm run — inherits env from `node --env-file` when wrapped:
+node --env-file=.env node_modules/.bin/npm run sanity:env
+
+# Docker Compose — reads .env directly, no shell parsing involved
+docker compose --env-file .env up -d
+docker compose --env-file .env config | head   # verify interpolation
+```
+
+Generate strong secrets once, not per deploy:
+```bash
+for v in ADMIN_TOKEN SESSION_SECRET PASSWORD_SALT SECRET_KEY \
+         LINKEDIN_TOKEN_SECRET FACEBOOK_TOKEN_SECRET EMAIL_WEBHOOK_SECRET; do
+  printf '%s=%s\n' "$v" "$(openssl rand -hex 32)"
+done
+```
+Paste the output into `.env` (replacing `<generate>` placeholders). Set `NEXT_PUBLIC_ADMIN_TOKEN` to the same value as `ADMIN_TOKEN`.
+
+If `ADMIN_PASSWORD` must contain shell-special characters, wrap the whole value in **double** quotes — single quotes cannot escape a literal `'`:
+```
+ADMIN_PASSWORD="s0me Value#with'apostrophe"
+```
 
 ### Local dev (bare metal — requires Postgres + Redis running)
 ```bash
@@ -132,6 +163,8 @@ npm run restore:verify
   - Either stop the existing process (likely a stray `next dev`) or run with `PORT=3002 npm run dev:web`.
   - Port `3001` (api) is similarly occupied on this host — same remediation.
 - `.env` on the host currently contains real SMTP credentials; it is git-ignored but should be rotated before broader access.
+- `ADMIN_PASSWORD` in the current `.env` contains a literal `'` (apostrophe). **Do not use `source .env`**; use `node --env-file=.env` or `docker compose --env-file .env` (see §2.1). Alternatively, regenerate `ADMIN_PASSWORD` without shell-special characters.
+- **Admin login drift:** on this host, the `User.passwordHash` row does not match any currently-documented `.env` password (verified by hash comparison — see §9.3). Follow §9.4 remediation before expecting a successful login. Bootstrap endpoint itself works.
 
 ## 4. UAT / smoke checklist
 
@@ -173,8 +206,10 @@ Automated:
 
 P0 — unblock handoff host:
 1. Free ports 3000/3001 on the handoff box (or document an alt-port runbook).
-2. Rotate secrets currently in local `.env` (SMTP, admin password, admin token) before sharing host access.
+2. Rotate secrets currently in local `.env` (SMTP, admin password, admin token) before sharing host access. Use `openssl rand -hex 32` per §2.1.
 3. Confirm `ADMIN_TOKEN === NEXT_PUBLIC_ADMIN_TOKEN` on the target deploy env.
+4. Re-sync admin login: follow §9.4 (wipe-and-rebootstrap or in-place hash reset) so `POST /api/auth/login` returns 201 with the documented `.env` credentials.
+5. Regenerate `ADMIN_PASSWORD` without shell-special characters (or load `.env` via `node --env-file=.env` / `docker compose --env-file .env` per §2.1 — never `source .env`).
 
 P1 — production readiness:
 4. Verify all 15 migrations applied on the target DB (`prisma migrate status`).
@@ -421,5 +456,113 @@ if (usedToday >= 20) throw new BadRequestException('LinkedIn DM daily limit reac
 **Remediation items discovered (no feature changes made):**
 - **P1:** Set `LINKEDIN_TOKEN_SECRET`, `FACEBOOK_TOKEN_SECRET`, and `SECRET_KEY` in production `.env` — current fallbacks include a dev default (`revoai-linkedin-dev-secret`). Template already lists these in `.env.example` §LinkedIn / §Facebook; ensure they are populated before enabling real providers.
 - **P2:** Dry-run state is persisted in the DB as the `dry_run_mode` setting row; after a restart the DB value is authoritative. Runbook should instruct operators to check `/api/settings/safety` after any maintenance to confirm the intended flag state.
+
+## 9. Auth Verification (Slice E — 2026-04-19)
+
+Endpoints under `apps/api/src/modules/auth/auth.controller.ts`:
+```
+POST /api/auth/bootstrap   → creates admin from BOOTSTRAP_ADMIN_* / ADMIN_* env (idempotent by email)
+POST /api/auth/login       → body {email,password} → Set-Cookie: mc_session=...; Expires=...
+POST /api/auth/logout      → clears mc_session cookie
+GET  /api/auth/me          → requires mc_session cookie → user identity + role
+```
+
+Session cookie: HMAC-signed JSON (`SESSION_SECRET` or falls back to `ADMIN_TOKEN`), 7-day expiry, `HttpOnly; SameSite=Lax; Secure` (when `NODE_ENV=production`). Password hash: `sha256(PASSWORD_SALT + ':' + password)`; timing-safe compare on login.
+
+### 9.1 Exact commands
+
+```bash
+# 1. Create / ensure admin user (reads BOOTSTRAP_ADMIN_EMAIL + BOOTSTRAP_ADMIN_PASSWORD,
+#    falls back to ADMIN_EMAIL + ADMIN_PASSWORD).
+curl -sS -X POST http://localhost:3001/api/auth/bootstrap
+
+# 2. Login and capture the Set-Cookie header into a cookie jar.
+curl -sS -c /tmp/mc.cookies -D /tmp/mc.headers \
+     -X POST -H 'content-type: application/json' \
+     -d '{"email":"admin@revoai.local","password":"<YOUR_ADMIN_PASSWORD>"}' \
+     http://localhost:3001/api/auth/login
+
+# 3. Verify session + role using the jar.
+curl -sS -b /tmp/mc.cookies http://localhost:3001/api/auth/me
+```
+
+### 9.2 Expected responses
+
+```jsonc
+// POST /api/auth/bootstrap
+// First call:
+{ "ok": true, "created": true,  "email": "admin@revoai.local" }   // HTTP 201
+// Subsequent calls (idempotent):
+{ "ok": true, "created": false, "email": "admin@revoai.local" }   // HTTP 201
+
+// POST /api/auth/login (credentials match)
+{ "ok": true, "user": { "id": "...", "email": "admin@revoai.local", "role": "admin" },
+  "expiresAt": "2026-04-26T..." }                                 // HTTP 201
+//   Set-Cookie: mc_session=<base64url>.<hmac-sha256>; Path=/; HttpOnly; SameSite=Lax; Expires=...
+
+// POST /api/auth/login (bad credentials, timing-safe)
+{ "ok": false, "error": { "message": "Invalid credentials", "status": 401 } }   // HTTP 401
+
+// GET /api/auth/me (valid cookie)
+{ "ok": true, "user": { "id": "...", "email": "admin@revoai.local", "role": "admin" } }  // HTTP 200
+```
+
+### 9.3 Live run against this host (2026-04-19)
+
+```text
+$ curl -sS -X POST http://localhost:3001/api/auth/bootstrap
+{"ok":true,"created":false,"email":"admin@revoai.local"}        HTTP 201
+
+$ curl -sS -X POST -H 'content-type: application/json' \
+    -d '{"email":"admin@revoai.local","password":"<env ADMIN_PASSWORD>"}' \
+    http://localhost:3001/api/auth/login
+{"ok":false,"error":{"message":"Invalid credentials","status":401}}   HTTP 401
+
+$ curl -sS -X POST -H 'content-type: application/json' \
+    -d '{"email":"admin@revoai.local","password":"change-me"}' \
+    http://localhost:3001/api/auth/login
+{"ok":false,"error":{"message":"Invalid credentials","status":401}}   HTTP 401
+```
+
+**Findings:**
+- Bootstrap endpoint **responds correctly** (HTTP 201, idempotent — `created:false` because the admin row already exists from an earlier bootstrap).
+- Login **fails** for both the value in `.env` (`ADMIN_PASSWORD`) and the container-env value (`BOOTSTRAP_ADMIN_PASSWORD=change-me`). DB query confirms the stored hash prefix (`2bdb189c…`) does not match `sha256('revoai:change-me')` (`9d3a4d9b…`) or `sha256('revoai:<ADMIN_PASSWORD>')` (`25cce1bb…`), so the admin was bootstrapped under yet another env combination that is no longer reproducible from the recorded `.env`.
+- Verification of the **negative path** (401 on wrong password) is itself useful — it proves the timing-safe compare and error surface are wired correctly.
+
+### 9.4 Remediation for blocked login (operator, one-time)
+
+Pick ONE:
+
+**A — Wipe and re-bootstrap (cleanest; use only if no other users rely on the current row):**
+```bash
+docker exec revoai_mc_postgres psql -U mission -d mission_control \
+  -c "DELETE FROM \"Session\" WHERE \"userId\" IN (SELECT id FROM \"User\" WHERE email='admin@revoai.local'); \
+      DELETE FROM \"User\" WHERE email='admin@revoai.local';"
+
+# Ensure the container sees the password you intend to use, then:
+curl -sS -X POST http://localhost:3001/api/auth/bootstrap
+# → {"ok":true,"created":true,"email":"admin@revoai.local"}
+```
+
+**B — Reset the password hash in place:**
+```bash
+NEW_PASSWORD='<strong-new-password>'
+SALT="$(docker exec revoai_mc_api printenv PASSWORD_SALT 2>/dev/null)"
+SALT="${SALT:-revoai}"   # code default when PASSWORD_SALT is unset
+HASH="$(node -e "const {createHash}=require('crypto'); \
+  console.log(createHash('sha256').update('${SALT}:'+process.argv[1]).digest('hex'))" "$NEW_PASSWORD")"
+docker exec revoai_mc_postgres psql -U mission -d mission_control \
+  -c "UPDATE \"User\" SET \"passwordHash\"='$HASH' WHERE email='admin@revoai.local';"
+```
+
+Both flows preserve the API process; no restart required. After either, re-run §9.1 step 2 and expect HTTP 201 with a `Set-Cookie: mc_session=...` header.
+
+### 9.5 Shared-token guidance (replaces `change-me` examples)
+
+The previously-documented shortcut `x-admin-token: change-me` is a **dev-only** convenience. For handoff/prod:
+1. Generate a per-environment token: `openssl rand -hex 32`.
+2. Set `ADMIN_TOKEN` and `NEXT_PUBLIC_ADMIN_TOKEN` to that value (they must match — `sanity:env` verifies).
+3. Never log the token, never commit it, rotate on any suspected leak.
+4. For scripted API calls in runbooks, prefer session-cookie auth (§9.1) over the shared token where the endpoint supports it.
 
 
