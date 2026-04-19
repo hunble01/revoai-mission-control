@@ -65,6 +65,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [navCounts, setNavCounts] = useState<{ approvals: number; leads: number }>({ approvals: 0, leads: 0 });
   const [clock, setClock] = useState('00:00:00');
   const [toasts, setToasts] = useState<Array<{ id: string; type: 'success' | 'warning' | 'error' | 'info'; text: string }>>([]);
+  const [navOpen, setNavOpen] = useState(false);
+
+  // close mobile nav on route change
+  useEffect(() => {
+    setNavOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     if (!searchQ.trim()) {
@@ -116,7 +122,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="frame-wrap">
       <div className="app-frame">
-        <div className="shell">
+        <div className={`shell${navOpen ? ' shell-open' : ''}`}>
+          {navOpen && <div className="nav-backdrop" onClick={() => setNavOpen(false)} aria-hidden />}
           <aside className="sidebar">
             <div className="brand">
               <span className="brand-dot" aria-hidden />
@@ -154,7 +161,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           <main className="content">
             <header className="topbar">
-              <div>
+              <button
+                type="button"
+                className="menu-toggle"
+                aria-label="Toggle navigation"
+                aria-expanded={navOpen}
+                onClick={() => setNavOpen((v) => !v)}
+              >
+                <span /><span /><span />
+              </button>
+              <div className="topbar-heading">
                 <div className="topbar-title">Operations Console <span className="topbar-sub">MISSION CONTROL · {clock}</span></div>
                 <div className="flow-links" aria-label="Pipeline flow">
                   <a href="/research">Research</a>
