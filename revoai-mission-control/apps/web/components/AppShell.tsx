@@ -57,6 +57,8 @@ const token = process.env.NEXT_PUBLIC_ADMIN_TOKEN || 'change-me';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const isAuthRoute = pathname === '/login';
+
   const [searchQ, setSearchQ] = useState('');
   const [searchResults, setSearchResults] = useState<any>(null);
   const [showNotif, setShowNotif] = useState(false);
@@ -66,11 +68,40 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [clock, setClock] = useState('00:00:00');
   const [toasts, setToasts] = useState<Array<{ id: string; type: 'success' | 'warning' | 'error' | 'info'; text: string }>>([]);
   const [navOpen, setNavOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<{ email: string; role: string } | null>(null);
 
   // close mobile nav on route change
   useEffect(() => {
     setNavOpen(false);
   }, [pathname]);
+
+  // fetch current user for sidebar footer
+  useEffect(() => {
+    if (isAuthRoute) return;
+    fetch(`${base}/api/auth/me`, { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.ok && d?.user?.email) {
+          setCurrentUser({ email: d.user.email, role: String(d.user.role || 'admin').toLowerCase() });
+        } else {
+          // not logged in — kick to login
+          if (typeof window !== 'undefined') window.location.replace('/login');
+        }
+      })
+      .catch(() => {});
+  }, [isAuthRoute]);
+
+  async function doLogout() {
+    try {
+      await fetch(`${base}/api/auth/logout`, { method: 'POST', credentials: 'include' });
+    } catch {}
+    window.location.replace('/login');
+  }
+
+  // Render login page without the shell
+  if (isAuthRoute) {
+    return <>{children}</>;
+  }
 
   useEffect(() => {
     if (!searchQ.trim()) {
@@ -154,8 +185,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="sidebar-footer">
               <div className="footer-status">
                 <span className="status-dot" />
-                <span className="footer-label">boss workspace</span>
+                <span className="footer-label" title={currentUser?.email}>
+                  {currentUser?.email ? currentUser.email : 'not signed in'}
+                </span>
               </div>
+              {currentUser?.role && (
+                <div className="footer-role">{currentUser.role}</div>
+              )}
+              <button type="button" className="footer-logout" onClick={doLogout}>
+                Sign out
+              </button>
             </div>
           </aside>
 
