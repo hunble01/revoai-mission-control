@@ -1,7 +1,20 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
+import helmet from 'helmet';
+import * as Sentry from '@sentry/node';
 import { AllExceptionsFilter } from './common/http-exception.filter';
+
+function initSentry() {
+  const dsn = (process.env.SENTRY_DSN || '').trim();
+  if (!dsn) return;
+  Sentry.init({
+    dsn,
+    environment: process.env.NODE_ENV || 'development',
+    tracesSampleRate: Number(process.env.SENTRY_TRACES_SAMPLE_RATE || 0),
+    release: process.env.SENTRY_RELEASE || undefined,
+  });
+}
 
 const DEV_DEFAULTS = new Set(['change-me', '<generate>', 'revoai', 'revoai-linkedin-dev-secret']);
 
@@ -62,12 +75,20 @@ function rateLimit(req: any, res: any, next: any) {
 
 async function bootstrap() {
   assertSecrets();
+  initSentry();
   const app = await NestFactory.create(AppModule, {
     cors: {
       origin: true,
       credentials: true,
     },
   });
+  app.use(
+    helmet({
+      contentSecurityPolicy: false,
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+      crossOriginOpenerPolicy: false,
+    }),
+  );
   app.use(rateLimit);
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: false }));
   app.useGlobalFilters(new AllExceptionsFilter());

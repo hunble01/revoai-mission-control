@@ -1,4 +1,5 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus } from '@nestjs/common';
+import * as Sentry from '@sentry/node';
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
@@ -10,6 +11,18 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const status = exception instanceof HttpException
       ? exception.getStatus()
       : HttpStatus.INTERNAL_SERVER_ERROR;
+
+    if (status >= 500 && process.env.SENTRY_DSN) {
+      Sentry.withScope((scope) => {
+        scope.setTag('method', request?.method || 'UNKNOWN');
+        scope.setTag('path', request?.url || 'unknown');
+        scope.setContext('request', {
+          ip: request?.ip,
+          userAgent: request?.headers?.['user-agent'],
+        });
+        Sentry.captureException(exception);
+      });
+    }
 
     const exceptionResponse = exception instanceof HttpException
       ? exception.getResponse()
