@@ -8,8 +8,13 @@ apps/web/.next/
 apps/web/.next-dev/
 apps/web/.next-build/
 
-# local env
+# local env — keep only .env.example in git, never real secrets
 .env
+.env.*
+!.env.example
+apps/*/.env
+apps/*/.env.*
+!apps/*/.env.example
 
 # misc
 *.log
