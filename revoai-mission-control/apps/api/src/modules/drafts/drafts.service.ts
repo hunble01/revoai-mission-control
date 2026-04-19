@@ -50,39 +50,101 @@ function buildPlainText(body: string, b: BrandBlock): string {
   return lines.join('\n');
 }
 
+function extractPrimaryCta(body: string): { cleanedBody: string; ctaUrl: string | null; ctaLabel: string } {
+  // Find the last plausible CTA URL in the body (most cold-outreach templates
+  // put the CTA near the bottom: "Worth a look? https://..."). Extract it for
+  // a styled button and strip it from the remaining body text so it doesn't
+  // render twice in HTML.
+  const urlMatches = Array.from(body.matchAll(/https?:\/\/[^\s)]+/g));
+  if (!urlMatches.length) return { cleanedBody: body, ctaUrl: null, ctaLabel: 'See more' };
+  const last = urlMatches[urlMatches.length - 1];
+  const url = last[0].replace(/[.,;!?]+$/, '');
+  // Heuristic label: based on URL path
+  let label = 'Learn more';
+  if (/sign[-_]?up|signup|start/i.test(url)) label = 'Start free trial';
+  else if (/demo|book|meet|calendly/i.test(url)) label = 'Book a demo';
+  else if (/revoai\.ca\/?$/i.test(url)) label = 'Take a look';
+  // Remove the URL from the body (and leading soft CTA phrase if present)
+  const cleanedBody = body
+    .replace(new RegExp(`\\s*${url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[.,;!?]*`, 'g'), '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  return { cleanedBody, ctaUrl: url, ctaLabel: label };
+}
+
+function monogramFor(name: string): string {
+  const t = String(name || '').trim();
+  if (!t) return 'R';
+  const parts = t.split(/\s+/);
+  if (parts.length === 1) return parts[0][0].toUpperCase();
+  return (parts[0][0] + (parts[parts.length - 1][0] || '')).toUpperCase();
+}
+
 function buildHtml(body: string, b: BrandBlock): string {
-  const paragraphs = body
+  const { cleanedBody, ctaUrl, ctaLabel } = extractPrimaryCta(body);
+  const paragraphs = cleanedBody
     .split(/\n{2,}/)
     .map((p) => p.trim())
     .filter(Boolean)
-    .map((p) => `<p style="margin:0 0 14px;line-height:1.55;color:#222;">${escapeHtml(p).replace(/\n/g, '<br/>')}</p>`)
+    .map((p) => `<p style="margin:0 0 16px;line-height:1.65;color:#1f2937;font-size:16px;">${escapeHtml(p).replace(/\n/g, '<br/>')}</p>`)
     .join('');
+
+  const brandName = b.senderCompany || 'RevoAI';
+  const initials = monogramFor(b.senderName || brandName);
+
+  // Pill CTA button (works in Gmail, Outlook via MSO table, Apple Mail)
+  const ctaBlock = ctaUrl
+    ? `
+      <div style="margin:24px 0 8px;">
+        <!--[if mso]>
+        <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${escapeHtml(ctaUrl)}" style="height:46px;v-text-anchor:middle;width:200px;" arcsize="50%" strokecolor="#0080FF" fillcolor="#0080FF">
+          <w:anchorlock/>
+          <center style="color:#ffffff;font-family:Arial,sans-serif;font-size:15px;font-weight:600;">${escapeHtml(ctaLabel)}</center>
+        </v:roundrect>
+        <![endif]-->
+        <!--[if !mso]><!-- -->
+        <a href="${escapeHtml(ctaUrl)}"
+           style="display:inline-block;padding:14px 28px;border-radius:999px;background:linear-gradient(135deg,#00C9FF 0%,#0080FF 100%);color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;letter-spacing:.01em;box-shadow:0 4px 14px rgba(0,128,255,0.28);">
+          ${escapeHtml(ctaLabel)} →
+        </a>
+        <!--<![endif]-->
+      </div>`
+    : '';
 
   const sigRows: string[] = [];
   if (b.senderName) {
-    sigRows.push(`<div style="font-weight:600;color:#111;">${escapeHtml(b.senderName)}</div>`);
+    sigRows.push(`<div style="font-weight:600;color:#111827;font-size:15px;">${escapeHtml(b.senderName)}</div>`);
   }
   if (b.senderTitle || b.senderCompany) {
-    const titleCompany = [b.senderTitle, b.senderCompany].filter(Boolean).map(escapeHtml).join(', ');
-    sigRows.push(`<div style="color:#555;font-size:13px;">${titleCompany}</div>`);
+    const titleCompany = [b.senderTitle, b.senderCompany].filter(Boolean).map(escapeHtml).join(' · ');
+    sigRows.push(`<div style="color:#6b7280;font-size:13px;margin-top:2px;">${titleCompany}</div>`);
   }
   if (b.senderPhone) {
-    sigRows.push(`<div style="color:#555;font-size:13px;">${escapeHtml(b.senderPhone)}</div>`);
+    sigRows.push(`<div style="color:#6b7280;font-size:13px;margin-top:2px;">${escapeHtml(b.senderPhone)}</div>`);
   }
   if (b.senderWebsite) {
     const href = escapeHtml(b.senderWebsite);
     const display = escapeHtml(b.senderWebsite.replace(/^https?:\/\//, ''));
-    sigRows.push(`<div style="font-size:13px;"><a href="${href}" style="color:#0080FF;text-decoration:none;">${display}</a></div>`);
+    sigRows.push(`<div style="font-size:13px;margin-top:2px;"><a href="${href}" style="color:#0080FF;text-decoration:none;font-weight:500;">${display}</a></div>`);
   }
   const signatureBlock = sigRows.length
-    ? `<div style="margin-top:22px;padding-top:16px;border-top:1px solid #e5e7eb;">${sigRows.join('')}</div>`
+    ? `
+      <table role="presentation" cellspacing="0" cellpadding="0" style="margin-top:28px;padding-top:20px;border-top:1px solid #e5e7eb;width:100%;">
+        <tr>
+          <td style="vertical-align:top;padding-right:14px;width:48px;">
+            <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#00C9FF 0%,#0080FF 100%);color:#ffffff;font-weight:700;font-size:15px;text-align:center;line-height:44px;letter-spacing:.02em;box-shadow:0 2px 8px rgba(0,128,255,0.2);">${escapeHtml(initials)}</div>
+          </td>
+          <td style="vertical-align:middle;">${sigRows.join('')}</td>
+        </tr>
+      </table>`
     : '';
 
   const unsubHref = escapeHtml(b.unsubscribeUrl);
   const footer = `
-    <div style="margin-top:28px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#9ca3af;line-height:1.5;">
-      If you'd rather not hear from us,
-      <a href="${unsubHref}" style="color:#6b7280;text-decoration:underline;">unsubscribe here</a>.
+    <div style="margin-top:32px;padding-top:16px;border-top:1px solid #f3f4f6;font-size:11px;color:#9ca3af;line-height:1.6;">
+      <div style="letter-spacing:.08em;text-transform:uppercase;font-size:10px;color:#d1d5db;font-weight:600;margin-bottom:4px;">${escapeHtml(brandName)}</div>
+      You're receiving this because ${escapeHtml(brandName)} thought you'd find it useful.
+      <a href="${unsubHref}" style="color:#6b7280;text-decoration:underline;">Unsubscribe</a>.
     </div>`;
 
   return `<!doctype html>
@@ -90,21 +152,54 @@ function buildHtml(body: string, b: BrandBlock): string {
   <head>
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
-    <title>${escapeHtml(b.senderCompany || 'RevoAI')}</title>
+    <meta name="color-scheme" content="light"/>
+    <meta name="supported-color-schemes" content="light"/>
+    <title>${escapeHtml(brandName)}</title>
   </head>
-  <body style="margin:0;padding:0;background:#f6f7f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f6f7f9;padding:28px 16px;">
+  <body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1f2937;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fafc;padding:32px 16px;">
       <tr>
         <td align="center">
-          <table role="presentation" width="560" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:32px;">
+          <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px;background:#ffffff;border-radius:16px;box-shadow:0 1px 3px rgba(17,24,39,.04),0 8px 32px rgba(17,24,39,.06);overflow:hidden;">
+            <!-- gradient accent bar -->
             <tr>
-              <td style="color:#222;font-size:15px;">
+              <td style="height:6px;background:linear-gradient(90deg,#00C9FF 0%,#0080FF 50%,#8B5CF6 100%);line-height:6px;font-size:0;">&nbsp;</td>
+            </tr>
+            <!-- header: brand mark -->
+            <tr>
+              <td style="padding:32px 40px 0;">
+                <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;">
+                  <tr>
+                    <td style="vertical-align:middle;">
+                      <span style="display:inline-block;vertical-align:middle;width:10px;height:28px;border-radius:12px;background:linear-gradient(135deg,#00C9FF 0%,#0080FF 100%);box-shadow:0 0 12px rgba(0,201,255,0.35);"></span>
+                      <span style="display:inline-block;vertical-align:middle;margin-left:12px;font-weight:700;font-size:18px;letter-spacing:.01em;color:#0f172a;">${escapeHtml(brandName)}</span>
+                    </td>
+                    <td align="right" style="vertical-align:middle;color:#9ca3af;font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;">
+                      Early Access · 2026
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <!-- body -->
+            <tr>
+              <td style="padding:28px 40px 8px;">
                 ${paragraphs}
+                ${ctaBlock}
+              </td>
+            </tr>
+            <!-- signature + footer -->
+            <tr>
+              <td style="padding:0 40px 36px;">
                 ${signatureBlock}
                 ${footer}
               </td>
             </tr>
           </table>
+          <!-- fine print under card -->
+          <div style="max-width:600px;margin:16px auto 0;padding:0 8px;text-align:center;color:#9ca3af;font-size:11px;line-height:1.5;">
+            ${escapeHtml(brandName)} · revoai.ca · Launching 2026
+          </div>
         </td>
       </tr>
     </table>
