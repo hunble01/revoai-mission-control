@@ -4,6 +4,7 @@ import { ApprovalAction, DraftStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventsService } from '../events/events.service';
 import { SettingsService } from '../settings/settings.service';
+import { UnsubscribeService } from '../unsubscribe/unsubscribe.service';
 
 const allowedDraftTransitions: Record<string, string[]> = {
   DRAFT: [DraftStatus.NEEDS_APPROVAL],
@@ -19,6 +20,7 @@ export class DraftsService {
     private readonly prisma: PrismaService,
     private readonly events: EventsService,
     private readonly settings: SettingsService,
+    private readonly unsubscribe: UnsubscribeService,
   ) {}
 
   private decryptSecret(value?: string | null) {
@@ -241,11 +243,16 @@ export class DraftsService {
     const to = (lead?.email || '').trim();
     if (!to) throw new BadRequestException('Lead email is required for email send');
 
+    if (await this.unsubscribe.isSuppressed(to)) {
+      throw new BadRequestException(`Recipient ${to} is on the suppression list`);
+    }
+
     const version = await this.prisma.draftVersion.findFirst({
       where: { draftId: draft.id, versionNumber: draft.currentVersion },
     });
-    const body = (version?.content || (draft as any).content || '').trim();
-    if (!body) throw new BadRequestException('Draft content is empty');
+    const rawBody = (version?.content || (draft as any).content || '').trim();
+    if (!rawBody) throw new BadRequestException('Draft content is empty');
+    const body = this.unsubscribe.appendFooter(rawBody, to);
 
     const connection = await this.prisma.connection.findUnique({ where: { provider: 'EMAIL' } });
     const encryptedAccessToken = (connection?.tokenMeta as any)?.encryptedAccessToken || null;
@@ -644,13 +651,13 @@ export class DraftsService {
     return { ok: true, queueId: queued.id, status: queued.status };
   }
 
-  async processQueuedOutbound(limit = 10, channel?: 'LINKEDIN' | 'FACEBOOK') {
+  async processQueuedOutbound(limit = 10, channel?: 'EMAIL' | 'LINKEDIN' | 'FACEBOOK') {
     const max = Math.min(Math.max(Number(limit) || 10, 1), 50);
     const rows = await this.prisma.outboundQueue.findMany({
       where: {
         status: 'QUEUED' as any,
         OR: [{ sendAfter: null }, { sendAfter: { lte: new Date() } }],
-        ...(channel ? { channel: channel as any } : { channel: { in: ['LINKEDIN', 'FACEBOOK'] as any } }),
+        ...(channel ? { channel: channel as any } : { channel: { in: ['EMAIL', 'LINKEDIN', 'FACEBOOK'] as any } }),
       } as any,
       orderBy: [{ priority: 'asc' }, { createdAt: 'asc' }],
       take: max,
@@ -670,7 +677,9 @@ export class DraftsService {
       await this.prisma.outboundQueue.update({ where: { id: q.id }, data: { status: 'SENDING', workerLockedAt: new Date() } as any });
       try {
         if (!q.draftId) throw new Error('Missing draftId in queue payload');
-        if (String(q.channel) === 'LINKEDIN') {
+        if (String(q.channel) === 'EMAIL') {
+          await this.sendApprovedEmail(q.draftId, 'admin');
+        } else if (String(q.channel) === 'LINKEDIN') {
           await this.sendApprovedLinkedin(q.draftId, 'admin');
         } else if (String(q.channel) === 'FACEBOOK') {
           await this.sendApprovedFacebook(q.draftId, 'admin');

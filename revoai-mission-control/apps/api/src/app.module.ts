@@ -23,6 +23,7 @@ import { LinkedinDmModule } from './modules/linkedin-dm/linkedin-dm.module';
 import { FacebookModule } from './modules/facebook/facebook.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { ContentModule } from './modules/content/content.module';
+import { UnsubscribeModule } from './modules/unsubscribe/unsubscribe.module';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { ContentModule } from './modules/content/content.module';
     FacebookModule,
     AnalyticsModule,
     ContentModule,
+    UnsubscribeModule,
   ],
   controllers: [HealthController],
 })

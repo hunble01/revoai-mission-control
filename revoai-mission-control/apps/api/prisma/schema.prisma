@@ -405,6 +405,19 @@ model Connection {
   @@unique([provider])
 }
 
+model EmailSuppression {
+  id         String   @id @default(uuid())
+  email      String   @unique
+  reason     String   @default("UNSUBSCRIBE")
+  source     String?
+  campaignId String?  @map("campaign_id")
+  note       String?
+  createdAt  DateTime @default(now())
+
+  @@index([reason])
+  @@map("email_suppressions")
+}
+
 model ResearchRun {
   id          String   @id @default(uuid())
   campaignId  String?  @map("campaign_id")
