@@ -3,6 +3,96 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { EventsService } from '../events/events.service';
 import { Channel } from '@prisma/client';
 
+/**
+ * Generate RevoAI-brand-voice outreach copy tailored by channel + niche.
+ * Rules pulled from REVOAI_PRODUCT_CONTEXT.md:
+ *  - Email: 4-8 sentences, subject <50 chars, plain text preferred
+ *  - LinkedIn DM: 2-4 sentences, observation-led
+ *  - FB/IG DM: 1-3 sentences, lowercase-friendly, question-first
+ *  - Single CTA, no "revolutionize/game-changer", no false claims,
+ *    no review counts, no "no credit card required"
+ */
+function generateOutreachCopy(
+  channel: string,
+  lead: any,
+  brand: any,
+): { subject: string; content: string } {
+  const contactName = String(lead?.contactName || '').trim().split(/\s+/)[0] || 'there';
+  const businessName = String(lead?.businessName || 'your business').trim();
+  const niche = String(lead?.niche || '').toLowerCase();
+  const senderFirst = String(brand?.yourName || '').trim().split(/\s+/)[0] || 'Tony';
+
+  // Niche-aware pain framing
+  const painLine = (() => {
+    if (/dent|ortho|med|vet|clinic/.test(niche)) {
+      return `Most clinics miss 30–60% of calls — every unanswered ring is a patient booking with whoever answered first.`;
+    }
+    if (/hvac|plumb|electric|roof|contractor|gc/.test(niche)) {
+      return `Emergency calls don't wait. A missed ring is usually a job booked with whoever picked up first.`;
+    }
+    if (/salon|barber|nail|spa|beauty/.test(niche)) {
+      return `Missed calls = walk-ins at the next salon over. Local shops miss 30–60% of inbound calls, most of them after hours.`;
+    }
+    if (/law|legal|attorney/.test(niche)) {
+      return `Prospective clients call one firm, then move on. Voicemail after hours usually means they're someone else's client by morning.`;
+    }
+    if (/gym|yoga|fitness|training/.test(niche)) {
+      return `Trial-class calls don't leave a voicemail — they book with the first studio that picks up.`;
+    }
+    if (/clean|landscape|lawn/.test(niche)) {
+      return `Quote calls are time-sensitive. If the phone goes to voicemail the lead is usually gone.`;
+    }
+    // default
+    return `Most local service businesses miss 30–60% of calls — voicemail after hours, busy signal at peak times. Each missed call is a booking walking to the next result on Google.`;
+  })();
+
+  if (channel === 'EMAIL') {
+    const subject = `Quick idea for ${businessName}`.slice(0, 50);
+    const content = [
+      `Hi ${contactName},`,
+      ``,
+      `I came across ${businessName} and wanted to share something that might be useful. ${painLine}`,
+      ``,
+      `RevoAI is an AI receptionist that answers calls and texts 24/7, books straight into your calendar in real time, and handles reminders and confirmations automatically. Sub-second response, unlimited simultaneous calls, sounds like a real person.`,
+      ``,
+      `Plans start at $97/mo CAD (vs. $2,500+ for a human receptionist), with a 7-day free trial. Setup under an hour, no contract.`,
+      ``,
+      `Worth a quick look? https://revoai.ca/sign-up`,
+      ``,
+      `Thanks,`,
+      senderFirst,
+    ].join('\n');
+    return { subject, content };
+  }
+
+  if (channel === 'LINKEDIN') {
+    // 2-4 sentences, observation-led, one soft CTA
+    const content = [
+      `Hi ${contactName},`,
+      ``,
+      `Saw ${businessName} — nice presence. Quick thought: most local shops miss 30–60% of calls, mostly after hours, and each one is usually a booking that went elsewhere.`,
+      ``,
+      `We built RevoAI to answer every call/text 24/7 and book straight into your calendar. $97/mo CAD vs. ~$2,500 for a human.`,
+      ``,
+      `Open to a 60-second look? https://revoai.ca`,
+    ].join('\n');
+    return { subject: '', content };
+  }
+
+  if (channel === 'FACEBOOK') {
+    // 1-3 sentences, conversational
+    const content = [
+      `hey ${contactName} — saw ${businessName} online. quick question: are after-hours calls going to voicemail? we built an AI receptionist that answers every call 24/7 and books into your calendar for $97/mo. happy to show you: https://revoai.ca`,
+    ].join('\n');
+    return { subject: '', content };
+  }
+
+  // Fallback — same as email
+  const subject = `Quick idea for ${businessName}`.slice(0, 50);
+  const content = `Hi ${contactName},\n\n${painLine}\n\nRevoAI answers every call/text 24/7 and books into your calendar. $97/mo, 7-day free trial.\n\nhttps://revoai.ca\n\nThanks,\n${senderFirst}`;
+  return { subject, content };
+}
+
 @Injectable()
 export class LeadsService {
   constructor(private readonly prisma: PrismaService, private readonly events: EventsService) {}
@@ -118,10 +208,10 @@ export class LeadsService {
     }
 
     const campaignId = body?.campaignId || lead.campaignId;
-    const opening = channel === 'EMAIL' ? `Hi ${lead.contactName || 'there'},` : `Hey ${lead.contactName || 'there'},`;
-    const pitch = `noticed ${lead.businessName} may be losing inbound leads due to delayed follow-up.`;
-    const cta = `Worth a quick 10-minute walkthrough to show how to recover more booked appointments?`;
-    const content = String(body?.content || `${opening}\n\nI ${pitch}\n\n${cta}`).trim();
+    const brand = await this.prisma.brandSettings.findUnique({ where: { id: 'default' } });
+    const generated = generateOutreachCopy(channel, lead, brand);
+    const content = String(body?.content || generated.content).trim();
+    const subject = channel === 'EMAIL' ? String(body?.subject || generated.subject) : null;
 
     const draft = await this.prisma.draft.create({
       data: {
@@ -130,7 +220,7 @@ export class LeadsService {
         channel: channel as any,
         draftType: 'OUTREACH',
         status: 'NEEDS_APPROVAL' as any,
-        subject: channel === 'EMAIL' ? String(body?.subject || `Quick idea for ${lead.businessName}`) : null,
+        subject,
         content,
         createdBy: actorId || null,
       } as any,

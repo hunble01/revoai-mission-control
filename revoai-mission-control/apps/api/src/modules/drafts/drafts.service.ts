@@ -14,6 +14,104 @@ const allowedDraftTransitions: Record<string, string[]> = {
   SENT: [],
 };
 
+type BrandBlock = {
+  senderName?: string;
+  senderTitle?: string;
+  senderCompany?: string;
+  senderPhone?: string;
+  senderWebsite?: string;
+  unsubscribeUrl: string;
+  recipientEmail?: string;
+};
+
+function escapeHtml(s: string): string {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function buildPlainText(body: string, b: BrandBlock): string {
+  const lines: string[] = [body.trim()];
+  const sigLines: string[] = [];
+  if (b.senderName) sigLines.push(b.senderName);
+  if (b.senderTitle && b.senderCompany) sigLines.push(`${b.senderTitle}, ${b.senderCompany}`);
+  else if (b.senderCompany) sigLines.push(b.senderCompany);
+  if (b.senderPhone) sigLines.push(b.senderPhone);
+  if (b.senderWebsite) sigLines.push(b.senderWebsite);
+  if (sigLines.length) lines.push('', '--', ...sigLines);
+  lines.push(
+    '',
+    '----',
+    `If you'd rather not hear from us: ${b.unsubscribeUrl}`,
+  );
+  return lines.join('\n');
+}
+
+function buildHtml(body: string, b: BrandBlock): string {
+  const paragraphs = body
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .map((p) => `<p style="margin:0 0 14px;line-height:1.55;color:#222;">${escapeHtml(p).replace(/\n/g, '<br/>')}</p>`)
+    .join('');
+
+  const sigRows: string[] = [];
+  if (b.senderName) {
+    sigRows.push(`<div style="font-weight:600;color:#111;">${escapeHtml(b.senderName)}</div>`);
+  }
+  if (b.senderTitle || b.senderCompany) {
+    const titleCompany = [b.senderTitle, b.senderCompany].filter(Boolean).map(escapeHtml).join(', ');
+    sigRows.push(`<div style="color:#555;font-size:13px;">${titleCompany}</div>`);
+  }
+  if (b.senderPhone) {
+    sigRows.push(`<div style="color:#555;font-size:13px;">${escapeHtml(b.senderPhone)}</div>`);
+  }
+  if (b.senderWebsite) {
+    const href = escapeHtml(b.senderWebsite);
+    const display = escapeHtml(b.senderWebsite.replace(/^https?:\/\//, ''));
+    sigRows.push(`<div style="font-size:13px;"><a href="${href}" style="color:#0080FF;text-decoration:none;">${display}</a></div>`);
+  }
+  const signatureBlock = sigRows.length
+    ? `<div style="margin-top:22px;padding-top:16px;border-top:1px solid #e5e7eb;">${sigRows.join('')}</div>`
+    : '';
+
+  const unsubHref = escapeHtml(b.unsubscribeUrl);
+  const footer = `
+    <div style="margin-top:28px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#9ca3af;line-height:1.5;">
+      If you'd rather not hear from us,
+      <a href="${unsubHref}" style="color:#6b7280;text-decoration:underline;">unsubscribe here</a>.
+    </div>`;
+
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <title>${escapeHtml(b.senderCompany || 'RevoAI')}</title>
+  </head>
+  <body style="margin:0;padding:0;background:#f6f7f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f6f7f9;padding:28px 16px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="560" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:32px;">
+            <tr>
+              <td style="color:#222;font-size:15px;">
+                ${paragraphs}
+                ${signatureBlock}
+                ${footer}
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+}
+
 @Injectable()
 export class DraftsService {
   constructor(
@@ -221,6 +319,41 @@ export class DraftsService {
     };
   }
 
+  async renderPreview(id: string) {
+    const draft = await this.prisma.draft.findUnique({ where: { id } });
+    if (!draft) throw new NotFoundException('Draft not found');
+    const lead = draft.leadId ? await this.prisma.lead.findUnique({ where: { id: draft.leadId } }) : null;
+    const version = await this.prisma.draftVersion.findFirst({
+      where: { draftId: draft.id, versionNumber: draft.currentVersion },
+    });
+    const rawBody = (version?.content || (draft as any).content || '').trim();
+
+    const brand = await this.prisma.brandSettings.findUnique({ where: { id: 'default' } });
+    const from = process.env.EMAIL_FROM || process.env.BOOTSTRAP_ADMIN_EMAIL || process.env.ADMIN_EMAIL || '';
+    const to = (lead?.email || '').trim() || 'recipient@example.com';
+    const subject = ((draft as any).subject || `Quick idea for ${lead?.businessName || 'your business'}`).trim();
+    const unsubscribeUrl = this.unsubscribe.buildUnsubscribeUrl(to);
+    const brandBlock = {
+      senderName: (brand?.yourName || '').trim(),
+      senderTitle: (brand?.yourTitle || '').trim(),
+      senderCompany: (brand?.companyName || 'RevoAI').trim(),
+      senderPhone: (brand?.phoneNumber || '').trim(),
+      senderWebsite: (brand?.websiteUrl || 'https://revoai.ca').trim(),
+      unsubscribeUrl,
+      recipientEmail: to,
+    };
+
+    return {
+      subject,
+      from: brandBlock.senderName ? `${brandBlock.senderName}, ${brandBlock.senderCompany} <${from}>` : `${brandBlock.senderCompany} <${from}>`,
+      to,
+      channel: draft.channel,
+      status: draft.status,
+      plainText: buildPlainText(rawBody, brandBlock),
+      html: buildHtml(rawBody, brandBlock),
+    };
+  }
+
   async sendApprovedEmail(id: string, actorRole: string, actorId?: string) {
     if (actorRole !== 'admin') throw new BadRequestException('Admin only action');
 
@@ -252,14 +385,46 @@ export class DraftsService {
     });
     const rawBody = (version?.content || (draft as any).content || '').trim();
     if (!rawBody) throw new BadRequestException('Draft content is empty');
-    const body = this.unsubscribe.appendFooter(rawBody, to);
+
+    // Brand signature + subject + HTML/plain-text multipart
+    const brand = await this.prisma.brandSettings.findUnique({ where: { id: 'default' } });
+    const senderName = (brand?.yourName || '').trim();
+    const senderTitle = (brand?.yourTitle || '').trim();
+    const senderCompany = (brand?.companyName || 'RevoAI').trim();
+    const senderPhone = (brand?.phoneNumber || '').trim();
+    const senderWebsite = (brand?.websiteUrl || 'https://revoai.ca').trim();
+
+    const from = process.env.EMAIL_FROM || process.env.BOOTSTRAP_ADMIN_EMAIL || process.env.ADMIN_EMAIL || '';
+    const fromName = senderName ? `${senderName}, ${senderCompany}` : senderCompany;
+    const fromHeader = from ? `${fromName} <${from}>` : fromName;
+
+    const unsubscribeUrl = this.unsubscribe.buildUnsubscribeUrl(to);
+    const subjectLine = ((draft as any).subject || `Quick idea for ${lead?.businessName || 'your business'}`).trim();
+
+    const plainText = buildPlainText(rawBody, {
+      senderName,
+      senderTitle,
+      senderCompany,
+      senderPhone,
+      senderWebsite,
+      unsubscribeUrl,
+    });
+
+    const htmlBody = buildHtml(rawBody, {
+      senderName,
+      senderTitle,
+      senderCompany,
+      senderPhone,
+      senderWebsite,
+      unsubscribeUrl,
+      recipientEmail: to,
+    });
 
     const connection = await this.prisma.connection.findUnique({ where: { provider: 'EMAIL' } });
     const encryptedAccessToken = (connection?.tokenMeta as any)?.encryptedAccessToken || null;
     const accessToken = this.decryptSecret(encryptedAccessToken);
 
     const providerSendUrl = process.env.EMAIL_PROVIDER_SEND_URL || '';
-    const from = process.env.EMAIL_FROM || process.env.BOOTSTRAP_ADMIN_EMAIL || process.env.ADMIN_EMAIL || '';
     const stubMode = String(process.env.OAUTH_STUB_MODE || '1') !== '0';
 
     const classifyFailure = (statusCode?: number, msg?: string) => {
@@ -304,10 +469,15 @@ export class DraftsService {
           });
 
           const info = await transporter.sendMail({
-            from,
+            from: fromHeader,
             to,
-            subject: `RevoAI Outreach - ${lead?.businessName || 'Lead'}`,
-            text: body,
+            subject: subjectLine,
+            text: plainText,
+            html: htmlBody,
+            headers: {
+              'List-Unsubscribe': `<${unsubscribeUrl}>`,
+              'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+            },
           });
 
           messageId = (info as any)?.messageId || null;
@@ -327,10 +497,11 @@ export class DraftsService {
             authorization: `Bearer ${accessToken}`,
           },
           body: JSON.stringify({
-            from,
+            from: fromHeader,
             to,
-            subject: `RevoAI Outreach - ${lead?.businessName || 'Lead'}`,
-            text: body,
+            subject: subjectLine,
+            text: plainText,
+            html: htmlBody,
           }),
         });
 

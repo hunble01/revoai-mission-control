@@ -68,6 +68,12 @@ export class DraftsController {
     return this.drafts.sendApprovedEmail(id, getActorRole(req), req?.auth?.uid);
   }
 
+  @Get(':id/preview')
+  async preview(@Req() req: any, @Param('id') id: string) {
+    assertAdminToken(req);
+    return this.drafts.renderPreview(id);
+  }
+
   @Get('email-send-history')
   emailSendHistory(@Req() req: any, @Query('limit') limit?: string) {
     assertAdminToken(req);
