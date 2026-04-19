@@ -88,6 +88,26 @@ services:
     ports:
       - "3000:3000"
 
+  caddy:
+    image: caddy:2
+    container_name: revoai_mc_caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./ops/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+
 volumes:
   pg_data:
   redis_data:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,28 @@
+{
+	email admin@revoai.info
+}
+
+app.revoai.info {
+	encode gzip zstd
+
+	# API routes go to the NestJS container
+	handle /api/* {
+		reverse_proxy api:3001
+	}
+
+	# WebSocket (Socket.io) — same host, upgrade handled by caddy
+	handle /socket.io/* {
+		reverse_proxy api:3001
+	}
+
+	# Everything else is the Next.js web app
+	handle {
+		reverse_proxy web:3000
+	}
+
+	# Reasonable access log
+	log {
+		output stdout
+		format console
+	}
+}
