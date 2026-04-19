@@ -96,7 +96,8 @@ export class AuthService {
   }
 
   cookieHeader(value: string, expiresAt: Date) {
-    const secure = process.env.NODE_ENV === 'production';
+    const override = (process.env.COOKIE_SECURE || '').trim().toLowerCase();
+    const secure = override === 'true' ? true : override === 'false' ? false : process.env.NODE_ENV === 'production';
     return `${SESSION_COOKIE}=${value}; Path=/; HttpOnly; SameSite=Lax; Expires=${expiresAt.toUTCString()}; ${secure ? 'Secure;' : ''}`;
   }
 
