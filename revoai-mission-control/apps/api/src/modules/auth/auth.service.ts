@@ -1,6 +1,9 @@
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'crypto';
+import * as bcrypt from 'bcryptjs';
+
+const BCRYPT_ROUNDS = 12;
 
 const SESSION_COOKIE = 'mc_session';
 const SESSION_DAYS = 7;
@@ -40,9 +43,26 @@ export class AuthService {
     return process.env.SESSION_SECRET || process.env.ADMIN_TOKEN || 'change-me';
   }
 
-  private hashPassword(raw: string) {
+  private async hashPassword(raw: string): Promise<string> {
+    return bcrypt.hash(raw, BCRYPT_ROUNDS);
+  }
+
+  private legacyHash(raw: string): string {
     const salt = process.env.PASSWORD_SALT || 'revoai';
     return createHash('sha256').update(`${salt}:${raw}`).digest('hex');
+  }
+
+  private async verifyPassword(raw: string, stored: string): Promise<{ ok: boolean; needsRehash: boolean }> {
+    if (stored.startsWith('$2')) {
+      const ok = await bcrypt.compare(raw, stored);
+      return { ok, needsRehash: false };
+    }
+    const expected = this.legacyHash(raw);
+    const a = Buffer.from(expected);
+    const b = Buffer.from(stored);
+    if (a.length !== b.length) return { ok: false, needsRehash: false };
+    const ok = timingSafeEqual(a, b);
+    return { ok, needsRehash: ok };
   }
 
   private sign(payload: string) {
@@ -99,7 +119,7 @@ export class AuthService {
     await this.prisma.user.create({
       data: {
         email,
-        passwordHash: this.hashPassword(password),
+        passwordHash: await this.hashPassword(password),
         role: 'ADMIN',
         isActive: true,
       },
@@ -117,10 +137,13 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user || !user.isActive) throw new UnauthorizedException('Invalid credentials');
 
-    const expected = this.hashPassword(password);
-    const a = Buffer.from(expected);
-    const b = Buffer.from(user.passwordHash);
-    if (a.length !== b.length || !timingSafeEqual(a, b)) throw new UnauthorizedException('Invalid credentials');
+    const { ok, needsRehash } = await this.verifyPassword(password, user.passwordHash);
+    if (!ok) throw new UnauthorizedException('Invalid credentials');
+
+    if (needsRehash) {
+      const rehashed = await this.hashPassword(password);
+      await this.prisma.user.update({ where: { id: user.id }, data: { passwordHash: rehashed } });
+    }
 
     const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
     const session = await this.prisma.session.create({
