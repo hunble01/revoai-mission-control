@@ -565,4 +565,149 @@ The previously-documented shortcut `x-admin-token: change-me` is a **dev-only** 
 3. Never log the token, never commit it, rotate on any suspected leak.
 4. For scripted API calls in runbooks, prefer session-cookie auth (§9.1) over the shared token where the endpoint supports it.
 
+## 10. Final Release (Slice F — 2026-04-19)
+
+### 10.1 Required env checklist
+
+**Must-have (deploy fails without these):**
+
+| Var | Source of truth | How to generate |
+|---|---|---|
+| `DATABASE_URL` | Postgres connection string | Infra / provisioned DB |
+| `REDIS_URL` | Redis connection string | Infra / provisioned cache |
+| `ADMIN_EMAIL` | Admin login | Operator decision |
+| `ADMIN_PASSWORD` | Admin login hash source | `openssl rand -base64 24` (avoid shell-special chars or quote) |
+| `BOOTSTRAP_ADMIN_EMAIL` | Bootstrap flow | Same as `ADMIN_EMAIL` |
+| `BOOTSTRAP_ADMIN_PASSWORD` | Bootstrap flow | Same as `ADMIN_PASSWORD` |
+| `ADMIN_TOKEN` | Shared API token | `openssl rand -hex 32` |
+| `NEXT_PUBLIC_ADMIN_TOKEN` | Web→API calls | **Must equal `ADMIN_TOKEN`** |
+| `SESSION_SECRET` | Session-cookie HMAC | `openssl rand -hex 32` |
+| `PASSWORD_SALT` | Password hash salt | `openssl rand -hex 32` |
+| `SECRET_KEY` | Generic encryption key seed | `openssl rand -hex 32` |
+| `NEXT_PUBLIC_API_URL` | Browser→API base URL | Public API hostname |
+| `INTERNAL_API_URL` | Web SSR→API base URL | Internal DNS / `http://api:3001` |
+| `PORT` | API listen port | default `3001` |
+
+**Should-have for any enabled provider:**
+
+| Provider | Vars | Notes |
+|---|---|---|
+| LinkedIn | `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET`, `LINKEDIN_AUTH_URL`, `LINKEDIN_TOKEN_URL`, `LINKEDIN_CALLBACK_URL`, `LINKEDIN_SCOPES`, `LINKEDIN_TOKEN_SECRET` | Set `LINKEDIN_STUB_MODE=0` + `LINKEDIN_DM_STUB_MODE=0` only after creds verified |
+| Facebook | `FACEBOOK_CLIENT_ID`, `FACEBOOK_CLIENT_SECRET`, `FACEBOOK_AUTH_URL`, `FACEBOOK_TOKEN_URL`, `FACEBOOK_CALLBACK_URL`, `FACEBOOK_SCOPES`, `FACEBOOK_PAGE_ID`, `FACEBOOK_TOKEN_SECRET` | Set `FACEBOOK_STUB_MODE=0`, `FACEBOOK_PUBLISH_STUB_MODE=0`, `FACEBOOK_INSIGHTS_STUB_MODE=0` only after creds verified |
+| Unipile (LinkedIn DM) | `UNIPILE_API_KEY`, `UNIPILE_DM_SEND_URL` | Required when `LINKEDIN_DM_STUB_MODE=0` |
+| Email (SMTP) | `EMAIL_FROM`, `EMAIL_SMTP_HOST`, `EMAIL_SMTP_PORT`, `EMAIL_SMTP_SECURE`, `EMAIL_SMTP_USER`, `EMAIL_SMTP_PASS` | IONOS defaults in template |
+| Email (OAuth) | `EMAIL_OAUTH_*`, `EMAIL_WEBHOOK_SECRET` | Set `OAUTH_STUB_MODE=0` only after creds verified |
+| Research | `APOLLO_API_KEY`, `HUNTER_API_KEY`, `GOOGLE_MAPS_API_KEY` | Optional enrichment providers |
+
+**Optional (test / smoke tooling only):** `SMOKE_*`, `TEST_*`, `UAT_*` — documented in `.env.example` §Test / smoke / UAT overrides.
+
+### 10.2 Production run (ordered)
+
+Execute in this exact order on the target host:
+
+```bash
+# 0. Prerequisites
+git checkout handoff/mission-control-final
+git pull --ff-only origin handoff/mission-control-final
+npm ci
+
+# 1. Load env without `source` (handles special chars safely)
+cp .env.example .env                                 # first time only
+$EDITOR .env                                         # populate per §10.1
+docker compose --env-file .env config >/dev/null     # validates .env parses
+
+# 2. Preflight — env, build, seed
+node --env-file=.env scripts/env-sanity-check.js     # must print ok:true
+npm -w apps/api run build
+npm -w apps/web run build
+npm run readiness:mvp
+
+# 3. Bring up data tier first
+docker compose --env-file .env up -d postgres redis
+docker compose --env-file .env exec postgres \
+  pg_isready -U mission -d mission_control           # wait for healthy
+
+# 4. Apply migrations (fresh DB will have 15 migrations applied)
+npx prisma migrate deploy --schema=apps/api/prisma/schema.prisma
+
+# 5. Release artifact + deploy
+npm run deploy:artifact                              # writes to artifacts/
+npm run deploy:run                                   # ops/deploy/deploy.sh
+npm run release:checkpoint                           # stamps checkpoint
+
+# 6. Bring up app tier
+docker compose --env-file .env up -d api web
+docker compose --env-file .env logs --tail=50 api web
+
+# 7. Bootstrap admin (idempotent)
+curl -fsS -X POST http://localhost:3001/api/auth/bootstrap
+#   → {"ok":true,"created":true|false,"email":"..."}
+
+# 8. Post-deploy smoke (see §10.4)
+npm run smoke:mvp
+npm run test:integration:mvp
+npm run uat:final
+```
+
+### 10.3 Rollback
+
+If §10.2 step 6, 7, or 8 fails:
+
+```bash
+# Stop the failing app tier (keeps postgres/redis up)
+docker compose --env-file .env stop api web
+
+# Restore previous release artifact
+npm run deploy:rollback                              # ops/deploy/rollback.sh
+
+# If a bad migration shipped — revert to pre-release DB snapshot
+#   (only if a recent backup exists; see docs/BACKUP_RESTORE.md)
+npm run restore:postgres                             # reads from backups/
+npm run restore:verify
+
+# Re-apply migrations for the rolled-back code
+npx prisma migrate deploy --schema=apps/api/prisma/schema.prisma
+
+# Bring the previous release back online
+docker compose --env-file .env up -d api web
+curl -fsS http://localhost:3001/api/health           # expect {"ok":true,...}
+```
+
+Annotate the incident:
+```bash
+npm run release:checkpoint -- --note "rollback from <release> due to <reason>"
+```
+
+### 10.4 Post-deploy smoke checklist
+
+Run from the deploy host (or a machine with network access to the public URLs). Every step must pass before announcing the release.
+
+**API (via admin token or session cookie):**
+- [ ] `GET /api/health` → `200 {"ok":true,"service":"revoai-mission-control-api"}`
+- [ ] `GET /api/settings/safety` → `200` with `humanApprovalRequired:true`, `requireApproval:true`, expected `outbound_daily_caps.linkedin:20`
+- [ ] `GET /api/drafts/email-pipeline/status` → `200` with `stable:true`
+- [ ] `GET /api/alerts` → `200` with `import_failures_24h`, `approvals_stall_2h`, `scheduler_failures_24h`
+- [ ] `POST /api/auth/bootstrap` → `201 {"ok":true,"email":"..."}`
+- [ ] `POST /api/auth/login` with real admin creds → `201` + `Set-Cookie: mc_session=...`
+- [ ] `GET /api/auth/me` with cookie → `200` with role
+- [ ] Policy negative test: `PATCH /api/settings/safety {"dryRunEnabled":true}` then `POST /api/facebook/publish` → `400 "dry-run mode is enabled; outbound execution blocked"`, then PATCH back to `false`
+
+**Web:**
+- [ ] `GET /` → `200`, overview + alerts card render
+- [ ] `GET /login` → `200`, login form present (title `RevoAI Mission Control`)
+- [ ] After login: `/approvals`, `/scheduler`, `/campaigns`, `/drafts`, `/content-calendar`, `/connections`, `/feed`, `/analytics`, `/audit`, `/health` each return `200` and render real data
+- [ ] WebSocket: `/feed` shows live events within 30s
+
+**Aggregate harness:**
+- [ ] `npm run readiness:mvp` → exit 0
+- [ ] `npm run test:mvp:all` → all pass
+- [ ] `npm run uat:final` → `docs/FINAL_UAT_REPORT.json` status `PASS`
+
+**Operational:**
+- [ ] `docker compose ps` — all four services `(healthy)`
+- [ ] `npm run backup:postgres` — first post-release backup created in `backups/`
+- [ ] `npm run restore:verify` → OK
+
+If any box fails → **halt, rollback (§10.3), diagnose, retry.**
+
 
