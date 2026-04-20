@@ -156,34 +156,66 @@ function buildHtml(body: string, b: BrandBlock): string {
       </tr>
     </table>`;
 
-  // Feature tiles — soft off-white cards with pastel icon circles
+  // Feature tiles — now 6 tiles (3x2) covering voice, SMS, dashboard, AI chatbox,
+  // calendar, and speed-to-live. Matches what's actually pitched in the body copy.
   const featureCards = `
     <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;margin:10px 0 6px;">
       <tr>
         <td style="padding:10px 14px;vertical-align:top;width:50%;">
           <div style="display:inline-block;width:40px;height:40px;border-radius:50%;background:#FCEDEE;text-align:center;line-height:40px;font-size:18px;margin-bottom:10px;">📞</div>
-          <div style="font-family:Georgia,serif;font-weight:700;font-size:15px;color:#2A2824;">Answers every call</div>
+          <div style="font-family:Georgia,serif;font-weight:700;font-size:15px;color:#2A2824;">Answers every call, 24/7</div>
           <div style="color:#6B6159;font-size:13.5px;line-height:1.55;margin-top:4px;">Unlimited simultaneous calls, human-sounding voice, sub-second response.</div>
         </td>
         <td style="padding:10px 14px;vertical-align:top;width:50%;">
-          <div style="display:inline-block;width:40px;height:40px;border-radius:50%;background:#EFF4E4;text-align:center;line-height:40px;font-size:18px;margin-bottom:10px;">📅</div>
-          <div style="font-family:Georgia,serif;font-weight:700;font-size:15px;color:#2A2824;">Books into your calendar</div>
-          <div style="color:#6B6159;font-size:13.5px;line-height:1.55;margin-top:4px;">Google, Outlook, iCloud — real-time availability, no double-booking.</div>
+          <div style="display:inline-block;width:40px;height:40px;border-radius:50%;background:#FBF1DA;text-align:center;line-height:40px;font-size:18px;margin-bottom:10px;">💬</div>
+          <div style="font-family:Georgia,serif;font-weight:700;font-size:15px;color:#2A2824;">AI replies to every text</div>
+          <div style="color:#6B6159;font-size:13.5px;line-height:1.55;margin-top:4px;">Two-way SMS that books appointments, answers FAQs, and confirms automatically.</div>
         </td>
       </tr>
       <tr>
         <td style="padding:10px 14px;vertical-align:top;">
-          <div style="display:inline-block;width:40px;height:40px;border-radius:50%;background:#FBF1DA;text-align:center;line-height:40px;font-size:18px;margin-bottom:10px;">💬</div>
-          <div style="font-family:Georgia,serif;font-weight:700;font-size:15px;color:#2A2824;">Confirms, reminds, follows up</div>
-          <div style="color:#6B6159;font-size:13.5px;line-height:1.55;margin-top:4px;">Two-way SMS, reminders, no-show recovery, review requests.</div>
+          <div style="display:inline-block;width:40px;height:40px;border-radius:50%;background:#EFF4E4;text-align:center;line-height:40px;font-size:18px;margin-bottom:10px;">📅</div>
+          <div style="font-family:Georgia,serif;font-weight:700;font-size:15px;color:#2A2824;">Books into your calendar</div>
+          <div style="color:#6B6159;font-size:13.5px;line-height:1.55;margin-top:4px;">Google, Outlook, iCloud — real-time availability, no double-booking.</div>
         </td>
         <td style="padding:10px 14px;vertical-align:top;">
-          <div style="display:inline-block;width:40px;height:40px;border-radius:50%;background:#FCEDEE;text-align:center;line-height:40px;font-size:18px;margin-bottom:10px;">⚡</div>
+          <div style="display:inline-block;width:40px;height:40px;border-radius:50%;background:#FCEDEE;text-align:center;line-height:40px;font-size:18px;margin-bottom:10px;">🌐</div>
+          <div style="font-family:Georgia,serif;font-weight:700;font-size:15px;color:#2A2824;">AI chatbox for your website</div>
+          <div style="color:#6B6159;font-size:13.5px;line-height:1.55;margin-top:4px;">Handles questions, captures leads, and guides visitors to booking.</div>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:10px 14px;vertical-align:top;">
+          <div style="display:inline-block;width:40px;height:40px;border-radius:50%;background:#F5F7EE;text-align:center;line-height:40px;font-size:18px;margin-bottom:10px;">📊</div>
+          <div style="font-family:Georgia,serif;font-weight:700;font-size:15px;color:#2A2824;">Live dashboard</div>
+          <div style="color:#6B6159;font-size:13.5px;line-height:1.55;margin-top:4px;">See every call, text, and booking as it happens. Your whole front desk in one view.</div>
+        </td>
+        <td style="padding:10px 14px;vertical-align:top;">
+          <div style="display:inline-block;width:40px;height:40px;border-radius:50%;background:#FBF1DA;text-align:center;line-height:40px;font-size:18px;margin-bottom:10px;">⚡</div>
           <div style="font-family:Georgia,serif;font-weight:700;font-size:15px;color:#2A2824;">Live in under an hour</div>
           <div style="color:#6B6159;font-size:13.5px;line-height:1.55;margin-top:4px;">No setup calls. No contract. Cancel anytime.</div>
         </td>
       </tr>
     </table>`;
+
+  // Optional video demo block — only renders when DEMO_VIDEO_URL is set in env
+  const demoVideoUrl = (process.env.DEMO_VIDEO_URL || '').trim();
+  const videoBlock = demoVideoUrl
+    ? `
+      <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;margin:24px 0 4px;">
+        <tr>
+          <td style="padding:0;">
+            <a href="${escapeHtml(demoVideoUrl)}" style="display:block;text-decoration:none;">
+              <div style="position:relative;background:linear-gradient(135deg,#1A1510 0%,#2A2218 60%,#1A1510 100%);border-radius:18px;padding:36px 24px;text-align:center;">
+                <div style="display:inline-block;width:68px;height:68px;border-radius:50%;background:linear-gradient(135deg,#F4D798,#D4AF37);line-height:68px;font-size:26px;color:#1A1510;margin-bottom:14px;box-shadow:0 8px 24px rgba(212,175,55,0.3);">▶</div>
+                <div style="font-family:Georgia,serif;font-size:18px;font-weight:700;color:#F4D798;margin-bottom:4px;">Watch the 90-second demo</div>
+                <div style="color:#B8A889;font-size:13px;letter-spacing:.04em;">See what every call, text, and booking looks like for your business</div>
+              </div>
+            </a>
+          </td>
+        </tr>
+      </table>`
+    : '';
 
   // Ornamental divider — soft botanical flourish between sections
   const flourish = `
@@ -327,6 +359,8 @@ function buildHtml(body: string, b: BrandBlock): string {
                 ${howItWorks}
               </td>
             </tr>
+            <!-- optional video demo (only when DEMO_VIDEO_URL env is set) -->
+            ${videoBlock ? `<tr><td style="padding:6px 44px 8px;">${videoBlock}</td></tr>` : ''}
             <!-- crafted with care pull quote -->
             <tr>
               <td style="padding:8px 44px 8px;">

@@ -48,20 +48,27 @@ function generateOutreachCopy(
 
   if (channel === 'EMAIL') {
     const subject = `Quick idea for ${businessName}`.slice(0, 50);
+    const videoUrl = (process.env.DEMO_VIDEO_URL || '').trim();
+    const demoLine = videoUrl
+      ? `Here's a 90-second demo: ${videoUrl}`
+      : '';
     const content = [
       `Hi ${contactName},`,
       ``,
-      `I came across ${businessName} and wanted to share something that might be useful. ${painLine}`,
+      `${painLine}`,
       ``,
-      `RevoAI is an AI receptionist that answers calls and texts 24/7, books straight into your calendar in real time, and handles reminders and confirmations automatically. Sub-second response, unlimited simultaneous calls, sounds like a real person.`,
+      `RevoAI is an AI receptionist built for businesses like ${businessName}. It answers every call in a real human voice, handles two-way SMS, and books straight into your calendar — all 24/7.`,
       ``,
-      `Plans start at $97/mo CAD (vs. $2,500+ for a human receptionist), with a 7-day free trial. Setup under an hour, no contract.`,
+      `You'll also get a live dashboard showing every call, text, and booking as it happens, plus an AI chatbox for your website that answers questions and captures leads while you sleep.`,
       ``,
-      `Worth a quick look? https://revoai.ca/sign-up`,
+      `Plans start at $97/mo CAD (vs. $2,500+ for a human receptionist). 7-day free trial, setup under an hour, no contract.`,
       ``,
-      `Thanks,`,
-      senderFirst,
-    ].join('\n');
+      demoLine,
+      demoLine ? `` : null,
+      `Take a look: https://revoai.ca/sign-up`,
+      ``,
+      `— ${senderFirst}`,
+    ].filter((line) => line !== null).join('\n');
     return { subject, content };
   }
 
