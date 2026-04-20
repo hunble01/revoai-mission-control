@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none">
+  <title>RevoAI — Aurora R</title>
+  <defs>
+    <linearGradient id="auroraStroke" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3D4F3E"/>
+      <stop offset="55%" stop-color="#5E6E56"/>
+      <stop offset="100%" stop-color="#B5654F"/>
+    </linearGradient>
+  </defs>
+  <!-- Custom R letterform built from a single continuous stroke that ends in a leaf curl -->
+  <!-- Vertical stem of R -->
+  <path
+    d="M 50 38
+       L 50 168"
+    stroke="url(#auroraStroke)"
+    stroke-width="22"
+    stroke-linecap="round"
+  />
+  <!-- Bowl of R + leg that curls outward into a leaf -->
+  <path
+    d="M 50 38
+       L 110 38
+       C 150 38, 160 100, 110 100
+       L 70 100
+       M 95 100
+       C 110 118, 130 138, 158 158
+       C 168 168, 175 162, 168 152
+       C 162 144, 152 142, 144 148"
+    stroke="url(#auroraStroke)"
+    stroke-width="22"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <!-- Terracotta seed at the leaf tip -->
+  <circle cx="148" cy="146" r="5" fill="#B5654F"/>
+</svg>
