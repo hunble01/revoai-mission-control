@@ -94,8 +94,10 @@ function buildHtml(body: string, b: BrandBlock): string {
 
   // Base URL for hosted email assets (hero image, icons). Falls back to
   // the VPS IP until DNS is live; swap to PUBLIC_APP_BASE later.
+  // New filename (hero-botanical.svg) forces Gmail image proxy to re-fetch
+  // instead of serving the cached dark-tech version from earlier sends.
   const assetBase = (process.env.PUBLIC_APP_BASE || 'http://187.77.198.39').replace(/\/+$/, '');
-  const heroUrl = `${assetBase}/email/hero.svg`;
+  const heroUrl = `${assetBase}/email/hero-botanical.svg`;
 
   // Palette — mirrors revoai.ca (warm, botanical, organic)
   //   cream canvas  #FAF7F2
@@ -164,7 +166,7 @@ function buildHtml(body: string, b: BrandBlock): string {
           <div style="color:#6B6159;font-size:13.5px;line-height:1.55;margin-top:4px;">Unlimited simultaneous calls, human-sounding voice, sub-second response.</div>
         </td>
         <td style="padding:10px 14px;vertical-align:top;width:50%;">
-          <div style="display:inline-block;width:40px;height:40px;border-radius:50%;background:#EFF4E4;text-align:center;line-height:40px;font-size:18px;margin-bottom:10px;">🌿</div>
+          <div style="display:inline-block;width:40px;height:40px;border-radius:50%;background:#EFF4E4;text-align:center;line-height:40px;font-size:18px;margin-bottom:10px;">📅</div>
           <div style="font-family:Georgia,serif;font-weight:700;font-size:15px;color:#2A2824;">Books into your calendar</div>
           <div style="color:#6B6159;font-size:13.5px;line-height:1.55;margin-top:4px;">Google, Outlook, iCloud — real-time availability, no double-booking.</div>
         </td>
@@ -176,20 +178,66 @@ function buildHtml(body: string, b: BrandBlock): string {
           <div style="color:#6B6159;font-size:13.5px;line-height:1.55;margin-top:4px;">Two-way SMS, reminders, no-show recovery, review requests.</div>
         </td>
         <td style="padding:10px 14px;vertical-align:top;">
-          <div style="display:inline-block;width:40px;height:40px;border-radius:50%;background:#FCEDEE;text-align:center;line-height:40px;font-size:18px;margin-bottom:10px;">🌷</div>
+          <div style="display:inline-block;width:40px;height:40px;border-radius:50%;background:#FCEDEE;text-align:center;line-height:40px;font-size:18px;margin-bottom:10px;">⚡</div>
           <div style="font-family:Georgia,serif;font-weight:700;font-size:15px;color:#2A2824;">Live in under an hour</div>
           <div style="color:#6B6159;font-size:13.5px;line-height:1.55;margin-top:4px;">No setup calls. No contract. Cancel anytime.</div>
         </td>
       </tr>
     </table>`;
 
-  // "Crafted with care" accent strip — echoes revoai.ca's brand line
-  const careStrip = `
-    <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;margin:20px 0 4px;">
+  // Ornamental divider — soft botanical flourish between sections
+  const flourish = `
+    <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;margin:26px 0 18px;">
       <tr>
-        <td style="text-align:center;padding:18px 24px;background:linear-gradient(90deg,#FAF7F2 0%,#F4EDE1 50%,#FAF7F2 100%);border-radius:16px;">
-          <div style="letter-spacing:.28em;font-size:10px;font-weight:700;color:#B89A6A;text-transform:uppercase;margin-bottom:4px;">— Crafted with care —</div>
-          <div style="font-family:Georgia,serif;font-style:italic;font-size:15px;color:#6B6159;">Built for local businesses that still answer the phone themselves.</div>
+        <td style="text-align:center;">
+          <span style="display:inline-block;width:60px;height:1px;background:linear-gradient(90deg,transparent,#D4AF37);vertical-align:middle;"></span>
+          <span style="display:inline-block;color:#D4AF37;font-size:14px;margin:0 12px;vertical-align:middle;">❦</span>
+          <span style="display:inline-block;width:60px;height:1px;background:linear-gradient(90deg,#D4AF37,transparent);vertical-align:middle;"></span>
+        </td>
+      </tr>
+    </table>`;
+
+  // Numbered "How it works" — three steps, magazine/editorial style
+  const howItWorks = `
+    <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;margin:8px 0 4px;">
+      <tr>
+        <td style="text-align:center;padding:0 24px 14px;">
+          <div style="letter-spacing:.28em;font-size:10px;font-weight:700;color:#B89A6A;text-transform:uppercase;">— How it works —</div>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:4px 10px;vertical-align:top;width:33%;">
+          <div style="text-align:center;padding:8px;">
+            <div style="display:inline-block;width:36px;height:36px;border-radius:50%;background:#FCEDEE;border:1px solid #F0D9DB;color:#C98991;text-align:center;line-height:34px;font-family:Georgia,serif;font-size:18px;font-weight:700;margin-bottom:10px;">01</div>
+            <div style="font-family:Georgia,serif;font-weight:700;font-size:14px;color:#2A2824;">Connect</div>
+            <div style="color:#6B6159;font-size:12.5px;line-height:1.55;margin-top:4px;">Plug in your calendar and phone number. Five minutes.</div>
+          </div>
+        </td>
+        <td style="padding:4px 10px;vertical-align:top;width:33%;">
+          <div style="text-align:center;padding:8px;">
+            <div style="display:inline-block;width:36px;height:36px;border-radius:50%;background:#F5F7EE;border:1px solid #DDE4CC;color:#5F7A4E;text-align:center;line-height:34px;font-family:Georgia,serif;font-size:18px;font-weight:700;margin-bottom:10px;">02</div>
+            <div style="font-family:Georgia,serif;font-weight:700;font-size:14px;color:#2A2824;">Customize</div>
+            <div style="color:#6B6159;font-size:12.5px;line-height:1.55;margin-top:4px;">Pick a voice, set your hours, add your FAQs.</div>
+          </div>
+        </td>
+        <td style="padding:4px 10px;vertical-align:top;width:33%;">
+          <div style="text-align:center;padding:8px;">
+            <div style="display:inline-block;width:36px;height:36px;border-radius:50%;background:#FBF5E5;border:1px solid #EDDFB7;color:#A8821C;text-align:center;line-height:34px;font-family:Georgia,serif;font-size:18px;font-weight:700;margin-bottom:10px;">03</div>
+            <div style="font-family:Georgia,serif;font-weight:700;font-size:14px;color:#2A2824;">Go live</div>
+            <div style="color:#6B6159;font-size:12.5px;line-height:1.55;margin-top:4px;">Every call, text, and booking — handled, 24/7.</div>
+          </div>
+        </td>
+      </tr>
+    </table>`;
+
+  // "Crafted with care" pull-quote strip — echoes revoai.ca's brand line
+  const careStrip = `
+    <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;margin:24px 0 4px;">
+      <tr>
+        <td style="text-align:center;padding:24px 28px;background:linear-gradient(90deg,#FAF7F2 0%,#F4EDE1 50%,#FAF7F2 100%);border-radius:16px;border-left:3px solid #D4AF37;">
+          <div style="letter-spacing:.28em;font-size:10px;font-weight:700;color:#B89A6A;text-transform:uppercase;margin-bottom:8px;">— Crafted with care —</div>
+          <div style="font-family:Georgia,serif;font-style:italic;font-size:17px;color:#2A2824;line-height:1.5;">&ldquo;A receptionist that never sleeps.<br/>&nbsp;And never sighs.&rdquo;</div>
+          <div style="margin-top:8px;font-size:11px;color:#8A7872;letter-spacing:.08em;">BUILT FOR LOCAL BUSINESSES</div>
         </td>
       </tr>
     </table>`;
@@ -265,9 +313,21 @@ function buildHtml(body: string, b: BrandBlock): string {
                 ${featureCards}
               </td>
             </tr>
-            <!-- crafted with care strip -->
+            <!-- ornamental divider -->
             <tr>
-              <td style="padding:6px 44px 8px;">
+              <td style="padding:0 44px;">
+                ${flourish}
+              </td>
+            </tr>
+            <!-- how it works -->
+            <tr>
+              <td style="padding:0 28px 6px;">
+                ${howItWorks}
+              </td>
+            </tr>
+            <!-- crafted with care pull quote -->
+            <tr>
+              <td style="padding:8px 44px 8px;">
                 ${careStrip}
               </td>
             </tr>
