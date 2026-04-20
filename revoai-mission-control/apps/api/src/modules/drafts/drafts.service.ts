@@ -86,7 +86,7 @@ function buildHtml(body: string, b: BrandBlock): string {
     .split(/\n{2,}/)
     .map((p) => p.trim())
     .filter(Boolean)
-    .map((p) => `<p style="margin:0 0 18px;line-height:1.7;color:#1e293b;font-size:16px;">${escapeHtml(p).replace(/\n/g, '<br/>')}</p>`)
+    .map((p) => `<p style="margin:0 0 18px;line-height:1.75;color:#2A2824;font-size:16px;font-family:Georgia,Cambria,'Times New Roman',serif;">${escapeHtml(p).replace(/\n/g, '<br/>')}</p>`)
     .join('');
 
   const brandName = b.senderCompany || 'RevoAI';
@@ -97,103 +97,125 @@ function buildHtml(body: string, b: BrandBlock): string {
   const assetBase = (process.env.PUBLIC_APP_BASE || 'http://187.77.198.39').replace(/\/+$/, '');
   const heroUrl = `${assetBase}/email/hero.svg`;
 
-  // Pill CTA button with dramatic gradient + glow, works cross-client
+  // Palette — mirrors revoai.ca (warm, botanical, organic)
+  //   cream canvas  #FAF7F2
+  //   cream deep    #F4EDE1
+  //   card paper    #FFFFFF
+  //   ink warm      #2A2824
+  //   ink soft      #6B6159
+  //   rose/blush    #E8B4B8
+  //   rose deep     #C98991
+  //   sage          #9CAF88
+  //   sage deep     #5F7A4E
+  //   gold          #D4AF37
+  //   gold soft     #F4D798
+
   const ctaBlock = ctaUrl
     ? `
-      <div style="margin:28px 0 12px;text-align:center;">
+      <div style="margin:32px 0 14px;text-align:center;">
         <!--[if mso]>
-        <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${escapeHtml(ctaUrl)}" style="height:56px;v-text-anchor:middle;width:260px;" arcsize="50%" strokecolor="#0080FF" fillcolor="#0080FF">
+        <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${escapeHtml(ctaUrl)}" style="height:58px;v-text-anchor:middle;width:280px;" arcsize="50%" strokecolor="#5F7A4E" fillcolor="#5F7A4E">
           <w:anchorlock/>
-          <center style="color:#ffffff;font-family:Arial,sans-serif;font-size:16px;font-weight:700;">${escapeHtml(ctaLabel)}</center>
+          <center style="color:#FAF7F2;font-family:Georgia,serif;font-size:16px;font-weight:700;">${escapeHtml(ctaLabel)}</center>
         </v:roundrect>
         <![endif]-->
         <!--[if !mso]><!-- -->
         <a href="${escapeHtml(ctaUrl)}"
-           style="display:inline-block;padding:18px 36px;border-radius:999px;background:linear-gradient(135deg,#00C9FF 0%,#0080FF 55%,#8B5CF6 100%);color:#ffffff;text-decoration:none;font-weight:700;font-size:16px;letter-spacing:.01em;box-shadow:0 10px 28px rgba(0,128,255,0.32),0 2px 4px rgba(0,128,255,0.2);text-align:center;">
+           style="display:inline-block;padding:18px 40px;border-radius:999px;background:linear-gradient(135deg,#8AA076 0%,#5F7A4E 100%);color:#FAF7F2;text-decoration:none;font-weight:600;font-size:16px;letter-spacing:.02em;font-family:Georgia,serif;box-shadow:0 10px 26px rgba(95,122,78,0.28),0 2px 6px rgba(95,122,78,0.22);text-align:center;">
           ${escapeHtml(ctaLabel)} &nbsp;→
         </a>
         <!--<![endif]-->
-        <div style="margin-top:10px;color:#94a3b8;font-size:12px;letter-spacing:.06em;">7-day free trial · Setup under an hour · No contract</div>
+        <div style="margin-top:12px;color:#6B6159;font-size:12px;letter-spacing:.06em;font-style:italic;">7-day free trial · Setup under an hour · No contract</div>
       </div>`
     : '';
 
-  // Visual stat strip — three product facts, from REVOAI_PRODUCT_CONTEXT
+  // Stat strip — soft pastel tiles matching revoai.ca's botanical palette
   const statStrip = `
-    <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;margin:24px 0 4px;">
+    <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;margin:28px 0 8px;">
       <tr>
         <td style="padding:4px;">
-          <div style="background:linear-gradient(180deg,#F8FAFF 0%,#EEF4FF 100%);border:1px solid #E2E8F0;border-radius:14px;padding:16px 12px;text-align:center;">
-            <div style="font-size:20px;font-weight:800;background:linear-gradient(135deg,#00C9FF,#0080FF);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;color:#0080FF;line-height:1.2;">24/7</div>
-            <div style="font-size:10px;letter-spacing:.14em;color:#64748b;font-weight:700;text-transform:uppercase;margin-top:4px;">Live Answer</div>
+          <div style="background:#FCF3F3;border:1px solid #F0D9DB;border-radius:18px;padding:20px 12px;text-align:center;">
+            <div style="font-family:Georgia,serif;font-size:26px;font-weight:700;color:#C98991;line-height:1.1;">24/7</div>
+            <div style="font-size:10px;letter-spacing:.2em;color:#8A7872;font-weight:600;text-transform:uppercase;margin-top:6px;">Always On</div>
           </div>
         </td>
         <td style="padding:4px;">
-          <div style="background:linear-gradient(180deg,#FAFBFF 0%,#F0ECFF 100%);border:1px solid #E2E8F0;border-radius:14px;padding:16px 12px;text-align:center;">
-            <div style="font-size:20px;font-weight:800;background:linear-gradient(135deg,#8B5CF6,#0080FF);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;color:#8B5CF6;line-height:1.2;">&lt; 1 hr</div>
-            <div style="font-size:10px;letter-spacing:.14em;color:#64748b;font-weight:700;text-transform:uppercase;margin-top:4px;">Setup</div>
+          <div style="background:#F5F7EE;border:1px solid #DDE4CC;border-radius:18px;padding:20px 12px;text-align:center;">
+            <div style="font-family:Georgia,serif;font-size:26px;font-weight:700;color:#5F7A4E;line-height:1.1;">&lt; 1 hr</div>
+            <div style="font-size:10px;letter-spacing:.2em;color:#6B7862;font-weight:600;text-transform:uppercase;margin-top:6px;">Setup</div>
           </div>
         </td>
         <td style="padding:4px;">
-          <div style="background:linear-gradient(180deg,#FAFFFE 0%,#ECFFF8 100%);border:1px solid #E2E8F0;border-radius:14px;padding:16px 12px;text-align:center;">
-            <div style="font-size:20px;font-weight:800;background:linear-gradient(135deg,#00C9FF,#10B981);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;color:#10B981;line-height:1.2;">$97</div>
-            <div style="font-size:10px;letter-spacing:.14em;color:#64748b;font-weight:700;text-transform:uppercase;margin-top:4px;">/ month CAD</div>
+          <div style="background:#FBF5E5;border:1px solid #EDDFB7;border-radius:18px;padding:20px 12px;text-align:center;">
+            <div style="font-family:Georgia,serif;font-size:26px;font-weight:700;color:#A8821C;line-height:1.1;">$97</div>
+            <div style="font-size:10px;letter-spacing:.2em;color:#8A7A50;font-weight:600;text-transform:uppercase;margin-top:6px;">/ mo CAD</div>
           </div>
         </td>
       </tr>
     </table>`;
 
-  // Feature bullet cards — three things RevoAI does, with emoji icons that
-  // render reliably in every email client (unlike inline SVG).
+  // Feature tiles — soft off-white cards with pastel icon circles
   const featureCards = `
-    <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;margin:6px 0 8px;">
+    <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;margin:10px 0 6px;">
       <tr>
         <td style="padding:10px 14px;vertical-align:top;width:50%;">
-          <div style="display:inline-block;width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,#00C9FF 0%,#0080FF 100%);color:#fff;text-align:center;line-height:32px;font-size:16px;margin-bottom:8px;">📞</div>
-          <div style="font-weight:700;font-size:14px;color:#0f172a;">Answers every call</div>
-          <div style="color:#64748b;font-size:13px;line-height:1.5;margin-top:2px;">Unlimited simultaneous calls, sub-second response, human-sounding voice.</div>
+          <div style="display:inline-block;width:40px;height:40px;border-radius:50%;background:#FCEDEE;text-align:center;line-height:40px;font-size:18px;margin-bottom:10px;">🌸</div>
+          <div style="font-family:Georgia,serif;font-weight:700;font-size:15px;color:#2A2824;">Answers every call</div>
+          <div style="color:#6B6159;font-size:13.5px;line-height:1.55;margin-top:4px;">Unlimited simultaneous calls, human-sounding voice, sub-second response.</div>
         </td>
         <td style="padding:10px 14px;vertical-align:top;width:50%;">
-          <div style="display:inline-block;width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,#8B5CF6 0%,#0080FF 100%);color:#fff;text-align:center;line-height:32px;font-size:16px;margin-bottom:8px;">📅</div>
-          <div style="font-weight:700;font-size:14px;color:#0f172a;">Books live into your calendar</div>
-          <div style="color:#64748b;font-size:13px;line-height:1.5;margin-top:2px;">Google, Outlook, or iCloud — real-time availability, no double-booking.</div>
+          <div style="display:inline-block;width:40px;height:40px;border-radius:50%;background:#EFF4E4;text-align:center;line-height:40px;font-size:18px;margin-bottom:10px;">🌿</div>
+          <div style="font-family:Georgia,serif;font-weight:700;font-size:15px;color:#2A2824;">Books into your calendar</div>
+          <div style="color:#6B6159;font-size:13.5px;line-height:1.55;margin-top:4px;">Google, Outlook, iCloud — real-time availability, no double-booking.</div>
         </td>
       </tr>
       <tr>
         <td style="padding:10px 14px;vertical-align:top;">
-          <div style="display:inline-block;width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,#00C9FF 0%,#10B981 100%);color:#fff;text-align:center;line-height:32px;font-size:16px;margin-bottom:8px;">💬</div>
-          <div style="font-weight:700;font-size:14px;color:#0f172a;">Texts, confirms, reminds</div>
-          <div style="color:#64748b;font-size:13px;line-height:1.5;margin-top:2px;">Two-way SMS, automated reminders, no-show recovery.</div>
+          <div style="display:inline-block;width:40px;height:40px;border-radius:50%;background:#FBF1DA;text-align:center;line-height:40px;font-size:18px;margin-bottom:10px;">🌼</div>
+          <div style="font-family:Georgia,serif;font-weight:700;font-size:15px;color:#2A2824;">Confirms, reminds, follows up</div>
+          <div style="color:#6B6159;font-size:13.5px;line-height:1.55;margin-top:4px;">Two-way SMS, reminders, no-show recovery, review requests.</div>
         </td>
         <td style="padding:10px 14px;vertical-align:top;">
-          <div style="display:inline-block;width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,#F59E0B 0%,#EF4444 100%);color:#fff;text-align:center;line-height:32px;font-size:16px;margin-bottom:8px;">⚡</div>
-          <div style="font-weight:700;font-size:14px;color:#0f172a;">Live in under an hour</div>
-          <div style="color:#64748b;font-size:13px;line-height:1.5;margin-top:2px;">No setup calls. No contract. Cancel anytime.</div>
+          <div style="display:inline-block;width:40px;height:40px;border-radius:50%;background:#FCEDEE;text-align:center;line-height:40px;font-size:18px;margin-bottom:10px;">🌷</div>
+          <div style="font-family:Georgia,serif;font-weight:700;font-size:15px;color:#2A2824;">Live in under an hour</div>
+          <div style="color:#6B6159;font-size:13.5px;line-height:1.55;margin-top:4px;">No setup calls. No contract. Cancel anytime.</div>
+        </td>
+      </tr>
+    </table>`;
+
+  // "Crafted with care" accent strip — echoes revoai.ca's brand line
+  const careStrip = `
+    <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;margin:20px 0 4px;">
+      <tr>
+        <td style="text-align:center;padding:18px 24px;background:linear-gradient(90deg,#FAF7F2 0%,#F4EDE1 50%,#FAF7F2 100%);border-radius:16px;">
+          <div style="letter-spacing:.28em;font-size:10px;font-weight:700;color:#B89A6A;text-transform:uppercase;margin-bottom:4px;">— Crafted with care —</div>
+          <div style="font-family:Georgia,serif;font-style:italic;font-size:15px;color:#6B6159;">Built for local businesses that still answer the phone themselves.</div>
         </td>
       </tr>
     </table>`;
 
   const sigRows: string[] = [];
   if (b.senderName) {
-    sigRows.push(`<div style="font-weight:700;color:#0f172a;font-size:16px;">${escapeHtml(b.senderName)}</div>`);
+    sigRows.push(`<div style="font-family:Georgia,serif;font-weight:700;color:#2A2824;font-size:17px;">${escapeHtml(b.senderName)}</div>`);
   }
   if (b.senderTitle || b.senderCompany) {
     const titleCompany = [b.senderTitle, b.senderCompany].filter(Boolean).map(escapeHtml).join(' · ');
-    sigRows.push(`<div style="color:#64748b;font-size:13px;margin-top:3px;">${titleCompany}</div>`);
+    sigRows.push(`<div style="color:#6B6159;font-size:13px;margin-top:3px;font-style:italic;">${titleCompany}</div>`);
   }
   if (b.senderPhone) {
-    sigRows.push(`<div style="color:#64748b;font-size:13px;margin-top:2px;">${escapeHtml(b.senderPhone)}</div>`);
+    sigRows.push(`<div style="color:#6B6159;font-size:13px;margin-top:2px;">${escapeHtml(b.senderPhone)}</div>`);
   }
   if (b.senderWebsite) {
     const href = escapeHtml(b.senderWebsite);
     const display = escapeHtml(b.senderWebsite.replace(/^https?:\/\//, ''));
-    sigRows.push(`<div style="font-size:13px;margin-top:2px;"><a href="${href}" style="color:#0080FF;text-decoration:none;font-weight:600;">${display} →</a></div>`);
+    sigRows.push(`<div style="font-size:13px;margin-top:3px;"><a href="${href}" style="color:#5F7A4E;text-decoration:none;font-weight:600;border-bottom:1px solid #CFD9BF;padding-bottom:1px;">${display} →</a></div>`);
   }
   const signatureBlock = sigRows.length
     ? `
-      <table role="presentation" cellspacing="0" cellpadding="0" style="margin-top:32px;padding-top:22px;border-top:1px solid #E2E8F0;width:100%;">
+      <table role="presentation" cellspacing="0" cellpadding="0" style="margin-top:34px;padding-top:24px;border-top:1px solid #EDE7DC;width:100%;">
         <tr>
-          <td style="vertical-align:top;padding-right:16px;width:56px;">
-            <div style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#00C9FF 0%,#0080FF 50%,#8B5CF6 100%);color:#ffffff;font-weight:800;font-size:17px;text-align:center;line-height:52px;letter-spacing:.02em;box-shadow:0 4px 14px rgba(0,128,255,0.28);">${escapeHtml(initials)}</div>
+          <td style="vertical-align:top;padding-right:18px;width:60px;">
+            <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#E8B4B8 0%,#D4AF37 55%,#9CAF88 100%);color:#FFFFFF;font-family:Georgia,serif;font-weight:700;font-size:20px;text-align:center;line-height:56px;letter-spacing:.02em;box-shadow:0 4px 12px rgba(201,137,145,0.25);">${escapeHtml(initials)}</div>
           </td>
           <td style="vertical-align:middle;">${sigRows.join('')}</td>
         </tr>
@@ -202,10 +224,10 @@ function buildHtml(body: string, b: BrandBlock): string {
 
   const unsubHref = escapeHtml(b.unsubscribeUrl);
   const footer = `
-    <div style="margin-top:32px;padding-top:20px;border-top:1px solid #F1F5F9;font-size:11px;color:#94a3b8;line-height:1.6;">
-      <div style="letter-spacing:.14em;text-transform:uppercase;font-size:10px;color:#cbd5e1;font-weight:700;margin-bottom:6px;">${escapeHtml(brandName)} · Launching 2026</div>
-      You're receiving this because ${escapeHtml(brandName)} thought this might be useful for your business.
-      Prefer not to hear from us? <a href="${unsubHref}" style="color:#64748b;text-decoration:underline;">Unsubscribe here</a>.
+    <div style="margin-top:28px;padding-top:20px;border-top:1px solid #F0EADF;font-size:11px;color:#8A7872;line-height:1.65;font-family:Georgia,serif;">
+      <div style="letter-spacing:.24em;text-transform:uppercase;font-size:10px;color:#B89A6A;font-weight:600;margin-bottom:6px;font-family:-apple-system,BlinkMacSystemFont,Helvetica,sans-serif;">${escapeHtml(brandName)} · Launching 2026</div>
+      <span style="font-style:italic;">You're hearing from us because we thought ${escapeHtml(brandName)} might be a fit for your business.</span>
+      Prefer quiet? <a href="${unsubHref}" style="color:#5F7A4E;text-decoration:underline;">Unsubscribe here</a>.
     </div>`;
 
   return `<!doctype html>
@@ -217,45 +239,51 @@ function buildHtml(body: string, b: BrandBlock): string {
     <meta name="supported-color-schemes" content="light"/>
     <title>${escapeHtml(brandName)}</title>
   </head>
-  <body style="margin:0;padding:0;background:#F1F5F9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1e293b;">
-    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">Every call. Answered. 24/7. — plus your personal follow-up.</div>
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#F1F5F9;padding:32px 16px;">
+  <body style="margin:0;padding:0;background:#FAF7F2;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#2A2824;">
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">Every call answered, with care — day or night.</div>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#FAF7F2;padding:36px 16px;">
       <tr>
         <td align="center">
-          <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px;background:#ffffff;border-radius:20px;box-shadow:0 1px 3px rgba(17,24,39,.04),0 12px 44px rgba(17,24,39,.08);overflow:hidden;">
-            <!-- Hero image banner -->
+          <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px;background:#FFFFFF;border-radius:22px;box-shadow:0 1px 3px rgba(42,40,36,.04),0 14px 44px rgba(42,40,36,.08);overflow:hidden;">
+            <!-- Botanical hero -->
             <tr>
-              <td style="background:linear-gradient(135deg,#0A0F1C 0%,#0B1A3A 50%,#0A0F1C 100%);padding:0;line-height:0;">
-                <img src="${heroUrl}" alt="RevoAI — AI receptionist that answers 24/7" width="600" style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;text-decoration:none;"/>
+              <td style="background:#FAF7F2;padding:0;line-height:0;">
+                <img src="${heroUrl}" alt="${escapeHtml(brandName)} — every call answered, with care" width="600" style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;text-decoration:none;"/>
               </td>
             </tr>
             <!-- body -->
             <tr>
-              <td style="padding:36px 44px 8px;">
+              <td style="padding:40px 48px 8px;">
                 ${paragraphs}
                 ${statStrip}
                 ${ctaBlock}
               </td>
             </tr>
-            <!-- feature cards -->
+            <!-- feature grid -->
             <tr>
-              <td style="padding:4px 30px 8px;">
+              <td style="padding:10px 34px 6px;">
                 ${featureCards}
+              </td>
+            </tr>
+            <!-- crafted with care strip -->
+            <tr>
+              <td style="padding:6px 44px 8px;">
+                ${careStrip}
               </td>
             </tr>
             <!-- signature + footer -->
             <tr>
-              <td style="padding:0 44px 40px;">
+              <td style="padding:0 48px 42px;">
                 ${signatureBlock}
                 ${footer}
               </td>
             </tr>
           </table>
           <!-- fine print under card -->
-          <div style="max-width:600px;margin:16px auto 0;padding:0 8px;text-align:center;color:#94a3b8;font-size:11px;line-height:1.5;">
-            <a href="${escapeHtml(b.senderWebsite || 'https://revoai.ca')}" style="color:#94a3b8;text-decoration:none;">revoai.ca</a>
+          <div style="max-width:600px;margin:18px auto 0;padding:0 8px;text-align:center;color:#8A7872;font-size:11px;line-height:1.5;font-family:-apple-system,BlinkMacSystemFont,Helvetica,Arial,sans-serif;">
+            <a href="${escapeHtml(b.senderWebsite || 'https://revoai.ca')}" style="color:#8A7872;text-decoration:none;">revoai.ca</a>
             &nbsp;·&nbsp; Toronto, Canada
-            &nbsp;·&nbsp; <a href="${unsubHref}" style="color:#94a3b8;text-decoration:none;">Unsubscribe</a>
+            &nbsp;·&nbsp; <a href="${unsubHref}" style="color:#8A7872;text-decoration:none;">Unsubscribe</a>
           </div>
         </td>
       </tr>
