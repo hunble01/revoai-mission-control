@@ -61,7 +61,7 @@ function generateOutreachCopy(
       ``,
       `You'll also get a live dashboard showing every call, text, and booking as it happens, plus an AI chatbox for your website that answers questions and captures leads while you sleep.`,
       ``,
-      `Plans start at $97/mo CAD (vs. $2,500+ for a human receptionist). 7-day free trial, setup under an hour, no contract.`,
+      `Plans start at $97/mo CAD (vs. $2,500+ for a human receptionist). 7-day free trial, 10-minute setup, no contract.`,
       ``,
       demoLine,
       demoLine ? `` : null,

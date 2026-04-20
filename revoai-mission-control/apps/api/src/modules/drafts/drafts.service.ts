@@ -22,7 +22,16 @@ type BrandBlock = {
   senderWebsite?: string;
   unsubscribeUrl: string;
   recipientEmail?: string;
+  leadNiche?: string;
 };
+
+function pickHeroSlug(niche?: string): string {
+  const n = String(niche || '').toLowerCase();
+  if (/dent|ortho|med|vet|clinic|health|physio|chiro/.test(n)) return 'hero-medical';
+  if (/hvac|plumb|electric|roof|contractor|gc|auto|repair|detail/.test(n)) return 'hero-trades';
+  if (/salon|barber|nail|spa|beauty|hair|med ?spa/.test(n)) return 'hero-beauty';
+  return 'hero-glass';
+}
 
 function escapeHtml(s: string): string {
   return String(s)
@@ -97,7 +106,7 @@ function buildHtml(body: string, b: BrandBlock): string {
   // New filename on each hero iteration forces Gmail image proxy to re-fetch
   // instead of serving the cached version from earlier sends.
   const assetBase = (process.env.PUBLIC_APP_BASE || 'http://187.77.198.39').replace(/\/+$/, '');
-  const heroUrl = `${assetBase}/email/hero-glass.svg`;
+  const heroUrl = `${assetBase}/email/${pickHeroSlug(b.leadNiche)}.svg`;
 
   // Palette — mirrors revoai.ca (warm, botanical, organic)
   //   cream canvas  #FAF7F2
@@ -127,7 +136,7 @@ function buildHtml(body: string, b: BrandBlock): string {
           ${escapeHtml(ctaLabel)} &nbsp;→
         </a>
         <!--<![endif]-->
-        <div style="margin-top:12px;color:#6B6159;font-size:12px;letter-spacing:.06em;font-style:italic;">7-day free trial · Setup under an hour · No contract</div>
+        <div style="margin-top:12px;color:#6B6159;font-size:12px;letter-spacing:.06em;font-style:italic;">7-day free trial · 10-minute setup · No contract</div>
       </div>`
     : '';
 
@@ -143,7 +152,7 @@ function buildHtml(body: string, b: BrandBlock): string {
         </td>
         <td style="padding:4px;">
           <div style="background:#F5F7EE;border:1px solid #DDE4CC;border-radius:18px;padding:20px 12px;text-align:center;">
-            <div style="font-family:Georgia,serif;font-size:26px;font-weight:700;color:#5F7A4E;line-height:1.1;">&lt; 1 hr</div>
+            <div style="font-family:Georgia,serif;font-size:26px;font-weight:700;color:#5F7A4E;line-height:1.1;">10 min</div>
             <div style="font-size:10px;letter-spacing:.2em;color:#6B7862;font-weight:600;text-transform:uppercase;margin-top:6px;">Setup</div>
           </div>
         </td>
@@ -192,7 +201,7 @@ function buildHtml(body: string, b: BrandBlock): string {
         </td>
         <td style="padding:10px 14px;vertical-align:top;">
           <div style="display:inline-block;width:40px;height:40px;border-radius:50%;background:#FBF1DA;text-align:center;line-height:40px;font-size:18px;margin-bottom:10px;">⚡</div>
-          <div style="font-family:Georgia,serif;font-weight:700;font-size:15px;color:#2A2824;">Live in under an hour</div>
+          <div style="font-family:Georgia,serif;font-weight:700;font-size:15px;color:#2A2824;">Live in 10 minutes</div>
           <div style="color:#6B6159;font-size:13.5px;line-height:1.55;margin-top:4px;">No setup calls. No contract. Cancel anytime.</div>
         </td>
       </tr>
@@ -617,6 +626,7 @@ export class DraftsService {
       senderWebsite: (brand?.websiteUrl || 'https://revoai.ca').trim(),
       unsubscribeUrl,
       recipientEmail: to,
+      leadNiche: (lead as any)?.niche || undefined,
     };
 
     return {
@@ -694,6 +704,7 @@ export class DraftsService {
       senderWebsite,
       unsubscribeUrl,
       recipientEmail: to,
+      leadNiche: (lead as any)?.niche || undefined,
     });
 
     const connection = await this.prisma.connection.findUnique({ where: { provider: 'EMAIL' } });

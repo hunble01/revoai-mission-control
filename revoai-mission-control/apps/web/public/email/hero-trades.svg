@@ -85,7 +85,7 @@
 
   <rect x="54" y="58" width="160" height="24" rx="12" ry="12" fill="#FFFFFF" fill-opacity="0.06" stroke="#FFFFFF" stroke-opacity="0.15" stroke-width="0.5"/>
   <circle cx="68" cy="70" r="3" fill="#F4D798"/>
-  <text x="78" y="74" font-family="-apple-system,BlinkMacSystemFont,Helvetica,Arial,sans-serif" font-size="9" font-weight="700" fill="#F4D798" letter-spacing="2.2">EARLY ACCESS · 2026</text>
+  <text x="78" y="74" font-family="-apple-system,BlinkMacSystemFont,Helvetica,Arial,sans-serif" font-size="9" font-weight="700" fill="#F4D798" letter-spacing="2.2">FOR THE TRADES</text>
 
   <text x="54" y="140" font-family="Georgia,'Times New Roman',serif" font-size="48" font-weight="700" fill="#FFFFFF" letter-spacing="-1.2">Every call,</text>
   <text x="54" y="192" font-family="Georgia,'Times New Roman',serif" font-size="48" font-weight="400" font-style="italic" fill="#F4D798" letter-spacing="-0.8">answered.</text>
@@ -99,14 +99,15 @@
   </g>
   <text x="276" y="283" font-family="-apple-system,BlinkMacSystemFont,Helvetica,Arial,sans-serif" font-size="11" fill="#B8A889" letter-spacing="0.5">7-day trial · no contract · cancel anytime</text>
 
+  <!-- Trades: wrench silhouette inside the glass orb -->
   <g transform="translate(478, 158)" opacity="0.95">
     <circle cx="0" cy="0" r="44" fill="#FFFFFF" fill-opacity="0.08" stroke="#FFFFFF" stroke-opacity="0.2" stroke-width="1"/>
     <circle cx="0" cy="0" r="44" fill="#F4D798" fill-opacity="0.06"/>
-    <path d="M -12 -7 Q -12 -18 -2 -18 L 2 -18 Q 12 -18 12 -7 L 12 3 Q 12 14 2 14 L 5 16 Q 5 19 2 19 Q -1 19 -1 16 L -1 14 Q -12 14 -12 3 Z"
-          fill="none" stroke="#F4D798" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-    <circle cx="-5" cy="-2" r="1.2" fill="#F4D798"/>
-    <circle cx="0" cy="-2" r="1.2" fill="#F4D798"/>
-    <circle cx="5" cy="-2" r="1.2" fill="#F4D798"/>
+    <g transform="rotate(-35)">
+      <path d="M -14 -14 L -14 -22 L -8 -22 L -8 -18 L -4 -18 L -4 -22 L 2 -22 L 2 -14 L -2 -10 L -2 16 L -14 16 Z"
+            fill="none" stroke="#F4D798" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+      <circle cx="-8" cy="4" r="2" fill="#F4D798"/>
+    </g>
   </g>
   <g transform="translate(478, 158)" opacity="0.5">
     <circle cx="0" cy="0" r="56" fill="none" stroke="#F4D798" stroke-width="0.6" stroke-opacity="0.35"/>
