@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="220" viewBox="0 0 600 220">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0A0F1C"/>
+      <stop offset="50%" stop-color="#0B1A3A"/>
+      <stop offset="100%" stop-color="#0A0F1C"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#00C9FF"/>
+      <stop offset="50%" stop-color="#0080FF"/>
+      <stop offset="100%" stop-color="#8B5CF6"/>
+    </linearGradient>
+    <radialGradient id="glow1" cx="0.2" cy="0.4" r="0.6">
+      <stop offset="0%" stop-color="#00C9FF" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#00C9FF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow2" cx="0.85" cy="0.75" r="0.55">
+      <stop offset="0%" stop-color="#8B5CF6" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#8B5CF6" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="600" height="220" fill="url(#bg)"/>
+  <rect width="600" height="220" fill="url(#glow1)"/>
+  <rect width="600" height="220" fill="url(#glow2)"/>
+
+  <g stroke="#FFFFFF" stroke-opacity="0.04" stroke-width="1">
+    <line x1="0" y1="55" x2="600" y2="55"/>
+    <line x1="0" y1="110" x2="600" y2="110"/>
+    <line x1="0" y1="165" x2="600" y2="165"/>
+    <line x1="100" y1="0" x2="100" y2="220"/>
+    <line x1="300" y1="0" x2="300" y2="220"/>
+    <line x1="500" y1="0" x2="500" y2="220"/>
+  </g>
+
+  <rect x="40" y="32" width="6" height="28" rx="3" fill="url(#accent)"/>
+  <text x="58" y="52" fill="#FFFFFF" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="15" font-weight="700" letter-spacing="0.5">RevoAI</text>
+  <text x="542" y="52" text-anchor="end" fill="#94A3B8" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10" letter-spacing="2" font-weight="600">EARLY ACCESS · 2026</text>
+
+  <text x="40" y="118" fill="#FFFFFF" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="32" font-weight="800" letter-spacing="-0.5">Every call. Answered.</text>
+  <text x="40" y="155" fill="url(#accent)" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="32" font-weight="800" letter-spacing="-0.5">24/7.</text>
+
+  <text x="40" y="188" fill="#CBD5E1" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="14" font-weight="500">An AI receptionist that books appointments while you sleep.</text>
+
+  <g transform="translate(450, 110)">
+    <circle r="48" fill="#0B1A3A" stroke="url(#accent)" stroke-width="2"/>
+    <circle r="48" fill="#00C9FF" fill-opacity="0.08"/>
+    <path d="M -14 -8 Q -14 -20 -2 -20 L 2 -20 Q 14 -20 14 -8 L 14 4 Q 14 16 2 16 L 6 18 Q 6 22 2 22 Q -2 22 -2 18 L -2 16 Q -14 16 -14 4 Z"
+          fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="-6" cy="-2" r="1.5" fill="#00C9FF"/>
+    <circle cx="0" cy="-2" r="1.5" fill="#00C9FF"/>
+    <circle cx="6" cy="-2" r="1.5" fill="#00C9FF"/>
+  </g>
+
+  <rect x="0" y="215" width="600" height="5" fill="url(#accent)"/>
+</svg>

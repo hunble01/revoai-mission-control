@@ -86,53 +86,114 @@ function buildHtml(body: string, b: BrandBlock): string {
     .split(/\n{2,}/)
     .map((p) => p.trim())
     .filter(Boolean)
-    .map((p) => `<p style="margin:0 0 16px;line-height:1.65;color:#1f2937;font-size:16px;">${escapeHtml(p).replace(/\n/g, '<br/>')}</p>`)
+    .map((p) => `<p style="margin:0 0 18px;line-height:1.7;color:#1e293b;font-size:16px;">${escapeHtml(p).replace(/\n/g, '<br/>')}</p>`)
     .join('');
 
   const brandName = b.senderCompany || 'RevoAI';
   const initials = monogramFor(b.senderName || brandName);
 
-  // Pill CTA button (works in Gmail, Outlook via MSO table, Apple Mail)
+  // Base URL for hosted email assets (hero image, icons). Falls back to
+  // the VPS IP until DNS is live; swap to PUBLIC_APP_BASE later.
+  const assetBase = (process.env.PUBLIC_APP_BASE || 'http://187.77.198.39').replace(/\/+$/, '');
+  const heroUrl = `${assetBase}/email/hero.svg`;
+
+  // Pill CTA button with dramatic gradient + glow, works cross-client
   const ctaBlock = ctaUrl
     ? `
-      <div style="margin:24px 0 8px;">
+      <div style="margin:28px 0 12px;text-align:center;">
         <!--[if mso]>
-        <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${escapeHtml(ctaUrl)}" style="height:46px;v-text-anchor:middle;width:200px;" arcsize="50%" strokecolor="#0080FF" fillcolor="#0080FF">
+        <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${escapeHtml(ctaUrl)}" style="height:56px;v-text-anchor:middle;width:260px;" arcsize="50%" strokecolor="#0080FF" fillcolor="#0080FF">
           <w:anchorlock/>
-          <center style="color:#ffffff;font-family:Arial,sans-serif;font-size:15px;font-weight:600;">${escapeHtml(ctaLabel)}</center>
+          <center style="color:#ffffff;font-family:Arial,sans-serif;font-size:16px;font-weight:700;">${escapeHtml(ctaLabel)}</center>
         </v:roundrect>
         <![endif]-->
         <!--[if !mso]><!-- -->
         <a href="${escapeHtml(ctaUrl)}"
-           style="display:inline-block;padding:14px 28px;border-radius:999px;background:linear-gradient(135deg,#00C9FF 0%,#0080FF 100%);color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;letter-spacing:.01em;box-shadow:0 4px 14px rgba(0,128,255,0.28);">
-          ${escapeHtml(ctaLabel)} →
+           style="display:inline-block;padding:18px 36px;border-radius:999px;background:linear-gradient(135deg,#00C9FF 0%,#0080FF 55%,#8B5CF6 100%);color:#ffffff;text-decoration:none;font-weight:700;font-size:16px;letter-spacing:.01em;box-shadow:0 10px 28px rgba(0,128,255,0.32),0 2px 4px rgba(0,128,255,0.2);text-align:center;">
+          ${escapeHtml(ctaLabel)} &nbsp;→
         </a>
         <!--<![endif]-->
+        <div style="margin-top:10px;color:#94a3b8;font-size:12px;letter-spacing:.06em;">7-day free trial · Setup under an hour · No contract</div>
       </div>`
     : '';
 
+  // Visual stat strip — three product facts, from REVOAI_PRODUCT_CONTEXT
+  const statStrip = `
+    <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;margin:24px 0 4px;">
+      <tr>
+        <td style="padding:4px;">
+          <div style="background:linear-gradient(180deg,#F8FAFF 0%,#EEF4FF 100%);border:1px solid #E2E8F0;border-radius:14px;padding:16px 12px;text-align:center;">
+            <div style="font-size:20px;font-weight:800;background:linear-gradient(135deg,#00C9FF,#0080FF);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;color:#0080FF;line-height:1.2;">24/7</div>
+            <div style="font-size:10px;letter-spacing:.14em;color:#64748b;font-weight:700;text-transform:uppercase;margin-top:4px;">Live Answer</div>
+          </div>
+        </td>
+        <td style="padding:4px;">
+          <div style="background:linear-gradient(180deg,#FAFBFF 0%,#F0ECFF 100%);border:1px solid #E2E8F0;border-radius:14px;padding:16px 12px;text-align:center;">
+            <div style="font-size:20px;font-weight:800;background:linear-gradient(135deg,#8B5CF6,#0080FF);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;color:#8B5CF6;line-height:1.2;">&lt; 1 hr</div>
+            <div style="font-size:10px;letter-spacing:.14em;color:#64748b;font-weight:700;text-transform:uppercase;margin-top:4px;">Setup</div>
+          </div>
+        </td>
+        <td style="padding:4px;">
+          <div style="background:linear-gradient(180deg,#FAFFFE 0%,#ECFFF8 100%);border:1px solid #E2E8F0;border-radius:14px;padding:16px 12px;text-align:center;">
+            <div style="font-size:20px;font-weight:800;background:linear-gradient(135deg,#00C9FF,#10B981);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;color:#10B981;line-height:1.2;">$97</div>
+            <div style="font-size:10px;letter-spacing:.14em;color:#64748b;font-weight:700;text-transform:uppercase;margin-top:4px;">/ month CAD</div>
+          </div>
+        </td>
+      </tr>
+    </table>`;
+
+  // Feature bullet cards — three things RevoAI does, with emoji icons that
+  // render reliably in every email client (unlike inline SVG).
+  const featureCards = `
+    <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;margin:6px 0 8px;">
+      <tr>
+        <td style="padding:10px 14px;vertical-align:top;width:50%;">
+          <div style="display:inline-block;width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,#00C9FF 0%,#0080FF 100%);color:#fff;text-align:center;line-height:32px;font-size:16px;margin-bottom:8px;">📞</div>
+          <div style="font-weight:700;font-size:14px;color:#0f172a;">Answers every call</div>
+          <div style="color:#64748b;font-size:13px;line-height:1.5;margin-top:2px;">Unlimited simultaneous calls, sub-second response, human-sounding voice.</div>
+        </td>
+        <td style="padding:10px 14px;vertical-align:top;width:50%;">
+          <div style="display:inline-block;width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,#8B5CF6 0%,#0080FF 100%);color:#fff;text-align:center;line-height:32px;font-size:16px;margin-bottom:8px;">📅</div>
+          <div style="font-weight:700;font-size:14px;color:#0f172a;">Books live into your calendar</div>
+          <div style="color:#64748b;font-size:13px;line-height:1.5;margin-top:2px;">Google, Outlook, or iCloud — real-time availability, no double-booking.</div>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:10px 14px;vertical-align:top;">
+          <div style="display:inline-block;width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,#00C9FF 0%,#10B981 100%);color:#fff;text-align:center;line-height:32px;font-size:16px;margin-bottom:8px;">💬</div>
+          <div style="font-weight:700;font-size:14px;color:#0f172a;">Texts, confirms, reminds</div>
+          <div style="color:#64748b;font-size:13px;line-height:1.5;margin-top:2px;">Two-way SMS, automated reminders, no-show recovery.</div>
+        </td>
+        <td style="padding:10px 14px;vertical-align:top;">
+          <div style="display:inline-block;width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,#F59E0B 0%,#EF4444 100%);color:#fff;text-align:center;line-height:32px;font-size:16px;margin-bottom:8px;">⚡</div>
+          <div style="font-weight:700;font-size:14px;color:#0f172a;">Live in under an hour</div>
+          <div style="color:#64748b;font-size:13px;line-height:1.5;margin-top:2px;">No setup calls. No contract. Cancel anytime.</div>
+        </td>
+      </tr>
+    </table>`;
+
   const sigRows: string[] = [];
   if (b.senderName) {
-    sigRows.push(`<div style="font-weight:600;color:#111827;font-size:15px;">${escapeHtml(b.senderName)}</div>`);
+    sigRows.push(`<div style="font-weight:700;color:#0f172a;font-size:16px;">${escapeHtml(b.senderName)}</div>`);
   }
   if (b.senderTitle || b.senderCompany) {
     const titleCompany = [b.senderTitle, b.senderCompany].filter(Boolean).map(escapeHtml).join(' · ');
-    sigRows.push(`<div style="color:#6b7280;font-size:13px;margin-top:2px;">${titleCompany}</div>`);
+    sigRows.push(`<div style="color:#64748b;font-size:13px;margin-top:3px;">${titleCompany}</div>`);
   }
   if (b.senderPhone) {
-    sigRows.push(`<div style="color:#6b7280;font-size:13px;margin-top:2px;">${escapeHtml(b.senderPhone)}</div>`);
+    sigRows.push(`<div style="color:#64748b;font-size:13px;margin-top:2px;">${escapeHtml(b.senderPhone)}</div>`);
   }
   if (b.senderWebsite) {
     const href = escapeHtml(b.senderWebsite);
     const display = escapeHtml(b.senderWebsite.replace(/^https?:\/\//, ''));
-    sigRows.push(`<div style="font-size:13px;margin-top:2px;"><a href="${href}" style="color:#0080FF;text-decoration:none;font-weight:500;">${display}</a></div>`);
+    sigRows.push(`<div style="font-size:13px;margin-top:2px;"><a href="${href}" style="color:#0080FF;text-decoration:none;font-weight:600;">${display} →</a></div>`);
   }
   const signatureBlock = sigRows.length
     ? `
-      <table role="presentation" cellspacing="0" cellpadding="0" style="margin-top:28px;padding-top:20px;border-top:1px solid #e5e7eb;width:100%;">
+      <table role="presentation" cellspacing="0" cellpadding="0" style="margin-top:32px;padding-top:22px;border-top:1px solid #E2E8F0;width:100%;">
         <tr>
-          <td style="vertical-align:top;padding-right:14px;width:48px;">
-            <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#00C9FF 0%,#0080FF 100%);color:#ffffff;font-weight:700;font-size:15px;text-align:center;line-height:44px;letter-spacing:.02em;box-shadow:0 2px 8px rgba(0,128,255,0.2);">${escapeHtml(initials)}</div>
+          <td style="vertical-align:top;padding-right:16px;width:56px;">
+            <div style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#00C9FF 0%,#0080FF 50%,#8B5CF6 100%);color:#ffffff;font-weight:800;font-size:17px;text-align:center;line-height:52px;letter-spacing:.02em;box-shadow:0 4px 14px rgba(0,128,255,0.28);">${escapeHtml(initials)}</div>
           </td>
           <td style="vertical-align:middle;">${sigRows.join('')}</td>
         </tr>
@@ -141,10 +202,10 @@ function buildHtml(body: string, b: BrandBlock): string {
 
   const unsubHref = escapeHtml(b.unsubscribeUrl);
   const footer = `
-    <div style="margin-top:32px;padding-top:16px;border-top:1px solid #f3f4f6;font-size:11px;color:#9ca3af;line-height:1.6;">
-      <div style="letter-spacing:.08em;text-transform:uppercase;font-size:10px;color:#d1d5db;font-weight:600;margin-bottom:4px;">${escapeHtml(brandName)}</div>
-      You're receiving this because ${escapeHtml(brandName)} thought you'd find it useful.
-      <a href="${unsubHref}" style="color:#6b7280;text-decoration:underline;">Unsubscribe</a>.
+    <div style="margin-top:32px;padding-top:20px;border-top:1px solid #F1F5F9;font-size:11px;color:#94a3b8;line-height:1.6;">
+      <div style="letter-spacing:.14em;text-transform:uppercase;font-size:10px;color:#cbd5e1;font-weight:700;margin-bottom:6px;">${escapeHtml(brandName)} · Launching 2026</div>
+      You're receiving this because ${escapeHtml(brandName)} thought this might be useful for your business.
+      Prefer not to hear from us? <a href="${unsubHref}" style="color:#64748b;text-decoration:underline;">Unsubscribe here</a>.
     </div>`;
 
   return `<!doctype html>
@@ -156,49 +217,45 @@ function buildHtml(body: string, b: BrandBlock): string {
     <meta name="supported-color-schemes" content="light"/>
     <title>${escapeHtml(brandName)}</title>
   </head>
-  <body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1f2937;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fafc;padding:32px 16px;">
+  <body style="margin:0;padding:0;background:#F1F5F9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1e293b;">
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">Every call. Answered. 24/7. — plus your personal follow-up.</div>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#F1F5F9;padding:32px 16px;">
       <tr>
         <td align="center">
-          <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px;background:#ffffff;border-radius:16px;box-shadow:0 1px 3px rgba(17,24,39,.04),0 8px 32px rgba(17,24,39,.06);overflow:hidden;">
-            <!-- gradient accent bar -->
+          <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px;background:#ffffff;border-radius:20px;box-shadow:0 1px 3px rgba(17,24,39,.04),0 12px 44px rgba(17,24,39,.08);overflow:hidden;">
+            <!-- Hero image banner -->
             <tr>
-              <td style="height:6px;background:linear-gradient(90deg,#00C9FF 0%,#0080FF 50%,#8B5CF6 100%);line-height:6px;font-size:0;">&nbsp;</td>
-            </tr>
-            <!-- header: brand mark -->
-            <tr>
-              <td style="padding:32px 40px 0;">
-                <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;">
-                  <tr>
-                    <td style="vertical-align:middle;">
-                      <span style="display:inline-block;vertical-align:middle;width:10px;height:28px;border-radius:12px;background:linear-gradient(135deg,#00C9FF 0%,#0080FF 100%);box-shadow:0 0 12px rgba(0,201,255,0.35);"></span>
-                      <span style="display:inline-block;vertical-align:middle;margin-left:12px;font-weight:700;font-size:18px;letter-spacing:.01em;color:#0f172a;">${escapeHtml(brandName)}</span>
-                    </td>
-                    <td align="right" style="vertical-align:middle;color:#9ca3af;font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;">
-                      Early Access · 2026
-                    </td>
-                  </tr>
-                </table>
+              <td style="background:linear-gradient(135deg,#0A0F1C 0%,#0B1A3A 50%,#0A0F1C 100%);padding:0;line-height:0;">
+                <img src="${heroUrl}" alt="RevoAI — AI receptionist that answers 24/7" width="600" style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;text-decoration:none;"/>
               </td>
             </tr>
             <!-- body -->
             <tr>
-              <td style="padding:28px 40px 8px;">
+              <td style="padding:36px 44px 8px;">
                 ${paragraphs}
+                ${statStrip}
                 ${ctaBlock}
+              </td>
+            </tr>
+            <!-- feature cards -->
+            <tr>
+              <td style="padding:4px 30px 8px;">
+                ${featureCards}
               </td>
             </tr>
             <!-- signature + footer -->
             <tr>
-              <td style="padding:0 40px 36px;">
+              <td style="padding:0 44px 40px;">
                 ${signatureBlock}
                 ${footer}
               </td>
             </tr>
           </table>
           <!-- fine print under card -->
-          <div style="max-width:600px;margin:16px auto 0;padding:0 8px;text-align:center;color:#9ca3af;font-size:11px;line-height:1.5;">
-            ${escapeHtml(brandName)} · revoai.ca · Launching 2026
+          <div style="max-width:600px;margin:16px auto 0;padding:0 8px;text-align:center;color:#94a3b8;font-size:11px;line-height:1.5;">
+            <a href="${escapeHtml(b.senderWebsite || 'https://revoai.ca')}" style="color:#94a3b8;text-decoration:none;">revoai.ca</a>
+            &nbsp;·&nbsp; Toronto, Canada
+            &nbsp;·&nbsp; <a href="${unsubHref}" style="color:#94a3b8;text-decoration:none;">Unsubscribe</a>
           </div>
         </td>
       </tr>
