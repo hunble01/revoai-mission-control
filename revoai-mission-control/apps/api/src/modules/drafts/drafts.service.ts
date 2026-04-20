@@ -94,10 +94,10 @@ function buildHtml(body: string, b: BrandBlock): string {
 
   // Base URL for hosted email assets (hero image, icons). Falls back to
   // the VPS IP until DNS is live; swap to PUBLIC_APP_BASE later.
-  // New filename (hero-botanical.svg) forces Gmail image proxy to re-fetch
-  // instead of serving the cached dark-tech version from earlier sends.
+  // New filename on each hero iteration forces Gmail image proxy to re-fetch
+  // instead of serving the cached version from earlier sends.
   const assetBase = (process.env.PUBLIC_APP_BASE || 'http://187.77.198.39').replace(/\/+$/, '');
-  const heroUrl = `${assetBase}/email/hero-botanical.svg`;
+  const heroUrl = `${assetBase}/email/hero-glass.svg`;
 
   // Palette — mirrors revoai.ca (warm, botanical, organic)
   //   cream canvas  #FAF7F2
@@ -161,7 +161,7 @@ function buildHtml(body: string, b: BrandBlock): string {
     <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;margin:10px 0 6px;">
       <tr>
         <td style="padding:10px 14px;vertical-align:top;width:50%;">
-          <div style="display:inline-block;width:40px;height:40px;border-radius:50%;background:#FCEDEE;text-align:center;line-height:40px;font-size:18px;margin-bottom:10px;">🌸</div>
+          <div style="display:inline-block;width:40px;height:40px;border-radius:50%;background:#FCEDEE;text-align:center;line-height:40px;font-size:18px;margin-bottom:10px;">📞</div>
           <div style="font-family:Georgia,serif;font-weight:700;font-size:15px;color:#2A2824;">Answers every call</div>
           <div style="color:#6B6159;font-size:13.5px;line-height:1.55;margin-top:4px;">Unlimited simultaneous calls, human-sounding voice, sub-second response.</div>
         </td>
@@ -173,7 +173,7 @@ function buildHtml(body: string, b: BrandBlock): string {
       </tr>
       <tr>
         <td style="padding:10px 14px;vertical-align:top;">
-          <div style="display:inline-block;width:40px;height:40px;border-radius:50%;background:#FBF1DA;text-align:center;line-height:40px;font-size:18px;margin-bottom:10px;">🌼</div>
+          <div style="display:inline-block;width:40px;height:40px;border-radius:50%;background:#FBF1DA;text-align:center;line-height:40px;font-size:18px;margin-bottom:10px;">💬</div>
           <div style="font-family:Georgia,serif;font-weight:700;font-size:15px;color:#2A2824;">Confirms, reminds, follows up</div>
           <div style="color:#6B6159;font-size:13.5px;line-height:1.55;margin-top:4px;">Two-way SMS, reminders, no-show recovery, review requests.</div>
         </td>
@@ -293,10 +293,12 @@ function buildHtml(body: string, b: BrandBlock): string {
       <tr>
         <td align="center">
           <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px;background:#FFFFFF;border-radius:22px;box-shadow:0 1px 3px rgba(42,40,36,.04),0 14px 44px rgba(42,40,36,.08);overflow:hidden;">
-            <!-- Botanical hero -->
+            <!-- Hero (clickable — whole banner links to primary CTA) -->
             <tr>
-              <td style="background:#FAF7F2;padding:0;line-height:0;">
-                <img src="${heroUrl}" alt="${escapeHtml(brandName)} — every call answered, with care" width="600" style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;text-decoration:none;"/>
+              <td style="background:#1A1510;padding:0;line-height:0;">
+                ${ctaUrl
+                  ? `<a href="${escapeHtml(ctaUrl)}" style="display:block;line-height:0;text-decoration:none;"><img src="${heroUrl}" alt="${escapeHtml(brandName)} — every call, answered. 24/7." width="600" style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;"/></a>`
+                  : `<img src="${heroUrl}" alt="${escapeHtml(brandName)} — every call, answered. 24/7." width="600" style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;text-decoration:none;"/>`}
               </td>
             </tr>
             <!-- body -->

@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="360" viewBox="0 0 600 360">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1A1510"/>
+      <stop offset="55%" stop-color="#221A12"/>
+      <stop offset="100%" stop-color="#0F0C08"/>
+    </linearGradient>
+    <radialGradient id="goldGlow" cx="0.88" cy="0.1" r="0.55">
+      <stop offset="0%" stop-color="#F4D798" stop-opacity="0.8"/>
+      <stop offset="55%" stop-color="#D4AF37" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#D4AF37" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="roseGlow" cx="0.08" cy="0.85" r="0.55">
+      <stop offset="0%" stop-color="#E8B4B8" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#E8B4B8" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="sageGlow" cx="0.55" cy="1" r="0.55">
+      <stop offset="0%" stop-color="#9CAF88" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#9CAF88" stop-opacity="0"/>
+    </radialGradient>
+
+    <linearGradient id="glassFill" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.14"/>
+      <stop offset="50%" stop-color="#FFFFFF" stop-opacity="0.07"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0.04"/>
+    </linearGradient>
+    <linearGradient id="glassBorder" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.35"/>
+      <stop offset="50%" stop-color="#FFFFFF" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0.2"/>
+    </linearGradient>
+
+    <linearGradient id="cta" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#F4D798"/>
+      <stop offset="60%" stop-color="#D4AF37"/>
+      <stop offset="100%" stop-color="#B89A6A"/>
+    </linearGradient>
+    <linearGradient id="goldBar" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#E8B4B8"/>
+      <stop offset="50%" stop-color="#D4AF37"/>
+      <stop offset="100%" stop-color="#9CAF88"/>
+    </linearGradient>
+
+    <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="600" height="360" fill="url(#bg)"/>
+  <rect width="600" height="360" fill="url(#goldGlow)"/>
+  <rect width="600" height="360" fill="url(#roseGlow)"/>
+  <rect width="600" height="360" fill="url(#sageGlow)"/>
+
+  <g stroke="#FFFFFF" stroke-opacity="0.035" stroke-width="1">
+    <line x1="0" y1="70" x2="600" y2="70"/>
+    <line x1="0" y1="140" x2="600" y2="140"/>
+    <line x1="0" y1="210" x2="600" y2="210"/>
+    <line x1="0" y1="280" x2="600" y2="280"/>
+    <line x1="120" y1="0" x2="120" y2="360"/>
+    <line x1="300" y1="0" x2="300" y2="360"/>
+    <line x1="480" y1="0" x2="480" y2="360"/>
+  </g>
+
+  <g transform="translate(500, 60)" opacity="0.6" filter="url(#softGlow)">
+    <circle cx="0" cy="0" r="28" fill="#F4D798" fill-opacity="0.8"/>
+    <circle cx="0" cy="0" r="16" fill="#FBE7B2"/>
+  </g>
+
+  <g transform="translate(40, 300)" opacity="0.45">
+    <ellipse cx="0" cy="0" rx="22" ry="9" fill="#E8B4B8" transform="rotate(-20)"/>
+    <ellipse cx="0" cy="0" rx="16" ry="7" fill="#F5C9CE" transform="rotate(30)"/>
+    <circle cx="0" cy="0" r="4" fill="#D4AF37"/>
+  </g>
+  <g transform="translate(75, 325)" opacity="0.35">
+    <path d="M 0 0 Q -14 -20 -4 -38 Q 0 -28 0 -12 Z" fill="#9CAF88"/>
+    <path d="M 0 0 Q 14 -20 4 -38 Q 0 -28 0 -12 Z" fill="#7F9868"/>
+  </g>
+
+  <rect x="38" y="44" width="524" height="236" rx="22" ry="22" fill="url(#glassFill)" stroke="url(#glassBorder)" stroke-width="1"/>
+
+  <rect x="54" y="58" width="160" height="24" rx="12" ry="12" fill="#FFFFFF" fill-opacity="0.06" stroke="#FFFFFF" stroke-opacity="0.15" stroke-width="0.5"/>
+  <circle cx="68" cy="70" r="3" fill="#F4D798"/>
+  <text x="78" y="74" font-family="-apple-system,BlinkMacSystemFont,Helvetica,Arial,sans-serif" font-size="9" font-weight="700" fill="#F4D798" letter-spacing="2.2">EARLY ACCESS · 2026</text>
+
+  <text x="54" y="140" font-family="Georgia,'Times New Roman',serif" font-size="48" font-weight="700" fill="#FFFFFF" letter-spacing="-1.2">Every call,</text>
+  <text x="54" y="192" font-family="Georgia,'Times New Roman',serif" font-size="48" font-weight="400" font-style="italic" fill="#F4D798" letter-spacing="-0.8">answered.</text>
+
+  <line x1="54" y1="212" x2="94" y2="212" stroke="#D4AF37" stroke-width="1.4"/>
+  <text x="54" y="236" font-family="Georgia,serif" font-size="14" font-style="italic" fill="#E6D4B3">24/7 · under 1 hour to set up · $97/mo</text>
+
+  <g transform="translate(54, 252)">
+    <rect x="0" y="0" width="210" height="48" rx="24" ry="24" fill="url(#cta)"/>
+    <text x="105" y="31" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Helvetica,Arial,sans-serif" font-size="15" font-weight="700" fill="#1A1510" letter-spacing="0.3">Start free trial  →</text>
+  </g>
+  <text x="276" y="283" font-family="-apple-system,BlinkMacSystemFont,Helvetica,Arial,sans-serif" font-size="11" fill="#B8A889" letter-spacing="0.5">7-day trial · no contract · cancel anytime</text>
+
+  <g transform="translate(478, 158)" opacity="0.95">
+    <circle cx="0" cy="0" r="44" fill="#FFFFFF" fill-opacity="0.08" stroke="#FFFFFF" stroke-opacity="0.2" stroke-width="1"/>
+    <circle cx="0" cy="0" r="44" fill="#F4D798" fill-opacity="0.06"/>
+    <path d="M -12 -7 Q -12 -18 -2 -18 L 2 -18 Q 12 -18 12 -7 L 12 3 Q 12 14 2 14 L 5 16 Q 5 19 2 19 Q -1 19 -1 16 L -1 14 Q -12 14 -12 3 Z"
+          fill="none" stroke="#F4D798" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle cx="-5" cy="-2" r="1.2" fill="#F4D798"/>
+    <circle cx="0" cy="-2" r="1.2" fill="#F4D798"/>
+    <circle cx="5" cy="-2" r="1.2" fill="#F4D798"/>
+  </g>
+  <g transform="translate(478, 158)" opacity="0.5">
+    <circle cx="0" cy="0" r="56" fill="none" stroke="#F4D798" stroke-width="0.6" stroke-opacity="0.35"/>
+    <circle cx="0" cy="0" r="68" fill="none" stroke="#F4D798" stroke-width="0.4" stroke-opacity="0.2"/>
+  </g>
+
+  <rect x="0" y="354" width="600" height="6" fill="url(#goldBar)"/>
+</svg>
