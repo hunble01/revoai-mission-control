@@ -228,7 +228,9 @@ function buildHtml(body: string, b: BrandBlock): string {
     </table>`;
 
   // Logo mark (small, for the header above the hero and inline in signature row)
-  const logoUrl = `${assetBase}/email/logo-aurora-r-72.png`;
+  // -clean filename forces Gmail image proxy to re-fetch (earlier logo had
+  // a dark-background JPG artifact from the imgbb upload that got cached).
+  const logoUrl = `${assetBase}/email/logo-aurora-r-clean.png`;
 
   // Optional video demo block — only renders when DEMO_VIDEO_URL is set in env
   const demoVideoUrl = (process.env.DEMO_VIDEO_URL || '').trim();
