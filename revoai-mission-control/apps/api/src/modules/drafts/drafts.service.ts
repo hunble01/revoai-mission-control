@@ -207,6 +207,29 @@ function buildHtml(body: string, b: BrandBlock): string {
       </tr>
     </table>`;
 
+  // Dashboard showcase — screenshot with a gold-bordered frame. Shows the
+  // product, not just describes it. Between feature grid and video/how-it-works.
+  const dashboardUrl = `${assetBase}/email/dashboard.png`;
+  const dashboardBlock = `
+    <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;margin:26px 0 10px;">
+      <tr>
+        <td style="text-align:center;padding-bottom:14px;">
+          <div style="letter-spacing:.28em;font-size:10px;font-weight:700;color:#B89A6A;text-transform:uppercase;margin-bottom:4px;">— The dashboard —</div>
+          <div style="font-family:Georgia,serif;font-style:italic;font-size:15px;color:#6B6159;">Your whole front desk, in one view.</div>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:0;">
+          <div style="padding:6px;background:linear-gradient(135deg,#F4D798,#D4AF37,#B89A6A);border-radius:16px;box-shadow:0 14px 34px rgba(42,40,36,0.18);">
+            <img src="${dashboardUrl}" width="560" alt="RevoAI dashboard — live calls, texts, bookings all in one view" style="display:block;width:100%;max-width:560px;height:auto;border-radius:11px;border:0;outline:none;"/>
+          </div>
+        </td>
+      </tr>
+    </table>`;
+
+  // Logo mark (small, for the header above the hero and inline in signature row)
+  const logoUrl = `${assetBase}/email/logo-aurora-r-72.png`;
+
   // Optional video demo block — only renders when DEMO_VIDEO_URL is set in env
   const demoVideoUrl = (process.env.DEMO_VIDEO_URL || '').trim();
   const videoBlock = demoVideoUrl
@@ -299,12 +322,16 @@ function buildHtml(body: string, b: BrandBlock): string {
     const display = escapeHtml(b.senderWebsite.replace(/^https?:\/\//, ''));
     sigRows.push(`<div style="font-size:13px;margin-top:3px;"><a href="${href}" style="color:#5F7A4E;text-decoration:none;font-weight:600;border-bottom:1px solid #CFD9BF;padding-bottom:1px;">${display} →</a></div>`);
   }
+  // Real headshot (circular avatar) replaces the gradient-initials monogram.
+  // Gmail will load the hosted JPG once the sender is trusted ("not spam" /
+  // contacts); before that, it shows the alt text — no broken layout.
+  const avatarUrl = `${assetBase}/email/tony-headshot.jpg`;
   const signatureBlock = sigRows.length
     ? `
       <table role="presentation" cellspacing="0" cellpadding="0" style="margin-top:34px;padding-top:24px;border-top:1px solid #EDE7DC;width:100%;">
         <tr>
           <td style="vertical-align:top;padding-right:18px;width:60px;">
-            <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#E8B4B8 0%,#D4AF37 55%,#9CAF88 100%);color:#FFFFFF;font-family:Georgia,serif;font-weight:700;font-size:20px;text-align:center;line-height:56px;letter-spacing:.02em;box-shadow:0 4px 12px rgba(201,137,145,0.25);">${escapeHtml(initials)}</div>
+            <img src="${avatarUrl}" width="56" height="56" alt="${escapeHtml(b.senderName || 'Tony')}" style="display:block;width:56px;height:56px;border-radius:50%;border:2px solid #FFFFFF;box-shadow:0 4px 14px rgba(42,40,36,0.22);object-fit:cover;"/>
           </td>
           <td style="vertical-align:middle;">${sigRows.join('')}</td>
         </tr>
@@ -334,6 +361,25 @@ function buildHtml(body: string, b: BrandBlock): string {
       <tr>
         <td align="center">
           <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px;background:#FFFFFF;border-radius:22px;box-shadow:0 1px 3px rgba(42,40,36,.04),0 14px 44px rgba(42,40,36,.08);overflow:hidden;">
+            <!-- Brand bar: logo mark + wordmark above the hero -->
+            <tr>
+              <td style="padding:18px 28px 14px;background:#FFFFFF;border-bottom:1px solid #F1EADF;">
+                <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;">
+                  <tr>
+                    <td style="vertical-align:middle;">
+                      <img src="${logoUrl}" width="32" height="32" alt="${escapeHtml(brandName)}" style="display:inline-block;vertical-align:middle;width:32px;height:32px;border:0;outline:none;"/>
+                      <span style="display:inline-block;vertical-align:middle;margin-left:10px;font-family:Georgia,serif;font-weight:700;font-size:17px;letter-spacing:.01em;color:#2A2824;">${escapeHtml(brandName)}</span>
+                    </td>
+                    <td align="right" style="vertical-align:middle;color:#B89A6A;font-size:10px;letter-spacing:.18em;text-transform:uppercase;font-weight:700;">
+                      ${(b.leadNiche && /dent|ortho|med|vet|clinic|physio|chiro|health/.test(b.leadNiche.toLowerCase())) ? 'For clinics' :
+                        (b.leadNiche && /hvac|plumb|electric|roof|contractor|auto|repair/.test(b.leadNiche.toLowerCase())) ? 'For the trades' :
+                        (b.leadNiche && /salon|barber|nail|spa|beauty|hair/.test(b.leadNiche.toLowerCase())) ? 'For salon & spa' :
+                        'Early Access · 2026'}
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
             <!-- Hero (clickable — whole banner links to primary CTA) -->
             <tr>
               <td style="background:#1A1510;padding:0;line-height:0;">
@@ -354,6 +400,12 @@ function buildHtml(body: string, b: BrandBlock): string {
             <tr>
               <td style="padding:10px 34px 6px;">
                 ${featureCards}
+              </td>
+            </tr>
+            <!-- dashboard showcase -->
+            <tr>
+              <td style="padding:12px 44px 0;">
+                ${dashboardBlock}
               </td>
             </tr>
             <!-- ornamental divider -->
