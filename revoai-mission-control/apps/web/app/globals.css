@@ -1273,3 +1273,57 @@ button.btn-primary:hover,
     font-size: 14px;
   }
 }
+
+/* ============================================================
+   Nav badges + coming-soon treatment (audit cleanup 2026-04-20)
+   ============================================================ */
+
+.nav-beta {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 8px;
+  letter-spacing: 0.14em;
+  color: var(--muted, #7D8590);
+  background: rgba(212, 175, 55, 0.1);
+  border: 1px solid rgba(212, 175, 55, 0.22);
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-weight: 700;
+  margin-left: auto;
+}
+
+.sidebar-link.beta {
+  opacity: 0.62;
+}
+.sidebar-link.beta:hover {
+  opacity: 0.85;
+}
+
+/* Coming-soon banner inside a scaffolded page */
+.coming-soon-banner {
+  background: linear-gradient(135deg, rgba(212,175,55,0.06), rgba(95,122,78,0.06));
+  border: 1px solid rgba(212, 175, 55, 0.28);
+  border-radius: 14px;
+  padding: 18px 22px;
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.coming-soon-banner .cs-tag {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  font-weight: 700;
+  color: #A8821C;
+  background: rgba(212, 175, 55, 0.14);
+  border: 1px solid rgba(212, 175, 55, 0.35);
+}
+.coming-soon-banner .cs-text {
+  flex: 1;
+  font-size: 13px;
+  color: var(--muted, #7D8590);
+  line-height: 1.5;
+}

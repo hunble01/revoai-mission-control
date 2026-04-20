@@ -8,6 +8,7 @@ import { Card } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
 import { Table } from '../../components/ui/Table';
 import { API_BASE, apiHeaders } from '../../lib/api';
+import { ComingSoon } from '../../components/ComingSoon';
 
 export default function ResearchPage() {
   const router = useRouter();
@@ -83,6 +84,7 @@ export default function ResearchPage() {
   return (
     <div className="dash-stack fade-in">
       <section className="page-header"><div className="page-eyebrow">INTELLIGENCE / RESEARCH</div><h2 className="page-title" style={{ margin: 0 }}>Research Hub</h2></section>
+      <ComingSoon feature="Automated lead research" needs="Apollo, Hunter, or Google Maps Places API keys set in .env (or an LLM + web-search pipeline we can build)" />
       <div style={{ display: 'grid', gridTemplateColumns: '320px minmax(0,1fr)', gap: 12 }}>
         <Card title="Runs" subtitle="Latest research runs">
           <div style={{ display: 'grid', gap: 8 }}>{runs.map((r: any) => <button key={r.id} className={`research-run ${selectedRunId === r.id ? 'active' : ''}`} onClick={() => setSelectedRunId(r.id)}><div className="run-header"><div style={{ fontSize: 12, fontWeight: 600 }}>{new Date(r.createdAt).toLocaleString()}</div><span className="badge active">{String(r.status || '').toUpperCase()}</span></div></button>)}</div>

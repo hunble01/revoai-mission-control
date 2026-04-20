@@ -6,48 +6,40 @@ import { SidebarNavItem } from './ui/SidebarNavItem';
 
 const NAV_GROUPS = [
   {
-    title: 'INTELLIGENCE',
+    title: 'MAIN',
     items: [
       { href: '/', label: 'Overview' },
-      { href: '/research', label: 'Research Hub', isNew: true },
-      { href: '/content-calendar', label: 'Content Calendar', isNew: true }
-    ],
-  },
-  {
-    title: 'PIPELINE',
-    items: [
-      { href: '/campaigns', label: 'Campaigns' },
       { href: '/leads', label: 'Leads', countKey: 'leads' },
-      { href: '/approvals', label: 'Approvals', countKey: 'approvals' },
+      { href: '/campaigns', label: 'Campaigns' },
       { href: '/drafts', label: 'Drafts' },
-    ],
-  },
-  {
-    title: 'CHANNELS',
-    items: [
-      { href: '/connections', label: 'Connections' },
-      { href: '/linkedin', label: 'LinkedIn Manager', isNew: true },
-      { href: '/facebook', label: 'Facebook Manager', isNew: true },
-      { href: '/email', label: 'Email', isNew: true },
+      { href: '/approvals', label: 'Approvals', countKey: 'approvals' },
     ],
   },
   {
     title: 'OPERATIONS',
     items: [
-      { href: '/board', label: 'Board' },
+      { href: '/connections', label: 'Connections' },
       { href: '/scheduler', label: 'Scheduler' },
       { href: '/feed', label: 'Live Feed' },
-      { href: '/agents', label: 'Agents' },
+      { href: '/analytics', label: 'Analytics' },
+      { href: '/audit', label: 'Audit' },
+    ],
+  },
+  {
+    title: 'COMING SOON',
+    items: [
+      { href: '/research', label: 'Research Hub', isBeta: true },
+      { href: '/content-calendar', label: 'Content Calendar', isBeta: true },
+      { href: '/linkedin', label: 'LinkedIn', isBeta: true },
+      { href: '/facebook', label: 'Facebook', isBeta: true },
     ],
   },
   {
     title: 'SYSTEM',
     items: [
-      { href: '/analytics', label: 'Analytics', isNew: true },
       { href: '/health', label: 'Health' },
       { href: '/settings', label: 'Settings' },
       { href: '/help', label: 'Help' },
-      { href: '/audit', label: 'Audit' },
     ],
   },
 ] as const;
@@ -168,13 +160,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <div key={group.title} className="nav-group">
                 <div className="nav-group-title">{group.title}</div>
                 <nav className="sidebar-nav" aria-label={group.title}>
-                  {group.items.map((item) => (
+                  {group.items.map((item: any) => (
                     <SidebarNavItem
                       key={item.href}
                       href={item.href}
                       label={item.label}
                       active={pathname === item.href}
                       isNew={!!item.isNew}
+                      isBeta={!!item.isBeta}
                       count={item.countKey ? navCounts[item.countKey as 'approvals' | 'leads'] : undefined}
                     />
                   ))}
@@ -212,15 +205,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <div className="topbar-heading">
                 <div className="topbar-title">Operations Console <span className="topbar-sub">MISSION CONTROL · {clock}</span></div>
                 <div className="flow-links" aria-label="Pipeline flow">
-                  <a href="/research">Research</a>
-                  <span>→</span>
                   <a href="/leads">Leads</a>
+                  <span>→</span>
+                  <a href="/drafts">Drafts</a>
                   <span>→</span>
                   <a href="/approvals">Approvals</a>
                   <span>→</span>
-                  <a href="/content">Content</a>
-                  <span>→</span>
-                  <a href="/drafts">Send</a>
+                  <a href="/scheduler">Send</a>
                 </div>
               </div>
               <div className="topbar-actions" style={{ position: 'relative' }}>

@@ -8,6 +8,56 @@ import { API_BASE, apiHeaders } from '../../lib/api';
 
 const base = API_BASE;
 
+function IntegrationsCard() {
+  const [data, setData] = useState<any>(null);
+  useEffect(() => {
+    fetch(`${API_BASE}/api/settings/integrations`, { credentials: 'include', headers: apiHeaders })
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setData)
+      .catch(() => {});
+  }, []);
+  if (!data) return null;
+  return (
+    <Card
+      title="Integrations"
+      subtitle={`${data.activeCount} active · ${data.missingCount} waiting on keys`}
+    >
+      <div style={{ display: 'grid', gap: 8 }}>
+        {data.rows.map((r: any) => (
+          <div
+            key={r.key}
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr auto',
+              gap: 12,
+              padding: '12px 14px',
+              background: r.status === 'active' ? 'rgba(95,122,78,0.06)' : 'rgba(184,154,106,0.05)',
+              border: `1px solid ${r.status === 'active' ? 'rgba(95,122,78,0.25)' : 'rgba(184,154,106,0.22)'}`,
+              borderRadius: 12,
+              alignItems: 'center',
+            }}
+          >
+            <div>
+              <div style={{ fontFamily: 'Georgia, serif', fontWeight: 700, fontSize: 14, color: '#2A2824' }}>
+                {r.label}
+              </div>
+              <div style={{ fontSize: 12.5, color: '#6B6159', marginTop: 2 }}>{r.unlocks}</div>
+              {r.status === 'missing' && (
+                <div style={{ fontSize: 11, color: '#A8821C', marginTop: 4, fontFamily: 'JetBrains Mono, monospace', letterSpacing: 0.4 }}>
+                  Needs: {r.required.join(', ')}
+                </div>
+              )}
+            </div>
+            <Badge tone={r.status === 'active' ? 'success' : 'warning'}>
+              {r.status === 'active' ? 'ACTIVE' : 'NEEDS KEYS'}
+            </Badge>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 function TagInput({ value, onChange, placeholder }: { value: string[]; onChange: (v: string[]) => void; placeholder: string }) {
   const [draft, setDraft] = useState('');
   return (
@@ -101,6 +151,8 @@ export default function SettingsPage() {
       <section className="page-header"><div className="page-eyebrow">SYSTEM / SETTINGS</div><h2 className="page-title" style={{ margin: 0 }}>Settings</h2></section>
       {err && <p style={{ color: '#ff9b9b' }}>{err}</p>}
       {msg && <p className="muted">{msg}</p>}
+
+      <IntegrationsCard />
 
       <Card title="Content Intelligence" subtitle="Configure monitoring + posting automation inputs">
         <div style={{ display: 'grid', gap: 16 }}>
