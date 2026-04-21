@@ -333,6 +333,25 @@ export default function ApprovalsPage() {
                   <span>Created: {d?.createdAt ? new Date(d.createdAt).toLocaleString() : '—'}</span>
                   <span>{d?.scheduledSendAt ? `Scheduled: ${new Date(d.scheduledSendAt).toLocaleString()}` : ''}</span>
                 </div>
+                {(() => {
+                  let en: any = {};
+                  try { en = JSON.parse(String(d?.lead?.sourceDetail || '{}')); } catch {}
+                  if (!en?.painHint && !(Array.isArray(en?.services) && en.services.length)) return null;
+                  return (
+                    <div style={{ marginTop: 8, padding: '8px 12px', background: 'rgba(156,175,136,0.06)', border: '1px solid rgba(156,175,136,0.22)', borderRadius: 6, fontSize: 12, lineHeight: 1.5 }}>
+                      <div style={{ color: '#9CAF88', fontSize: 10, letterSpacing: '0.18em', fontWeight: 700, marginBottom: 4 }}>AI CONTEXT USED</div>
+                      {en?.painHint && <div style={{ color: '#C8D6B1', marginBottom: 4 }}>↳ {en.painHint}</div>}
+                      {Array.isArray(en?.services) && en.services.length > 0 && (
+                        <div style={{ color: '#94A3B8', fontSize: 11 }}>{en.services.slice(0, 3).join(' · ')}</div>
+                      )}
+                    </div>
+                  );
+                })()}
+                {d?.lead?.followUpStage > 0 && d?.lead?.followUpStage < 99 && (
+                  <div style={{ marginTop: 6, fontSize: 11, fontFamily: 'JetBrains Mono, monospace' }}>
+                    <Badge tone="info">FOLLOW-UP #{d.lead.followUpStage}</Badge>
+                  </div>
+                )}
 
                 <div
                   style={{
