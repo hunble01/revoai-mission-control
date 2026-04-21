@@ -87,6 +87,86 @@ export class ResearchService {
     };
   }
 
+  /**
+   * Real Google Maps Places API (New) discovery.
+   * Searches for local businesses matching the niche + city from SearchParams.
+   * Returns up to 60 real businesses (20 per page × 3 pages).
+   * Cost: ~$0.032 per call (20 results) from Places API Text Search.
+   * Google free tier covers $200/month = ~6,250 queries = ~125,000 businesses/mo.
+   */
+  private async discoverFromGoogleMaps(params: SearchParams) {
+    const key = String(process.env.GOOGLE_MAPS_API_KEY || '').trim();
+    if (!key) return { rows: [], warning: 'Google Maps API key missing' };
+
+    const parts = [params.niche, params.subNiche, params.geographyCity, params.geographyRegion]
+      .filter(Boolean).join(' ').trim();
+    const textQuery = parts || params.query || 'local businesses';
+    const maxPages = 3;
+    const rows: any[] = [];
+    let pageToken: string | undefined;
+
+    try {
+      for (let page = 0; page < maxPages; page += 1) {
+        const body: any = { textQuery, pageSize: 20 };
+        if (pageToken) body.pageToken = pageToken;
+
+        const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Goog-Api-Key': key,
+            'X-Goog-FieldMask':
+              'places.displayName,places.formattedAddress,places.internationalPhoneNumber,' +
+              'places.nationalPhoneNumber,places.websiteUri,places.rating,places.userRatingCount,' +
+              'places.primaryTypeDisplayName,places.businessStatus,places.regularOpeningHours.weekdayDescriptions,' +
+              'places.googleMapsUri,nextPageToken',
+          },
+          body: JSON.stringify(body),
+        });
+
+        if (!res.ok) {
+          const errBody = await res.text().catch(() => '');
+          return { rows, warning: `Google Maps: HTTP ${res.status} ${errBody.slice(0, 200)}` };
+        }
+
+        const json: any = await res.json();
+        const places = Array.isArray(json?.places) ? json.places : [];
+        for (const p of places) {
+          const phone = p?.internationalPhoneNumber || p?.nationalPhoneNumber || null;
+          rows.push({
+            companyName: p?.displayName?.text || p?.displayName || null,
+            contactName: null, // filled in by LLM enrichment step
+            email: null,       // filled in by LLM enrichment / Hunter
+            phone,
+            linkedinUrl: null,
+            website: p?.websiteUri || null,
+            sourceUrl: p?.googleMapsUri || null,
+            sourceType: 'google_maps',
+            source: 'GoogleMaps',
+            region: params.geographyCity || p?.formattedAddress?.split(',').slice(-2)[0]?.trim() || null,
+            metadata: {
+              rating: p?.rating || null,
+              userRatingCount: p?.userRatingCount || null,
+              primaryType: p?.primaryTypeDisplayName?.text || null,
+              businessStatus: p?.businessStatus || null,
+              hours: p?.regularOpeningHours?.weekdayDescriptions || null,
+              fullAddress: p?.formattedAddress || null,
+            },
+          });
+        }
+
+        pageToken = json?.nextPageToken;
+        if (!pageToken) break;
+        // Google asks for a ~2s gap before using nextPageToken
+        await new Promise((r) => setTimeout(r, 2200));
+      }
+
+      return { rows };
+    } catch (err: any) {
+      return { rows, warning: `Google Maps error: ${err?.message || String(err)}` };
+    }
+  }
+
   private async processSpreadsheet(params: SearchParams, campaign: any) {
     const rows = Array.isArray(campaign?.spreadsheetData?.rows) ? campaign.spreadsheetData.rows : [];
     if (!rows.length) return { rows: [] };
@@ -111,8 +191,17 @@ export class ResearchService {
 
   private async discoverLeadsWithRouting(params: SearchParams, campaign?: any) {
     const ds = params.dataSources || {};
-    const priority: string[] = Array.isArray(ds.priority) ? ds.priority : ['apollo', 'hunter', 'gmaps', 'linkedin', 'web', 'sheet'];
-    const enabled = new Set(priority.filter((k) => ds[k]));
+    const priority: string[] = Array.isArray(ds.priority) ? ds.priority : ['gmaps', 'apollo', 'hunter', 'linkedin', 'web', 'sheet'];
+    // If the caller didn't explicitly pass any dataSources config, default
+    // to Google Maps when the API key is available — it's the primary
+    // discovery engine for local service businesses (the whole ICP).
+    const anyExplicit = Object.keys(ds).some((k) => k !== 'priority' && ds[k]);
+    const enabled = new Set<string>();
+    if (anyExplicit) {
+      priority.filter((k) => ds[k]).forEach((k) => enabled.add(k));
+    } else if (process.env.GOOGLE_MAPS_API_KEY) {
+      enabled.add('gmaps');
+    }
     const used: string[] = [];
     const warnings: string[] = [];
     let rows: any[] = [];
@@ -140,9 +229,9 @@ export class ResearchService {
           used.push('Apollo');
         }
       } else if (key === 'gmaps') {
-        if (!process.env.GOOGLE_MAPS_API_KEY) warnings.push('Google Maps key missing');
-        else {
-          const r = await this.discoverGeneric(params, 'GoogleMaps');
+        const r = await this.discoverFromGoogleMaps(params);
+        if (r.warning) warnings.push(r.warning);
+        if (r.rows.length) {
           rows.push(...r.rows);
           used.push('GoogleMaps');
         }
