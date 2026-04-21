@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
 import Anthropic from '@anthropic-ai/sdk';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventsService } from '../events/events.service';
@@ -55,8 +55,39 @@ Rules:
 };
 
 @Injectable()
-export class FollowUpService {
+export class FollowUpService implements OnModuleInit, OnModuleDestroy {
+  private readonly log = new Logger('FollowUpService');
+  private timer?: NodeJS.Timeout;
+
   constructor(private readonly prisma: PrismaService, private readonly events: EventsService) {}
+
+  onModuleInit() {
+    // Auto-run cycle every 6 hours. Can be disabled by setting
+    // FOLLOWUP_AUTOCRON=off in env.
+    const autoCron = String(process.env.FOLLOWUP_AUTOCRON || 'on').toLowerCase();
+    if (autoCron === 'off') {
+      this.log.log('auto-cron disabled (FOLLOWUP_AUTOCRON=off)');
+      return;
+    }
+    const intervalMs = 6 * 60 * 60 * 1000; // 6 hours
+    // Wait 30s after boot before the first run so the app is stable
+    setTimeout(() => this.safeRun(), 30_000);
+    this.timer = setInterval(() => this.safeRun(), intervalMs);
+    this.log.log(`follow-up auto-cron enabled — every ${intervalMs / 3600000}h`);
+  }
+
+  onModuleDestroy() {
+    if (this.timer) clearInterval(this.timer);
+  }
+
+  private async safeRun() {
+    try {
+      const out = await this.runCycle();
+      this.log.log(`auto-cycle: processed=${out.processed} generated=${out.generated} errors=${out.errors.length}`);
+    } catch (err: any) {
+      this.log.error(`auto-cycle failed: ${err?.message || err}`);
+    }
+  }
 
   /**
    * Called by the scheduler. Finds leads whose next follow-up is due and

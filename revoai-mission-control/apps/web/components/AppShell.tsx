@@ -9,6 +9,7 @@ const NAV_GROUPS = [
     title: 'MAIN',
     items: [
       { href: '/', label: 'Overview' },
+      { href: '/research', label: 'Research Hub', isNew: true },
       { href: '/leads', label: 'Leads', countKey: 'leads' },
       { href: '/campaigns', label: 'Campaigns' },
       { href: '/drafts', label: 'Drafts' },
@@ -28,7 +29,6 @@ const NAV_GROUPS = [
   {
     title: 'COMING SOON',
     items: [
-      { href: '/research', label: 'Research Hub', isBeta: true },
       { href: '/content-calendar', label: 'Content Calendar', isBeta: true },
       { href: '/linkedin', label: 'LinkedIn', isBeta: true },
       { href: '/facebook', label: 'Facebook', isBeta: true },
