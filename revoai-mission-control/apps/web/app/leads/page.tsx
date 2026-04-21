@@ -394,6 +394,63 @@ export default function LeadsPage() {
               <Badge tone={String(selectedLead?.fitScore || '').toLowerCase() === 'high' ? 'success' : String(selectedLead?.fitScore || '').toLowerCase() === 'medium' ? 'warning' : 'default'}>{selectedLead?.fitScore || 'Low'}</Badge>{' '}
               <Badge tone={statusTone(selectedLead?.status)}>{selectedLead?.status || 'NEW'}</Badge>
             </div>
+            {(() => {
+              // Parse enrichment data stashed by LLM enrichment into sourceDetail JSON
+              let enrichment: any = {};
+              try { enrichment = JSON.parse(String(selectedLead?.sourceDetail || '{}')); } catch {}
+              const hasEnrichment =
+                (Array.isArray(enrichment?.services) && enrichment.services.length) ||
+                enrichment?.painHint || enrichment?.trustMarker;
+              if (!hasEnrichment) return null;
+              return (
+                <div style={{ background: 'rgba(156,175,136,0.06)', border: '1px solid rgba(156,175,136,0.2)', borderRadius: 12, padding: 14 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                    <div className="page-eyebrow" style={{ margin: 0 }}>AI ENRICHMENT</div>
+                    <Badge tone="success">{enrichment?.enrichedBy || 'llm+website'}</Badge>
+                  </div>
+                  {Array.isArray(enrichment?.services) && enrichment.services.length > 0 && (
+                    <div style={{ marginBottom: 10 }}>
+                      <div className="text-xs mono muted" style={{ marginBottom: 4, letterSpacing: '0.1em' }}>SERVICES</div>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        {enrichment.services.map((s: string, i: number) => (
+                          <span key={i} style={{ background: 'rgba(212,175,55,0.12)', border: '1px solid rgba(212,175,55,0.3)', padding: '3px 10px', borderRadius: 999, fontSize: 11, color: '#D4AF37' }}>
+                            {s}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {enrichment?.painHint && (
+                    <div style={{ marginBottom: 8 }}>
+                      <div className="text-xs mono muted" style={{ marginBottom: 4, letterSpacing: '0.1em' }}>PAIN SIGNAL</div>
+                      <div style={{ fontSize: 13, lineHeight: 1.5, color: '#E6EDF3' }}>{enrichment.painHint}</div>
+                    </div>
+                  )}
+                  {enrichment?.trustMarker && (
+                    <div>
+                      <div className="text-xs mono muted" style={{ marginBottom: 4, letterSpacing: '0.1em' }}>TRUST MARKER</div>
+                      <div style={{ fontSize: 13, lineHeight: 1.5, color: '#E6EDF3' }}>{enrichment.trustMarker}</div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+            {selectedLead?.followUpStage > 0 && selectedLead?.followUpStage < 99 && (
+              <div style={{ background: 'rgba(0,201,255,0.06)', border: '1px solid rgba(0,201,255,0.22)', borderRadius: 12, padding: 14 }}>
+                <div className="page-eyebrow">SEQUENCE</div>
+                <div style={{ fontSize: 13, marginTop: 4 }}>
+                  <Badge tone="info">Stage {selectedLead.followUpStage} of 3</Badge>{' '}
+                  {selectedLead?.lastOutboundAt && (
+                    <span className="muted text-xs mono">
+                      last sent {new Date(selectedLead.lastOutboundAt).toLocaleDateString()}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+            {selectedLead?.followUpStage === 99 && selectedLead?.sequencePausedReason && (
+              <div className="muted text-xs mono">Sequence paused: {selectedLead.sequencePausedReason}</div>
+            )}
             <div>
               <div className="page-eyebrow">NOTES</div>
               <textarea className="ui-input" rows={4} value={leadNotes} onChange={(e) => setLeadNotes(e.target.value)} onBlur={async () => {
