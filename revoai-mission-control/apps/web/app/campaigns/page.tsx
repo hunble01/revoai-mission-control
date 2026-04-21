@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Badge } from '../../components/ui/Badge';
 import { Card } from '../../components/ui/Card';
 import { Table } from '../../components/ui/Table';
@@ -106,15 +107,16 @@ function Chip({ label, onClick }: { label: string; onClick: () => void }) {
 
 function Section({ label, children }: any) {
   return (
-    <div style={{ marginBottom: 12 }}>
-      <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 9, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--text-dim)', marginBottom: 6 }}>{label}</div>
-      <div style={{ background: '#0A0E17', border: '1px solid #1C2333', borderRadius: 6, padding: 14 }}>{children}</div>
+    <div style={{ marginBottom: 8 }}>
+      <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 9, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--text-dim)', marginBottom: 4 }}>{label}</div>
+      <div style={{ background: '#0A0E17', border: '1px solid #1C2333', borderRadius: 6, padding: 10 }}>{children}</div>
     </div>
   );
 }
 
 export default function CampaignsPage() {
   const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [autoruns, setAutoruns] = useState<Record<string, { runId: string; stage: string; summary?: any; polling: boolean }>>({});
   const [modalOpen, setModalOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
@@ -122,6 +124,7 @@ export default function CampaignsPage() {
   const [editingCampaign, setEditingCampaign] = useState<any | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<any | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [portalEl, setPortalEl] = useState<HTMLElement | null>(null);
   const [form, setForm] = useState<any>(JSON.parse(JSON.stringify(emptyForm)));
   const [importCampaignId, setImportCampaignId] = useState('');
   const [importData, setImportData] = useState<any>(null);
@@ -131,7 +134,12 @@ export default function CampaignsPage() {
   const dmBodyRef = useRef<HTMLTextAreaElement | null>(null);
   const emailSubjectRef = useRef<HTMLInputElement | null>(null);
 
-  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => {
+    setMounted(true);
+    if (typeof document !== 'undefined' && document.body instanceof HTMLElement) {
+      setPortalEl(document.body);
+    }
+  }, []);
 
   const toast = (type: 'success' | 'error', text: string) => {
     if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('app-toast', { detail: { type, text } }));
@@ -268,6 +276,49 @@ export default function CampaignsPage() {
     }
   };
 
+  const doAutorun = async (campaignId: string) => {
+    if (autoruns[campaignId]?.polling) return;
+    try {
+      const res = await fetch(`${base}/api/campaigns/${campaignId}/autorun`, {
+        method: 'POST', credentials: 'include',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ maxLeads: 40, enrichLimit: 20 }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.runId) throw new Error(data?.error?.message || 'Autorun failed to start');
+      toast('success', `Autorun started`);
+      setAutoruns((prev) => ({ ...prev, [campaignId]: { runId: data.runId, stage: 'starting', polling: true } }));
+
+      // Poll status every 5s until complete/error
+      const pollInterval = setInterval(async () => {
+        try {
+          const statusRes = await fetch(`${base}/api/campaigns/autorun/${data.runId}`, { credentials: 'include' });
+          const status = await statusRes.json().catch(() => ({}));
+          if (status?.status === 'complete') {
+            clearInterval(pollInterval);
+            const s = status.summary || {};
+            setAutoruns((prev) => ({ ...prev, [campaignId]: { runId: data.runId, stage: 'complete', summary: s, polling: false } }));
+            toast('success', `Autorun done: ${s.discovered || 0} found · ${s.drafted || 0} drafted`);
+            loadCampaigns().catch(() => {});
+          } else if (status?.status === 'error') {
+            clearInterval(pollInterval);
+            setAutoruns((prev) => ({ ...prev, [campaignId]: { runId: data.runId, stage: 'error', polling: false } }));
+            toast('error', `Autorun failed: ${status.error || 'unknown'}`);
+          } else {
+            setAutoruns((prev) => ({ ...prev, [campaignId]: { runId: data.runId, stage: 'running', polling: true } }));
+          }
+        } catch {
+          clearInterval(pollInterval);
+          setAutoruns((prev) => ({ ...prev, [campaignId]: { runId: data.runId, stage: 'error', polling: false } }));
+        }
+      }, 5000);
+      // Safety: stop polling after 5 min
+      setTimeout(() => clearInterval(pollInterval), 5 * 60 * 1000);
+    } catch (e: any) {
+      toast('error', e?.message || 'Autorun failed');
+    }
+  };
+
   const doClone = async (id: string) => {
     try {
       const res = await fetch(`${base}/api/campaigns/${id}/clone`, { method: 'POST', credentials: 'include' });
@@ -278,16 +329,17 @@ export default function CampaignsPage() {
     } catch (e: any) { toast('error', e?.message || 'Clone failed'); }
   };
 
-  const doArchive = async (id: string) => {
+  const doArchive = async (row: any) => {
+    const nextActive = !Boolean(row?.isActive);
     try {
-      const res = await fetch(`${base}/api/campaigns/${id}`, {
-        method: 'PATCH', credentials: 'include', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ status: 'archived' }),
+      const res = await fetch(`${base}/api/campaigns/${row.id}`, {
+        method: 'PATCH', credentials: 'include', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ isActive: nextActive }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error?.message || 'Archive failed');
-      setCampaigns((prev) => prev.map((c) => c.id === id ? { ...c, ...data, status: 'archived' } : c));
-      toast('success', 'Campaign archived');
-    } catch (e: any) { toast('error', e?.message || 'Archive failed'); }
+      if (!res.ok) throw new Error(data?.error?.message || 'Archive toggle failed');
+      setCampaigns((prev) => prev.map((c) => c.id === row.id ? { ...c, ...data, isActive: nextActive } : c));
+      toast('success', nextActive ? 'Campaign unarchived' : 'Campaign archived');
+    } catch (e: any) { toast('error', e?.message || 'Archive toggle failed'); }
   };
 
   const doDelete = async (id: string) => {
@@ -370,9 +422,26 @@ export default function CampaignsPage() {
                 <td>{replyRate(row)}</td>
                 <td><span style={{ width: 10, height: 10, borderRadius: 999, background: healthColor(row), display: 'inline-block' }} /></td>
                 <td style={{ whiteSpace: 'nowrap' }}>
+                  <button
+                    onClick={() => doAutorun(row.id)}
+                    disabled={autoruns[row.id]?.polling}
+                    style={{
+                      padding: '6px 14px', borderRadius: 999,
+                      background: autoruns[row.id]?.polling
+                        ? 'linear-gradient(135deg,#B8A889,#8A7872)'
+                        : 'linear-gradient(135deg,#F4D798,#D4AF37,#B89A6A)',
+                      color: '#1A1510', fontWeight: 700, fontSize: 12,
+                      border: 'none', cursor: autoruns[row.id]?.polling ? 'wait' : 'pointer',
+                      marginRight: 6, boxShadow: '0 2px 8px rgba(212,175,55,0.24)',
+                    }}
+                  >
+                    {autoruns[row.id]?.polling ? '◐ Running…' :
+                     autoruns[row.id]?.stage === 'complete' ? `✓ ${autoruns[row.id]?.summary?.drafted || 0} drafted` :
+                     '⚡ Run Campaign'}
+                  </button>
                   <BtnGhost onClick={() => openEdit(row)}>Edit</BtnGhost>{' '}
                   <BtnGhost onClick={() => doClone(row.id)}>Clone</BtnGhost>{' '}
-                  <BtnAmber onClick={() => doArchive(row.id)}>Archive</BtnAmber>{' '}
+                  <BtnAmber onClick={() => doArchive(row)}>{row?.isActive === false ? 'Unarchive' : 'Archive'}</BtnAmber>{' '}
                   <BtnDanger onClick={() => setConfirmDelete(row)}>Delete</BtnDanger>
                 </td>
               </tr>
@@ -382,15 +451,15 @@ export default function CampaignsPage() {
         </Table>
       </Card>
 
-      {mounted && modalOpen && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.8)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', boxSizing: 'border-box' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', width: '100%', maxWidth: '680px', height: 'calc(100vh - 48px)', background: '#0D1117', border: '1px solid #1C2333', borderRadius: '8px', overflow: 'hidden' }}>
-            <div style={{ flexShrink: 0, padding: '18px 24px 14px', borderBottom: '1px solid #1C2333' }}>
+      {mounted && modalOpen && portalEl && createPortal(
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.8)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', boxSizing: 'border-box' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', width: '100%', maxWidth: '760px', height: 'calc(100vh - 32px)', minHeight: 'calc(100vh - 32px)', background: '#0D1117', border: '1px solid #1C2333', borderRadius: '8px', overflow: 'hidden' }}>
+            <div style={{ flexShrink: 0, padding: '12px 16px 10px', borderBottom: '1px solid #1C2333' }}>
               <div className="page-eyebrow">Campaign Setup</div>
               <div style={{ fontWeight: 600 }}>Step {currentStep} / 4</div>
             </div>
 
-            <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '20px 24px' }}>
+            <div style={{ flex: 1, overflowY: currentStep === 1 ? 'hidden' : 'auto', overflowX: 'hidden', padding: '12px 16px' }}>
               {currentStep === 1 && (
                 <>
                   <Section label="CAMPAIGN INFO">
@@ -574,7 +643,7 @@ export default function CampaignsPage() {
               )}
             </div>
 
-            <div style={{ flexShrink: 0, padding: '14px 24px', borderTop: '1px solid #1C2333', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ flexShrink: 0, padding: '10px 16px', borderTop: '1px solid #1C2333', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div className="muted">{currentStep} / 4</div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <BtnGhost onClick={() => setModalOpen(false)}>Cancel</BtnGhost>
@@ -584,12 +653,12 @@ export default function CampaignsPage() {
               </div>
             </div>
           </div>
-        </div>
+        </div>, portalEl
       )}
 
       {mounted && importModalOpen && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.8)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', boxSizing: 'border-box' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', width: '100%', maxWidth: '680px', height: 'calc(100vh - 48px)', background: '#0D1117', border: '1px solid #1C2333', borderRadius: '8px', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', width: '100%', maxWidth: '680px', height: 'calc(100vh - 48px)', minHeight: 'calc(100vh - 48px)', background: '#0D1117', border: '1px solid #1C2333', borderRadius: '8px', overflow: 'hidden' }}>
             <div style={{ flexShrink: 0, padding: '18px 24px 14px', borderBottom: '1px solid #1C2333' }}>
               <div className="page-eyebrow">Import Leads</div>
               <div style={{ fontWeight: 600 }}>Step {importStep} / 3</div>
