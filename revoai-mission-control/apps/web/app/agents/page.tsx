@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 
-const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+import { API_BASE, apiHeaders } from '../../lib/api';
 
 export default function AgentsPage() {
   const [runs, setRuns] = useState<any[]>([]);
@@ -16,10 +16,10 @@ export default function AgentsPage() {
 
   const load = async () => {
     const [r, i, s, j] = await Promise.all([
-      fetch(`${base}/api/research/runs`, { credentials: 'include' }).then((x) => x.json()).catch(() => []),
-      fetch(`${base}/api/content/ideas`, { credentials: 'include' }).then((x) => x.json()).catch(() => []),
-      fetch(`${base}/api/settings`, { credentials: 'include' }).then((x) => x.json()).catch(() => ({})),
-      fetch(`${base}/api/scheduler/jobs`, { credentials: 'include' }).then((x) => x.json()).catch(() => []),
+      fetch(`${API_BASE}/api/research/runs`, { credentials: 'include', headers: apiHeaders }).then((x) => x.json()).catch(() => []),
+      fetch(`${API_BASE}/api/content/ideas`, { credentials: 'include', headers: apiHeaders }).then((x) => x.json()).catch(() => []),
+      fetch(`${API_BASE}/api/settings`, { credentials: 'include', headers: apiHeaders }).then((x) => x.json()).catch(() => ({})),
+      fetch(`${API_BASE}/api/scheduler/jobs`, { credentials: 'include', headers: apiHeaders }).then((x) => x.json()).catch(() => []),
     ]);
     setRuns(Array.isArray(r) ? r : []);
     setIdeas(Array.isArray(i) ? i : []);
@@ -64,7 +64,7 @@ export default function AgentsPage() {
           <div className="muted">Next Scheduled Run: {scheduler.find((j: any) => j.jobType === 'RESEARCH_RUN')?.nextRunHuman || '—'}</div>
           <div className="muted">Configuration summary: {(settings?.campaigns || []).length || 0} active campaigns • sources configured</div>
           <div className="table-toolbar" style={{ marginTop: 10 }}>
-            <Button variant="primary" onClick={async () => { setRunningResearch(true); await fetch(`${base}/api/research/runs`, { method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' }, body: JSON.stringify({}) }); await load(); setRunningResearch(false); }}>{runningResearch ? 'Running...' : 'Run Now'}</Button>
+            <Button variant="primary" onClick={async () => { setRunningResearch(true); await fetch(`${API_BASE}/api/research/runs`, { method: 'POST', credentials: 'include', headers: apiHeaders, body: JSON.stringify({}) }); await load(); setRunningResearch(false); }}>{runningResearch ? 'Running...' : 'Run Now'}</Button>
             <Button variant="ghost" onClick={() => window.location.href = '/research'}>View All Runs</Button>
             <Button variant="ghost" onClick={() => window.location.href = '/settings'}>Configure</Button>
           </div>
@@ -81,7 +81,7 @@ export default function AgentsPage() {
           <div className="muted" style={{ marginTop: 10 }}>Next Scheduled Run: {scheduler.find((j: any) => String(j.jobType || '').includes('POST'))?.nextRunHuman || '—'}</div>
           <div className="muted">Configuration summary: {(settings?.content_intelligence?.contentTopics || []).length} topics • {(settings?.content_intelligence?.youtubeChannels || []).length} YouTube • {(settings?.competitors || []).length} competitors</div>
           <div className="table-toolbar" style={{ marginTop: 10 }}>
-            <Button variant="primary" onClick={async () => { setRunningContent(true); await fetch(`${base}/api/content/generate-ideas`, { method: 'POST', credentials: 'include' }); await load(); setRunningContent(false); }}>{runningContent ? 'Running...' : 'Run Now'}</Button>
+            <Button variant="primary" onClick={async () => { setRunningContent(true); await fetch(`${API_BASE}/api/content/generate-ideas`, { method: 'POST', credentials: 'include', headers: apiHeaders }); await load(); setRunningContent(false); }}>{runningContent ? 'Running...' : 'Run Now'}</Button>
             <Button variant="ghost" onClick={() => window.location.href = '/content-calendar?tab=ideas'}>View Ideas</Button>
             <Button variant="ghost" onClick={() => window.location.href = '/settings'}>Configure</Button>
           </div>

@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Card } from '../../components/ui/Card';
 import { ProviderConnectionCard } from '../../components/ProviderConnectionCard';
+import { SkeletonRows } from '../../components/ui/Skeleton';
 
-const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-const token = process.env.NEXT_PUBLIC_ADMIN_TOKEN || 'change-me';
+import { API_BASE, apiHeaders } from '../../lib/api';
 
 const providers = [
   { provider: 'Email', key: 'EMAIL', apiProvider: 'email', icon: '✉️' },
@@ -46,9 +46,9 @@ export default function ConnectionsPage() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`${base}/api/connections`, {
+      const res = await fetch(`${API_BASE}/api/connections`, {
         credentials: 'include',
-        headers: { 'x-admin-token': token },
+        headers: apiHeaders,
       });
 
       const data = await res.json().catch(() => []);
@@ -81,12 +81,10 @@ export default function ConnectionsPage() {
     setError('');
     setInfoMessage('');
     try {
-      const res = await fetch(`${base}/api/connections/${provider}/connect`, {
+      const res = await fetch(`${API_BASE}/api/connections/${provider}/connect`, {
         method: 'POST',
         credentials: 'include',
-        headers: {
-          'x-admin-token': token,
-        },
+        headers: apiHeaders,
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error((data as any)?.error?.message || `Failed to start connect (HTTP ${res.status})`);
@@ -107,12 +105,10 @@ export default function ConnectionsPage() {
     setError('');
     setInfoMessage('');
     try {
-      const res = await fetch(`${base}/api/connections/${provider}/disconnect`, {
+      const res = await fetch(`${API_BASE}/api/connections/${provider}/disconnect`, {
         method: 'POST',
         credentials: 'include',
-        headers: {
-          'x-admin-token': token,
-        },
+        headers: apiHeaders,
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error((data as any)?.error?.message || `Failed to disconnect (HTTP ${res.status})`);
@@ -130,12 +126,10 @@ export default function ConnectionsPage() {
     setError('');
     setInfoMessage('');
     try {
-      const res = await fetch(`${base}/api/connections/${provider}/test`, {
+      const res = await fetch(`${API_BASE}/api/connections/${provider}/test`, {
         method: 'POST',
         credentials: 'include',
-        headers: {
-          'x-admin-token': token,
-        },
+        headers: apiHeaders,
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error((data as any)?.error?.message || `Failed to test connection (HTTP ${res.status})`);
@@ -149,14 +143,15 @@ export default function ConnectionsPage() {
   };
 
   return (
-    <div className="dash-stack">
-      <section className="page-hero">
-        <h3>Connections</h3>
-        <p>Connect outbound channels before enabling real sends.</p>
+    <div className="dash-stack fade-in">
+      <section className="page-header">
+        <div className="page-eyebrow">CHANNELS</div>
+        <h2 className="page-title" style={{ margin: 0 }}>Connections & Providers</h2>
+        <p className="page-desc">Manage your outbound channel connections. Sends are blocked unless connected, enabled, and healthy.</p>
       </section>
 
       <Card title="Provider Connections" subtitle="Account connection status and actions">
-        {loading && <p className="muted">Loading connections...</p>}
+        {loading && <SkeletonRows rows={5} />}
         {!!error && <p style={{ color: '#ff9b9b' }}>{error}</p>}
         {!!infoMessage && <p className="muted">{infoMessage}</p>}
 

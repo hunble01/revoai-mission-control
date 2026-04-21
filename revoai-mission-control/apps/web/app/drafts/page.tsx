@@ -7,7 +7,16 @@ import { Card } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
 import { Table } from '../../components/ui/Table';
 
-const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+import { API_BASE, apiHeaders } from '../../lib/api';
+
+function resolveContent(d: any): string {
+  if (d.content) return d.content;
+  if (Array.isArray(d.versions) && d.versions.length) {
+    const sorted = [...d.versions].sort((a: any, b: any) => (b.versionNumber ?? 0) - (a.versionNumber ?? 0));
+    return sorted[0]?.content || '';
+  }
+  return '';
+}
 
 export default function DraftsPage() {
   const [drafts, setDrafts] = useState<any[]>([]);
@@ -18,7 +27,7 @@ export default function DraftsPage() {
 
   const [q, setQ] = useState('');
   const [channelFilter, setChannelFilter] = useState<'ALL' | 'EMAIL' | 'LINKEDIN'>('ALL');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'SENT' | 'REJECTED'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'APPROVED' | 'SENT' | 'REJECTED'>('ALL');
 
   const [showCompose, setShowCompose] = useState(false);
   const [compose, setCompose] = useState({ campaignId: '', leadId: '', channel: 'EMAIL', subject: '', content: '' });
@@ -35,32 +44,26 @@ export default function DraftsPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const [dRes, cRes, lRes, hRes] = await Promise.all([
-        fetch(`${base}/api/drafts`, { credentials: 'include' }),
-        fetch(`${base}/api/campaigns`, { credentials: 'include' }),
-        fetch(`${base}/api/leads`, { credentials: 'include' }),
-        fetch(`${base}/api/drafts/send-history`, { credentials: 'include' }),
+      const [approvedJson, sentJson, cJson, lJson, hJson] = await Promise.all([
+        fetch(`${API_BASE}/api/drafts?status=APPROVED`, { credentials: 'include', headers: apiHeaders }).then((r) => r.json()).catch(() => []),
+        fetch(`${API_BASE}/api/drafts?status=SENT`, { credentials: 'include', headers: apiHeaders }).then((r) => r.json()).catch(() => []),
+        fetch(`${API_BASE}/api/campaigns`, { credentials: 'include', headers: apiHeaders }).then((r) => r.json()).catch(() => []),
+        fetch(`${API_BASE}/api/leads`, { credentials: 'include', headers: apiHeaders }).then((r) => r.json()).catch(() => []),
+        fetch(`${API_BASE}/api/drafts/send-history`, { credentials: 'include', headers: apiHeaders })
+          .then((r) => (r.ok ? r.json().catch(() => []) : fetch(`${API_BASE}/api/drafts/email-send-history`, { credentials: 'include', headers: apiHeaders }).then((x) => x.json()).catch(() => [])))
+          .catch(() => []),
       ]);
 
-      const [dJson, cJson, lJson, hJson] = await Promise.all([
-        dRes.json().catch(() => []),
-        cRes.json().catch(() => []),
-        lRes.json().catch(() => []),
-        hRes.ok ? hRes.json().catch(() => []) : fetch(`${base}/api/drafts/email-send-history`, { credentials: 'include' }).then((r) => r.json()).catch(() => []),
+      setDrafts([
+        ...(Array.isArray(approvedJson) ? approvedJson : []),
+        ...(Array.isArray(sentJson) ? sentJson : []),
       ]);
+      setCampaigns(Array.isArray(cJson) ? cJson : []);
+      setLeads(Array.isArray(lJson) ? lJson : []);
+      setSendHistory(Array.isArray(hJson) ? hJson : []);
 
-      const dRows = Array.isArray(dJson) ? dJson : [];
-      const cRows = Array.isArray(cJson) ? cJson : [];
-      const lRows = Array.isArray(lJson) ? lJson : [];
-      const hRows = Array.isArray(hJson) ? hJson : [];
-
-      setDrafts(dRows);
-      setCampaigns(cRows);
-      setLeads(lRows);
-      setSendHistory(hRows);
-
-      if (!compose.campaignId && cRows.length) {
-        setCompose((curr) => ({ ...curr, campaignId: cRows[0].id }));
+      if (!compose.campaignId && Array.isArray(cJson) && cJson.length) {
+        setCompose((curr) => ({ ...curr, campaignId: cJson[0].id }));
       }
     } finally {
       setLoading(false);
@@ -73,22 +76,20 @@ export default function DraftsPage() {
 
   const leadsForCampaign = useMemo(
     () => leads.filter((l: any) => !compose.campaignId || l.campaignId === compose.campaignId),
-    [leads, compose.campaignId]
+    [leads, compose.campaignId],
   );
 
   const filtered = useMemo(() => {
     return drafts.filter((d: any) => {
-      const text = `${d.subject || ''} ${d.content || ''}`.toLowerCase();
+      const text = `${d.subject || ''} ${resolveContent(d) || ''}`.toLowerCase();
       const queryOk = !q.trim() || text.includes(q.trim().toLowerCase());
       const channelOk = channelFilter === 'ALL' || String(d.channel || '').toUpperCase() === channelFilter;
       const status = String(d.status || '').toUpperCase();
-      const mappedStatus = status === 'NEEDS_APPROVAL' || status === 'DRAFT' ? 'PENDING' : status;
-      const statusOk = statusFilter === 'ALL' || mappedStatus === statusFilter;
+      const statusOk = statusFilter === 'ALL' || status === statusFilter;
       return queryOk && channelOk && statusOk;
     });
   }, [drafts, q, channelFilter, statusFilter]);
 
-  const pending = drafts.filter((d: any) => ['NEEDS_APPROVAL', 'DRAFT'].includes(String(d.status || '').toUpperCase())).length;
   const approved = drafts.filter((d: any) => String(d.status || '').toUpperCase() === 'APPROVED').length;
   const sent = drafts.filter((d: any) => String(d.status || '').toUpperCase() === 'SENT').length;
   const rejected = drafts.filter((d: any) => String(d.status || '').toUpperCase() === 'REJECTED').length;
@@ -102,54 +103,27 @@ export default function DraftsPage() {
     return j?.error?.message || j?.message || `${fallback} (HTTP ${res.status})`;
   };
 
-  const approveDraft = async (draft: any) => {
-    try {
-      const res = await fetch(`${base}/api/drafts/${draft.id}/approve`, { method: 'POST', credentials: 'include' });
-      if (!res.ok) throw new Error(await handleApiError(res, 'Approve failed'));
-      setLocalStatus(draft.id, 'APPROVED');
-      toast('success', 'Draft approved');
-    } catch (e: any) {
-      toast('error', e?.message || 'Approve failed');
-    }
-  };
-
   const rejectDraft = async (draft: any) => {
     try {
-      const res = await fetch(`${base}/api/drafts/${draft.id}/reject`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ reason: 'Rejected' }),
-      });
-      if (!res.ok) throw new Error(await handleApiError(res, 'Reject failed'));
-      setLocalStatus(draft.id, 'REJECTED');
-      toast('success', 'Draft rejected');
-    } catch (e: any) {
-      toast('error', e?.message || 'Reject failed');
-    }
-  };
-
-  const resendForApproval = async (draft: any) => {
-    try {
-      const res = await fetch(`${base}/api/drafts/${draft.id}`, {
+      const res = await fetch(`${API_BASE}/api/drafts/${draft.id}`, {
         method: 'PATCH',
         credentials: 'include',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ status: 'NEEDS_APPROVAL' }),
+        headers: apiHeaders,
+        body: JSON.stringify({ status: 'DRAFT' }),
       });
-      if (!res.ok) throw new Error(await handleApiError(res, 'Re-submit failed'));
-      setLocalStatus(draft.id, 'NEEDS_APPROVAL');
-      toast('success', 'Draft re-submitted for approval');
+      if (!res.ok) throw new Error(await handleApiError(res, 'Reject failed'));
+      setDrafts((curr) => curr.filter((d: any) => d.id !== draft.id));
+      toast('success', 'Draft sent back to queue');
     } catch (e: any) {
-      toast('error', e?.message || 'Re-submit failed');
+      toast('error', e?.message || 'Reject failed');
     }
   };
 
   const sendDraft = async (draft: any) => {
     try {
       const isLinkedIn = String(draft.channel || '').toUpperCase() === 'LINKEDIN';
-      const endpoint = isLinkedIn ? `${base}/api/drafts/${draft.id}/send-linkedin` : `${base}/api/drafts/${draft.id}/send-email`;
-      const res = await fetch(endpoint, { method: 'POST', credentials: 'include' });
+      const endpoint = isLinkedIn ? `${API_BASE}/api/drafts/${draft.id}/send-linkedin` : `${API_BASE}/api/drafts/${draft.id}/send-email`;
+      const res = await fetch(endpoint, { method: 'POST', credentials: 'include', headers: apiHeaders });
       if (!res.ok) throw new Error(await handleApiError(res, 'Send failed'));
       setLocalStatus(draft.id, 'SENT');
       toast('success', 'Message sent successfully');
@@ -160,12 +134,12 @@ export default function DraftsPage() {
   };
 
   const saveEdit = async (draft: any) => {
-    const content = editContent[draft.id] ?? draft.content ?? '';
+    const content = editContent[draft.id] ?? resolveContent(draft) ?? '';
     try {
-      const res = await fetch(`${base}/api/drafts/${draft.id}`, {
+      const res = await fetch(`${API_BASE}/api/drafts/${draft.id}`, {
         method: 'PATCH',
         credentials: 'include',
-        headers: { 'content-type': 'application/json' },
+        headers: apiHeaders,
         body: JSON.stringify({ content }),
       });
       if (!res.ok) throw new Error(await handleApiError(res, 'Save failed'));
@@ -188,10 +162,10 @@ export default function DraftsPage() {
         content: compose.content,
         status: 'NEEDS_APPROVAL',
       };
-      const res = await fetch(`${base}/api/drafts`, {
+      const res = await fetch(`${API_BASE}/api/drafts`, {
         method: 'POST',
         credentials: 'include',
-        headers: { 'content-type': 'application/json' },
+        headers: apiHeaders,
         body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error(await handleApiError(res, 'Create failed'));
@@ -206,7 +180,6 @@ export default function DraftsPage() {
 
   const statusBadge = (status: string) => {
     const s = String(status || '').toUpperCase();
-    if (s === 'NEEDS_APPROVAL' || s === 'DRAFT') return <Badge tone="warning">PENDING</Badge>;
     if (s === 'APPROVED') return <Badge tone="success">APPROVED</Badge>;
     if (s === 'SENT') return <Badge tone="info">SENT</Badge>;
     if (s === 'REJECTED') return <Badge tone="danger">REJECTED</Badge>;
@@ -219,7 +192,7 @@ export default function DraftsPage() {
         <div>
           <div className="page-eyebrow">PIPELINE / DRAFTS</div>
           <h2 className="page-title" style={{ margin: 0 }}>Drafts</h2>
-          <p className="page-desc">Review, edit, approve, reject, and send outreach drafts.</p>
+          <p className="page-desc">Review and send approved outreach drafts.</p>
         </div>
         <div className="table-toolbar">
           <Button variant="secondary" onClick={() => setShowCompose(true)}>+ Compose</Button>
@@ -228,20 +201,19 @@ export default function DraftsPage() {
       </section>
 
       <div style={{ display: 'flex', gap: 8 }}>
-        <div className="ui-card" style={{ flex: 1, padding: 10 }}><div style={{ color: 'var(--amber)', fontWeight: 700 }}>{pending}</div><div className="text-xs mono text-dim">PENDING</div></div>
         <div className="ui-card" style={{ flex: 1, padding: 10 }}><div style={{ color: 'var(--emerald)', fontWeight: 700 }}>{approved}</div><div className="text-xs mono text-dim">APPROVED</div></div>
         <div className="ui-card" style={{ flex: 1, padding: 10 }}><div style={{ color: 'var(--cyan)', fontWeight: 700 }}>{sent}</div><div className="text-xs mono text-dim">SENT</div></div>
         <div className="ui-card" style={{ flex: 1, padding: 10 }}><div style={{ color: 'var(--rose)', fontWeight: 700 }}>{rejected}</div><div className="text-xs mono text-dim">REJECTED</div></div>
       </div>
 
-      <Card title="Draft Queue" subtitle="Pending + approved outreach drafts">
+      <Card title="Draft Queue" subtitle="Approved + sent outreach drafts">
         <div className="table-toolbar" style={{ marginBottom: 12 }}>
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search content" />
           <select className="ui-input" value={channelFilter} onChange={(e) => setChannelFilter(e.target.value as any)}>
             <option value="ALL">ALL</option><option value="EMAIL">EMAIL</option><option value="LINKEDIN">LINKEDIN</option>
           </select>
           <select className="ui-input" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as any)}>
-            <option value="ALL">ALL</option><option value="PENDING">PENDING</option><option value="APPROVED">APPROVED</option><option value="SENT">SENT</option><option value="REJECTED">REJECTED</option>
+            <option value="ALL">ALL</option><option value="APPROVED">APPROVED</option><option value="SENT">SENT</option><option value="REJECTED">REJECTED</option>
           </select>
         </div>
 
@@ -251,12 +223,10 @@ export default function DraftsPage() {
               const lead = leads.find((l: any) => l.id === d.leadId);
               const campaign = campaigns.find((c: any) => c.id === d.campaignId);
               const status = String(d.status || '').toUpperCase();
-              const isPending = status === 'NEEDS_APPROVAL' || status === 'DRAFT';
               const isApproved = status === 'APPROVED';
               const isSent = status === 'SENT';
-              const isRejected = status === 'REJECTED';
               const isEditing = editingId === d.id;
-              const preview = String(d.content || '');
+              const preview = resolveContent(d);
 
               return (
                 <div key={d.id} className="ui-card" style={{ background: '#0D1117', border: '1px solid #1C2333', borderRadius: 8, padding: 16 }}>
@@ -277,7 +247,7 @@ export default function DraftsPage() {
                     <textarea
                       className="ui-input"
                       rows={6}
-                      value={editContent[d.id] ?? d.content ?? ''}
+                      value={editContent[d.id] ?? resolveContent(d) ?? ''}
                       onChange={(e) => setEditContent((curr) => ({ ...curr, [d.id]: e.target.value }))}
                       style={{ marginTop: 10 }}
                     />
@@ -288,19 +258,15 @@ export default function DraftsPage() {
                       {statusBadge(d.status)} <span className="muted">{d.createdAt ? new Date(d.createdAt).toLocaleString() : ''}</span>
                     </div>
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-                      {!isEditing && <Button variant="secondary" onClick={() => { setEditingId(d.id); setEditContent((curr) => ({ ...curr, [d.id]: d.content ?? '' })); }}>Edit</Button>}
+                      {!isEditing && <Button variant="secondary" onClick={() => { setEditingId(d.id); setEditContent((curr) => ({ ...curr, [d.id]: resolveContent(d) ?? '' })); }}>Edit</Button>}
                       {isEditing && <Button variant="secondary" onClick={() => saveEdit(d)}>Save</Button>}
                       {isEditing && <Button variant="ghost" onClick={() => setEditingId(null)}>Cancel</Button>}
 
-                      {isPending && <Button variant="ghost" style={{ borderColor: 'rgba(16,214,138,.35)', color: 'var(--emerald)' }} onClick={() => approveDraft(d)}>Approve</Button>}
-                      {isPending && <Button variant="ghost" style={{ borderColor: 'rgba(255,91,122,.35)', color: 'var(--rose)' }} onClick={() => rejectDraft(d)}>Reject</Button>}
+                      {isApproved && <Button variant="ghost" style={{ borderColor: 'rgba(255,91,122,.35)', color: 'var(--rose)' }} onClick={() => rejectDraft(d)}>Reject</Button>}
 
                       {isApproved && String(d.channel || '').toUpperCase() === 'EMAIL' && <Button variant="primary" onClick={() => sendDraft(d)}>Send Email</Button>}
                       {isApproved && String(d.channel || '').toUpperCase() === 'LINKEDIN' && <Button variant="ghost" onClick={() => sendDraft(d)}>Send LinkedIn</Button>}
-
                       {isSent && <span className="muted">Sent</span>}
-                      {isRejected && <span className="muted">Rejected</span>}
-                      {isRejected && <Button variant="ghost" onClick={() => resendForApproval(d)}>Re-submit</Button>}
                     </div>
                   </div>
                 </div>

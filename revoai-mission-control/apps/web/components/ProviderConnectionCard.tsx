@@ -41,47 +41,38 @@ export function ProviderConnectionCard({
   errorRate = 0,
   lastSuccessfulSendAt = null,
 }: ProviderConnectionCardProps) {
+  const connected = String(status).toLowerCase() === 'connected';
+
   return (
-    <div className="ui-card" style={{ padding: 14, display: 'grid', gap: 10 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div
-          aria-hidden
-          style={{
-            width: 34,
-            height: 34,
-            borderRadius: 8,
-            border: '1px solid var(--border)',
-            display: 'grid',
-            placeItems: 'center',
-            background: 'rgba(255,255,255,0.03)',
-          }}
-        >
+    <div className={`connection-card ${connected ? 'connected' : ''}`}>
+      <div className="flex gap-12 mb-16">
+        <div style={{ width: 44, height: 44, borderRadius: 8, border: `1px solid ${connected ? 'rgba(16,214,138,0.35)' : 'var(--border)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: connected ? 'var(--emerald)' : 'var(--muted)', background: connected ? 'rgba(16,214,138,.08)' : 'var(--surface)' }}>
           {icon}
         </div>
-        <div>
-          <strong>{provider}</strong>
-          <div className="muted" style={{ fontSize: 12 }}>Status: {status}</div>
-          <div className="muted" style={{ fontSize: 12 }}>Health: {health}</div>
-          <div className="muted" style={{ fontSize: 12 }}>Last checked: {lastCheckedAt || 'Never'}</div>
-          <div className="muted" style={{ fontSize: 12 }}>Token expiry: {expiresInSec == null ? '—' : `${Math.floor(expiresInSec / 3600)}h`}</div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{provider}</div>
+          <div className="text-xs mono text-dim">Status: {status} · Health: {health}</div>
+          <div className="text-xs mono text-dim">Last checked: {lastCheckedAt || 'Never'}</div>
         </div>
+        <span className={`badge ${connected ? 'active' : 'error'}`}>{connected ? 'CONNECTED' : 'DISCONNECTED'}</span>
       </div>
 
-      <div className="muted" style={{ fontSize: 12 }}>Quota: {quotaUsed}/{quotaMax} • Error rate: {errorRate}%</div>
-      <div className="muted" style={{ fontSize: 12 }}>Last success: {lastSuccessfulSendAt ? new Date(lastSuccessfulSendAt).toLocaleString() : '—'}</div>
+      <div className="quota-bar mb-12">
+        <div className="quota-track">
+          <div className="quota-fill" style={{ width: `${quotaMax ? Math.min(100, Math.round((quotaUsed / quotaMax) * 100)) : 0}%`, background: quotaMax && quotaUsed / quotaMax > 0.8 ? 'var(--rose)' : 'var(--cyan)' }} />
+        </div>
+        <span className="text-xs mono">{quotaUsed}/{quotaMax || 0}</span>
+      </div>
 
-      <div className="table-toolbar">
-        <Button variant="secondary" disabled={connectDisabled || connecting} onClick={onConnect}>
-          {connecting ? 'Connecting…' : ((expiresInSec != null && expiresInSec <= 0) ? 'Reconnect' : 'Connect')}
+      <div className="text-xs mono text-dim mb-8">Error rate: {errorRate}%</div>
+      <div className="text-xs mono text-dim mb-12">Token expiry: {expiresInSec == null ? '—' : `${Math.floor(expiresInSec / 3600)}h`} · Last success: {lastSuccessfulSendAt ? new Date(lastSuccessfulSendAt).toLocaleString() : '—'}</div>
+
+      <div className="flex gap-8">
+        <Button variant="primary" onClick={onConnect} disabled={connectDisabled || connecting}>
+          {connecting ? 'Connecting…' : ((expiresInSec != null && expiresInSec <= 0) ? 'Reconnect' : `Connect ${provider}`)}
         </Button>
-        <Button variant="secondary" disabled={testDisabled} onClick={onTest}>
-          Test
-        </Button>
-        {String(status).toLowerCase() === 'connected' && (
-          <Button variant="ghost" disabled={disconnectDisabled} onClick={onDisconnect}>
-            Disconnect
-          </Button>
-        )}
+        <Button variant="secondary" disabled={testDisabled} onClick={onTest}>⚡️ Test</Button>
+        {connected && <Button variant="ghost" disabled={disconnectDisabled} onClick={onDisconnect}>Disconnect</Button>}
       </div>
     </div>
   );

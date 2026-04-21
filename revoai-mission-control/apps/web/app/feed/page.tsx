@@ -2,9 +2,12 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { io } from 'socket.io-client';
+import { Badge } from '../../components/ui/Badge';
+import { Button } from '../../components/ui/Button';
+import { Card } from '../../components/ui/Card';
+import { SkeletonRows } from '../../components/ui/Skeleton';
 
-const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-const token = process.env.NEXT_PUBLIC_ADMIN_TOKEN || 'change-me';
+import { API_BASE, apiHeaders } from '../../lib/api';
 
 const severityFor = (type: string) => {
   const t = String(type || '').toLowerCase();
@@ -26,13 +29,18 @@ export default function FeedPage() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`${base}/api/events/feed`, { credentials: 'include', headers: { 'x-admin-token': token } });
+      const res = await fetch(`${API_BASE}/api/events/feed`, { credentials: 'include', headers: apiHeaders });
       if (!res.ok) throw new Error(`Failed to load feed (HTTP ${res.status})`);
       const data = await res.json();
       setEvents(Array.isArray(data) ? data : []);
     } catch (e: any) {
+      const msg = String(e?.message || '');
       setEvents([]);
-      setError(e?.message || 'Failed to load feed');
+      if (msg.includes('401')) {
+        setError('');
+      } else {
+        setError(msg || 'Failed to load feed');
+      }
     } finally {
       setLoading(false);
     }
@@ -41,7 +49,7 @@ export default function FeedPage() {
   useEffect(() => {
     loadInitial();
 
-    const socket = io(base, { transports: ['websocket'] });
+    const socket = io(API_BASE, { transports: ['websocket'] });
     socket.on('connect', () => setSocketLive(true));
     socket.on('disconnect', () => setSocketLive(false));
     socket.on('activity', (evt) => {
@@ -84,50 +92,73 @@ export default function FeedPage() {
   }, [typedEvents]);
 
   return (
-    <div className="dash-stack">
-      <h1>Live Activity Feed</h1>
-      {error && <p style={{ color: '#ff9b9b' }}>{error}</p>}
+    <div className="dash-stack fade-in">
+      <section className="page-header">
+        <div className="page-eyebrow">OPERATIONS / LIVE FEED</div>
+        <h2 className="page-title" style={{ margin: 0 }}>Live Activity Feed</h2>
+        <p className="page-desc">Track research, approvals, sends, and publish events in real time.</p>
+      </section>
 
-      <div className="table-toolbar">
-        <select className="ui-input" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
-          <option value="all">All event types</option>
-          {typeOptions.map((t) => (
-            <option key={t} value={t}>{t}</option>
-          ))}
-        </select>
-        <span className="muted">New: RESEARCH_RUN_COMPLETE • POST_PUBLISHED • LINKEDIN_DM_SENT • POST_DRAFT_CREATED</span>
-        <select className="ui-input" value={severityFilter} onChange={(e) => setSeverityFilter(e.target.value as any)}>
-          <option value="all">All severity</option>
-          <option value="high">High</option>
-          <option value="medium">Medium</option>
-          <option value="low">Low</option>
-        </select>
-        <button className="ui-input" onClick={() => setPaused((p) => !p)}>
-          {paused ? 'Resume Live' : 'Pause Live'}
-        </button>
-        <span className="muted">Socket: {socketLive ? 'Live' : 'Disconnected'}</span>
-      </div>
+      {error && (
+        <Card title="Feed Error" subtitle="Connection issue">
+          <div className="table-toolbar" style={{ justifyContent: 'space-between' }}>
+            <span className="badge error">{error}</span>
+            <Button variant="secondary" onClick={() => loadInitial()}>Retry</Button>
+          </div>
+        </Card>
+      )}
+
+      <Card title="Filters" subtitle="Type, severity, and live toggle">
+        <div className="table-toolbar">
+          <select className="ui-input" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+            <option value="all">All event types</option>
+            {typeOptions.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+          <select className="ui-input" value={severityFilter} onChange={(e) => setSeverityFilter(e.target.value as any)}>
+            <option value="all">All severity</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </select>
+          <Button variant="secondary" onClick={() => setPaused((p) => !p)}>
+            {paused ? 'Resume Live' : 'Pause Live'}
+          </Button>
+          <Badge tone={socketLive ? 'success' : 'danger'}>Socket: {socketLive ? 'Live' : 'Disconnected'}</Badge>
+          <span className="muted">New: RESEARCH_RUN_COMPLETE • POST_PUBLISHED • LINKEDIN_DM_SENT • POST_DRAFT_CREATED</span>
+        </div>
+      </Card>
 
       {loading ? (
-        <p className="muted">Loading feed...</p>
+        <Card title="Loading feed" subtitle="Fetching latest events">
+          <SkeletonRows rows={5} />
+        </Card>
       ) : !filtered.length ? (
-        <p className="muted">No events match the current filters.</p>
+        <Card title="No events yet" subtitle="Empty feed state">
+          <div className="empty-state">
+            <div className="empty-icon">◉</div>
+            <div style={{ color: 'var(--text2)', fontWeight: 600, marginBottom: 6 }}>No events match current filters</div>
+            <div>New events will appear here when activity is detected.</div>
+          </div>
+        </Card>
       ) : (
         <>
           <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(3,minmax(0,1fr))' }}>
-            <div className="ui-card" style={{ padding: 10 }}><strong>High</strong><div className="muted">{grouped.high.length} events</div></div>
-            <div className="ui-card" style={{ padding: 10 }}><strong>Medium</strong><div className="muted">{grouped.medium.length} events</div></div>
-            <div className="ui-card" style={{ padding: 10 }}><strong>Low</strong><div className="muted">{grouped.low.length} events</div></div>
+            <div className="kpi-card rose"><div className="kpi-label">High</div><div className="kpi-value amber">{grouped.high.length}</div><div className="kpi-delta">events</div></div>
+            <div className="kpi-card cyan"><div className="kpi-label">Medium</div><div className="kpi-value cyan">{grouped.medium.length}</div><div className="kpi-delta">events</div></div>
+            <div className="kpi-card emerald"><div className="kpi-label">Low</div><div className="kpi-value emerald">{grouped.low.length}</div><div className="kpi-delta">events</div></div>
           </div>
 
-          <ul style={{ margin: 0, paddingLeft: 18 }}>
-            {filtered.slice(0, 200).map((e, idx) => (
-              <li key={e.id ?? idx}>
-                <code>{e.kind}</code> · {new Date(e.at).toLocaleString()} · severity:{' '}
-                <strong>{e.severity}</strong>
-              </li>
-            ))}
-          </ul>
+          <Card title="Event Stream" subtitle="Most recent first">
+            <ul style={{ margin: 0, paddingLeft: 18 }}>
+              {filtered.slice(0, 200).map((e, idx) => (
+                <li key={e.id ?? idx} style={{ marginBottom: 6 }}>
+                  <span className="badge new">{e.kind}</span> <span className="mono text-xs text-dim">{new Date(e.at).toLocaleString()}</span> <span className={`badge ${e.severity === 'high' ? 'error' : e.severity === 'medium' ? 'pending' : 'active'}`}>{e.severity}</span>
+                </li>
+              ))}
+            </ul>
+          </Card>
         </>
       )}
     </div>
