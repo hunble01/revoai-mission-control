@@ -72,6 +72,111 @@ function violatesBrandRules(text: string): { violates: boolean; reason?: string 
   return { violates: false };
 }
 
+// -------- LLM website enrichment --------
+
+const ENRICH_SYSTEM_PROMPT = `You extract structured business data from a webpage's visible text.
+You receive the text of a local business's website (homepage or about page).
+You respond with ONLY a JSON object (no preamble, no markdown). Use null for missing fields.
+
+Schema:
+{
+  "contactName": "<owner or main contact's full name, or null if not stated>",
+  "contactRole": "<role title e.g. 'Owner', 'Founder', 'Dr.', or null>",
+  "email": "<primary email visible on the page, or null>",
+  "services": ["<up to 5 core services offered, short phrases>"],
+  "painHint": "<one sentence — any signal about their pain: e.g., staffing, after-hours, volume>",
+  "trustMarker": "<one sentence — strongest credibility signal: years in business, awards, tech used, reviews>"
+}
+
+Rules:
+- NEVER invent data. If the page doesn't mention it, return null.
+- NEVER use placeholder fake emails like info@example.com unless that is literally on the page.
+- Only extract emails you can see as plain text on the page.
+- services should be specific to THIS business (their actual offerings), not generic.
+- Keep each string under 160 characters.`;
+
+async function enrichLeadFromWebsite(lead: any): Promise<{
+  contactName?: string | null;
+  contactRole?: string | null;
+  email?: string | null;
+  services?: string[];
+  painHint?: string | null;
+  trustMarker?: string | null;
+} | null> {
+  const apiKey = (process.env.ANTHROPIC_API_KEY || '').trim();
+  if (!apiKey) return null;
+  const url = String(lead?.website || '').trim();
+  if (!url || !/^https?:\/\//i.test(url)) return null;
+
+  // Fetch the homepage HTML with a tight timeout
+  let html = '';
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000);
+    const res = await fetch(url, {
+      signal: ctrl.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; RevoAIBot/1.0; +https://revoai.ca)',
+        Accept: 'text/html,application/xhtml+xml',
+      },
+      redirect: 'follow',
+    } as any);
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    html = await res.text();
+  } catch {
+    return null;
+  }
+
+  // Strip scripts, styles, HTML tags — keep visible text
+  const text = html
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;|&amp;|&lt;|&gt;|&#\d+;/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 8000); // cap tokens
+
+  if (text.length < 80) return null;
+
+  try {
+    const client = new Anthropic({ apiKey });
+    const model = (process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001').trim();
+    const resp = await client.messages.create({
+      model,
+      max_tokens: 400,
+      system: ENRICH_SYSTEM_PROMPT,
+      messages: [
+        {
+          role: 'user',
+          content: `Business name: ${lead.businessName || 'unknown'}\nURL: ${url}\n\nPage text:\n${text}\n\nReturn only the JSON.`,
+        },
+      ],
+    });
+    const raw = (resp.content || [])
+      .map((b: any) => (b.type === 'text' ? b.text : ''))
+      .join('')
+      .trim()
+      .replace(/^```json\s*/, '')
+      .replace(/```\s*$/, '')
+      .trim();
+    const parsed = JSON.parse(raw);
+    return {
+      contactName: parsed?.contactName || null,
+      contactRole: parsed?.contactRole || null,
+      email: parsed?.email || null,
+      services: Array.isArray(parsed?.services) ? parsed.services.slice(0, 5) : [],
+      painHint: parsed?.painHint || null,
+      trustMarker: parsed?.trustMarker || null,
+    };
+  } catch (err: any) {
+    console.warn('[enrichLeadFromWebsite] LLM call failed:', err?.message || err);
+    return null;
+  }
+}
+
 async function generateOutreachCopyWithLLM(
   channel: string,
   lead: any,
@@ -94,6 +199,9 @@ async function generateOutreachCopyWithLLM(
     return parts[0];
   };
   const contactFirst = stripTitle(lead?.contactName || '');
+  // Pull enriched fields stashed by enrichLeadFromWebsite into sourceDetail JSON
+  let enriched: any = {};
+  try { enriched = JSON.parse(String(lead?.sourceDetail || '{}')); } catch { enriched = {}; }
   const leadBrief = [
     `Business name: ${lead?.businessName || 'Unknown'}`,
     lead?.niche ? `Industry/niche: ${lead.niche}` : null,
@@ -101,6 +209,9 @@ async function generateOutreachCopyWithLLM(
     contactFirst ? `Contact first name (use as greeting): ${contactFirst}` : `Contact first name: unknown — greet as "Hi there,"`,
     lead?.contactRole ? `Contact role: ${lead.contactRole}` : null,
     lead?.website ? `Website: ${lead.website}` : null,
+    Array.isArray(enriched?.services) && enriched.services.length ? `Services they offer: ${enriched.services.join(', ')}` : null,
+    enriched?.painHint ? `Pain signal from their site: ${enriched.painHint}` : null,
+    enriched?.trustMarker ? `What they're proud of (cite if natural, don't force): ${enriched.trustMarker}` : null,
     lead?.email ? `Email is known — address the lead directly` : null,
     `Sender first name: ${senderFirst}`,
   ].filter(Boolean).join('\n');
@@ -332,36 +443,62 @@ export class LeadsService {
     const lead = await this.prisma.lead.findUnique({ where: { id } });
     if (!lead) throw new NotFoundException('Lead not found');
 
-    const hunterApiKey = String(process.env.HUNTER_API_KEY || '').trim();
-    let linkedinUrl: string | undefined;
-    let phone: string | undefined;
+    // 1. LLM-driven website enrichment (contact name, email, services, pain)
+    const webData = await enrichLeadFromWebsite(lead);
 
-    if (hunterApiKey && lead.website) {
+    // 2. Hunter domain search (fallback / supplement when website didn't yield email)
+    const hunterApiKey = String(process.env.HUNTER_API_KEY || '').trim();
+    let hunterEmail: string | null = null;
+    let hunterLinkedin: string | undefined;
+    if (hunterApiKey && lead.website && !(webData?.email)) {
       try {
         const domain = lead.website.replace(/^https?:\/\//, '').split('/')[0];
-        const res = await fetch(`https://api.hunter.io/v2/domain-search?domain=${encodeURIComponent(domain)}&api_key=${encodeURIComponent(hunterApiKey)}`);
+        const res = await fetch(
+          `https://api.hunter.io/v2/domain-search?domain=${encodeURIComponent(domain)}&api_key=${encodeURIComponent(hunterApiKey)}`,
+        );
         const json: any = await res.json().catch(() => ({}));
         const emailRow = Array.isArray(json?.data?.emails) ? json.data.emails[0] : null;
-        linkedinUrl = emailRow?.linkedin || undefined;
+        hunterEmail = emailRow?.value || null;
+        hunterLinkedin = emailRow?.linkedin || undefined;
       } catch {
-        // graceful fallback below
+        // graceful fallback
       }
     }
 
-    if (!linkedinUrl) linkedinUrl = lead.linkedinUrl || `https://www.linkedin.com/search/results/all/?keywords=${encodeURIComponent(lead.businessName)}`;
-    if (!phone) phone = lead.phone || null as any;
+    // Merge — prefer website-extracted data over Hunter
+    const patch: any = {};
+    if (!lead.contactName && webData?.contactName) patch.contactName = webData.contactName;
+    if (!lead.contactRole && webData?.contactRole) patch.contactRole = webData.contactRole;
+    if (!lead.email && (webData?.email || hunterEmail)) patch.email = webData?.email || hunterEmail;
+    if (!lead.linkedinUrl && hunterLinkedin) patch.linkedinUrl = hunterLinkedin;
+    if (!lead.linkedinUrl && !patch.linkedinUrl) {
+      patch.linkedinUrl = `https://www.linkedin.com/search/results/all/?keywords=${encodeURIComponent(lead.businessName)}`;
+    }
+    patch.status = lead.status === 'NEW' ? 'ENRICHED' : lead.status;
 
-    const updated = await this.prisma.lead.update({
-      where: { id },
-      data: {
-        linkedinUrl,
-        phone,
-        status: lead.status === 'NEW' ? 'ENRICHED' : lead.status,
-      },
+    // Stash services + pain + trust marker in sourceDetail for the draft generator
+    if (webData?.services?.length || webData?.painHint || webData?.trustMarker) {
+      const existing = (() => {
+        try { return JSON.parse(String(lead.sourceDetail || '{}')); } catch { return {}; }
+      })();
+      patch.sourceDetail = JSON.stringify({
+        ...existing,
+        services: webData?.services || existing?.services || [],
+        painHint: webData?.painHint || existing?.painHint || null,
+        trustMarker: webData?.trustMarker || existing?.trustMarker || null,
+        enrichedAt: new Date().toISOString(),
+        enrichedBy: webData ? 'llm+website' : 'hunter-only',
+      });
+    }
+
+    const updated = await this.prisma.lead.update({ where: { id }, data: patch });
+
+    await this.events.publish({
+      eventType: 'lead.enriched',
+      campaignId: updated.campaignId,
+      payload: { leadId: updated.id, source: webData ? 'llm+website' : hunterEmail ? 'hunter' : 'none' },
     });
-
-    await this.events.publish({ eventType: 'lead.enriched', campaignId: updated.campaignId, payload: { leadId: updated.id } });
-    return { ok: true, lead: updated };
+    return { ok: true, lead: updated, enrichment: webData || null };
   }
 
   async generateDraftForLead(id: string, body: any, actorId?: string) {
