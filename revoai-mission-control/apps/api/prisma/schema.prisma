@@ -180,8 +180,16 @@ model Lead {
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt
 
+  // Follow-up sequence state
+  followUpStage        Int       @default(0)       // 0=no outbound yet, 1-3=follow-up steps, 99=stopped
+  lastOutboundAt       DateTime?
+  lastEngagementAt     DateTime?                   // any open/click/reply stops the sequence
+  sequencePausedReason String?                     // 'replied'|'opened'|'clicked'|'unsubscribed'|'manual'|'completed'
+
   drafts    Draft[]
   intelRows LeadIntel[]
+
+  @@index([followUpStage, lastOutboundAt])
 }
 
 model Draft {

@@ -884,7 +884,15 @@ export class DraftsService {
     if (sendStatus === 'sent') {
       await this.prisma.draft.update({ where: { id }, data: { status: 'SENT' as any } });
       if (draft.leadId) {
-        await this.prisma.lead.update({ where: { id: draft.leadId }, data: { status: 'CONTACTED', lastActionAt: new Date() } }).catch(() => {});
+        await this.prisma.lead.update({
+          where: { id: draft.leadId },
+          data: {
+            status: 'CONTACTED',
+            lastActionAt: new Date(),
+            lastOutboundAt: new Date(),
+            followUpStage: { increment: 1 },
+          } as any,
+        }).catch(() => {});
       }
     }
 
