@@ -7,5 +7,6 @@ import { ResearchService } from './research.service';
 @Module({
   controllers: [ResearchController],
   providers: [ResearchService, PrismaService, EventsService],
+  exports: [ResearchService],
 })
 export class ResearchModule {}

@@ -8,6 +8,6 @@ import { PrismaService } from '../../prisma/prisma.service';
 @Module({
   controllers: [LeadsController, FollowUpController],
   providers: [LeadsService, FollowUpService, PrismaService],
-  exports: [FollowUpService],
+  exports: [LeadsService, FollowUpService],
 })
 export class LeadsModule {}
