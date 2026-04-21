@@ -18,6 +18,7 @@
     "prisma:migrate:deploy": "sh -c 'if [ -f prisma/schema.prisma ]; then prisma migrate deploy --schema=prisma/schema.prisma; else prisma migrate deploy --schema=apps/api/prisma/schema.prisma; fi'"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.90.0",
     "@nestjs/common": "^10.4.8",
     "@nestjs/core": "^10.4.8",
     "@nestjs/platform-express": "^10.4.8",

@@ -2,6 +2,165 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventsService } from '../events/events.service';
 import { Channel } from '@prisma/client';
+import Anthropic from '@anthropic-ai/sdk';
+
+// ---- RevoAI brand context (mirrors REVOAI_PRODUCT_CONTEXT.md constraints) ----
+const REVOAI_SYSTEM_PROMPT = `You are the outbound copywriter for RevoAI, an AI receptionist for local service businesses.
+You write short, direct, brand-voiced cold emails. One message at a time.
+
+PRODUCT (the only facts you may cite):
+- RevoAI is an AI receptionist that answers calls and texts 24/7 for local businesses
+- Sub-second response, unlimited simultaneous calls, real human-sounding voice
+- Books straight into Google/Outlook/iCloud calendar in real time; no double-booking
+- Two-way SMS AI handles questions + confirmations + reminders
+- AI chatbox for their website captures leads 24/7
+- Live dashboard shows every call, text, and booking as it happens
+- Plans from $97/mo CAD (vs. ~$2,500+/mo for a human receptionist); 7-day free trial; 10-minute setup; no contract
+- Product launches 2026 (currently early access)
+- Sign-up URL: https://revoai.ca/sign-up
+
+BRAND VOICE: warm, professional, calm. Botanical/organic — not aggressive SaaS bro. Confident not pushy.
+Short sentences. Specific over vague.
+
+ABSOLUTE RULES — violating any of these rules breaks the brand:
+- NEVER say "revolutionize", "game-changer", "in today's fast-paced world", "synergy", or any AI-cliché filler
+- NEVER claim "no credit card required" — a card IS required (trial just doesn't charge)
+- NEVER cite review counts, star ratings, fake testimonials, "rated X", "4.8 stars", "240+ reviews"
+- NEVER promise specific ROI as a guarantee ("will make you $X")
+- NEVER mention competitors by name, especially negatively
+- Maximum ONE exclamation mark per message. Zero is better.
+- Never mention "AI-powered" — just describe what it does
+- Never use em-dashes in clusters. One per message max.
+- Do NOT make up facts about the prospect's business beyond what's given
+
+EMAIL REQUIREMENTS:
+- 4–8 sentences TOTAL (not counting greeting/signoff)
+- Subject line under 50 characters, no clickbait, no ALL CAPS
+- Structure: (1) personalized opener referencing their specific business, (2) niche-specific pain, (3) one paragraph on what RevoAI does for them, (4) pricing sentence, (5) single soft CTA with the sign-up URL, (6) one-line signoff
+- Include a "Take a look: https://revoai.ca/sign-up" CTA on its own line
+- End with "— {senderFirstName}"
+
+OUTPUT FORMAT — return a JSON object with EXACTLY these keys:
+{
+  "subject": "<50-char subject>",
+  "body": "<full email body starting with greeting, ending with signoff>"
+}
+
+Do not add any preamble, explanation, or markdown. Output only the JSON.`;
+
+const BANNED_PHRASES: RegExp[] = [
+  /revolutioniz[a-z]*/i,
+  /game.?changer/i,
+  /in today'?s fast[- ]paced/i,
+  /synergy/i,
+  /no credit card required/i,
+  /\b(4\.[0-9]|5\.0|rated|stars?|reviews?|testimonial)\b/i,
+  /guaranteed? (roi|return|revenue|income)/i,
+  /\bai[- ]powered\b/i,
+];
+
+function countExclamations(s: string): number {
+  return (s.match(/!/g) || []).length;
+}
+
+function violatesBrandRules(text: string): { violates: boolean; reason?: string } {
+  for (const re of BANNED_PHRASES) {
+    const m = text.match(re);
+    if (m) return { violates: true, reason: `banned phrase: "${m[0]}"` };
+  }
+  if (countExclamations(text) > 1) return { violates: true, reason: 'more than one exclamation mark' };
+  return { violates: false };
+}
+
+async function generateOutreachCopyWithLLM(
+  channel: string,
+  lead: any,
+  brand: any,
+): Promise<{ subject: string; content: string } | null> {
+  const apiKey = (process.env.ANTHROPIC_API_KEY || '').trim();
+  if (!apiKey || channel !== 'EMAIL') return null; // only EMAIL for now; LinkedIn/FB keep templates
+
+  const client = new Anthropic({ apiKey });
+  const model = (process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001').trim();
+
+  const senderFirst = String(brand?.yourName || '').trim().split(/\s+/)[0] || 'Tony';
+  // Strip common honorifics so "Dr. Sarah Chen" → "Sarah", not "Dr."
+  const stripTitle = (s: string) => {
+    const parts = String(s || '').trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return '';
+    if (/^(Dr|Mr|Mrs|Ms|Mx|Prof|Rev|Sir|Dame|Madam)\.?$/i.test(parts[0])) {
+      return parts[1] || parts[0];
+    }
+    return parts[0];
+  };
+  const contactFirst = stripTitle(lead?.contactName || '');
+  const leadBrief = [
+    `Business name: ${lead?.businessName || 'Unknown'}`,
+    lead?.niche ? `Industry/niche: ${lead.niche}` : null,
+    lead?.region ? `Location: ${lead.region}` : null,
+    contactFirst ? `Contact first name (use as greeting): ${contactFirst}` : `Contact first name: unknown — greet as "Hi there,"`,
+    lead?.contactRole ? `Contact role: ${lead.contactRole}` : null,
+    lead?.website ? `Website: ${lead.website}` : null,
+    lead?.email ? `Email is known — address the lead directly` : null,
+    `Sender first name: ${senderFirst}`,
+  ].filter(Boolean).join('\n');
+
+  const userPrompt = `Write a cold outreach email for this lead. Personalize to their specific business and niche.
+
+LEAD DATA:
+${leadBrief}
+
+DEMO VIDEO URL (if non-empty, include a single line "Here's a 90-second demo: <URL>" before the CTA): ${(process.env.DEMO_VIDEO_URL || '').trim() || '(not set — omit the demo line)'}
+
+Return only the JSON object.`;
+
+  try {
+    const resp = await client.messages.create({
+      model,
+      max_tokens: 800,
+      system: REVOAI_SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: userPrompt }],
+    });
+
+    const raw = (resp.content || [])
+      .map((b: any) => (b.type === 'text' ? b.text : ''))
+      .join('')
+      .trim();
+
+    // Claude sometimes wraps JSON in ```json ... ``` — strip those
+    const jsonText = raw.replace(/^```json\s*/, '').replace(/```\s*$/, '').trim();
+    const parsed = JSON.parse(jsonText);
+    if (!parsed?.subject || !parsed?.body) return null;
+
+    const combined = `${parsed.subject}\n${parsed.body}`;
+    const check = violatesBrandRules(combined);
+    if (check.violates) {
+      // One retry with stricter instruction
+      const retry = await client.messages.create({
+        model,
+        max_tokens: 800,
+        system: REVOAI_SYSTEM_PROMPT,
+        messages: [
+          { role: 'user', content: userPrompt },
+          { role: 'assistant', content: raw },
+          { role: 'user', content: `Your last output violated brand rules (${check.reason}). Rewrite. Output only the JSON.` },
+        ],
+      });
+      const retryText = (retry.content || []).map((b: any) => (b.type === 'text' ? b.text : '')).join('').trim();
+      const retryJson = retryText.replace(/^```json\s*/, '').replace(/```\s*$/, '').trim();
+      const retryParsed = JSON.parse(retryJson);
+      if (!retryParsed?.subject || !retryParsed?.body) return null;
+      const retryCheck = violatesBrandRules(`${retryParsed.subject}\n${retryParsed.body}`);
+      if (retryCheck.violates) return null;
+      return { subject: String(retryParsed.subject).slice(0, 60), content: String(retryParsed.body).trim() };
+    }
+
+    return { subject: String(parsed.subject).slice(0, 60), content: String(parsed.body).trim() };
+  } catch (err: any) {
+    console.warn('[generateOutreachCopyWithLLM] falling back to template:', err?.message || err);
+    return null;
+  }
+}
 
 /**
  * Generate RevoAI-brand-voice outreach copy tailored by channel + niche.
@@ -216,7 +375,13 @@ export class LeadsService {
 
     const campaignId = body?.campaignId || lead.campaignId;
     const brand = await this.prisma.brandSettings.findUnique({ where: { id: 'default' } });
-    const generated = generateOutreachCopy(channel, lead, brand);
+
+    // Prefer LLM-generated personalized copy; fall back to template if the
+    // LLM is unavailable, rate-limited, or output violates brand rules.
+    const llmCopy = await generateOutreachCopyWithLLM(channel, lead, brand);
+    const generated = llmCopy ?? generateOutreachCopy(channel, lead, brand);
+    const copySource = llmCopy ? 'llm' : 'template';
+
     const content = String(body?.content || generated.content).trim();
     const subject = channel === 'EMAIL' ? String(body?.subject || generated.subject) : null;
 
@@ -252,12 +417,12 @@ export class LeadsService {
         action: 'lead.draft.generated',
         resourceType: 'lead',
         resourceId: lead.id,
-        metadata: { draftId: draft.id, channel } as any,
+        metadata: { draftId: draft.id, channel, copySource } as any,
       },
     });
 
-    await this.events.publish({ eventType: 'lead.draft.generated', campaignId: lead.campaignId, payload: { leadId: lead.id, draftId: draft.id, channel } });
-    return { ok: true, draftId: draft.id, status: draft.status };
+    await this.events.publish({ eventType: 'lead.draft.generated', campaignId: lead.campaignId, payload: { leadId: lead.id, draftId: draft.id, channel, copySource } });
+    return { ok: true, draftId: draft.id, status: draft.status, copySource };
   }
 
   async importMappedCsv(data: {
