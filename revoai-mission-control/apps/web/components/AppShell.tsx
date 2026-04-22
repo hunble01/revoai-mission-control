@@ -243,7 +243,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 )}
               </div>
             </header>
-            {children}
+            <div className="route-frame">{children}</div>
           </main>
         </div>
       </div>
