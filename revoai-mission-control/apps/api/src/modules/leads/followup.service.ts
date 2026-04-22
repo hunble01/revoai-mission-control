@@ -276,14 +276,17 @@ export class FollowUpService implements OnModuleInit, OnModuleDestroy {
    * Stops the sequence so no more follow-ups are generated.
    */
   async pauseSequence(leadId: string, reason: 'replied' | 'opened' | 'clicked' | 'unsubscribed' | 'manual') {
-    await this.prisma.lead.update({
-      where: { id: leadId },
-      data: {
-        followUpStage: 99,
-        sequencePausedReason: reason,
-        lastEngagementAt: new Date(),
-      },
-    });
+    const data: any = {
+      followUpStage: 99,
+      sequencePausedReason: reason,
+      lastEngagementAt: new Date(),
+    };
+    // Only reason=replied represents actual conversation — bump lead status
+    // so the funnel / analytics / /leads filter reflect it. Opens and
+    // clicks are engagement signals but not a reply.
+    if (reason === 'replied') data.status = 'REPLIED';
+    if (reason === 'unsubscribed') data.status = 'LOST';
+    await this.prisma.lead.update({ where: { id: leadId }, data });
     await this.events.publish({ eventType: 'lead.sequence.paused', payload: { leadId, reason } });
   }
 }

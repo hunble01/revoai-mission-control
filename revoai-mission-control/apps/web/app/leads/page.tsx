@@ -467,9 +467,32 @@ export default function LeadsPage() {
               {String(selectedLead?.status || '').toUpperCase() !== 'NEW' && <div className="muted">Status changed • {selectedLead?.status}</div>}
             </div>
           </div>
-          <div style={{ padding: 16, borderTop: '1px solid #1C2333', display: 'flex', gap: 8 }}>
+          <div style={{ padding: 16, borderTop: '1px solid #1C2333', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <Button variant="primary" onClick={() => selectedLead?.id && createDraftForLead(selectedLead)}>Draft Outreach</Button>
             <Button variant="secondary" onClick={() => selectedLead?.id && enrichLead(selectedLead.id)}>Enrich</Button>
+            {String(selectedLead?.status || '').toUpperCase() !== 'REPLIED' && (
+              <Button
+                variant="secondary"
+                style={{ border: '1px solid rgba(156,175,136,0.4)', color: '#9CAF88' }}
+                onClick={async () => {
+                  if (!selectedLead?.id) return;
+                  try {
+                    const res = await fetch(`${API_BASE}/api/followup/lead/${selectedLead.id}/pause`, {
+                      method: 'POST', credentials: 'include', headers: apiHeaders, body: JSON.stringify({ reason: 'replied' }),
+                    });
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    const next = { ...selectedLead, status: 'REPLIED', followUpStage: 99, sequencePausedReason: 'replied' };
+                    setSelectedLead(next);
+                    setLeads((curr) => curr.map((x) => x.id === next.id ? next : x));
+                    toast('success', 'Marked as replied — sequence paused');
+                  } catch (e: any) {
+                    toast('error', e?.message || 'Failed to mark as replied');
+                  }
+                }}
+              >
+                ✓ Mark as Replied
+              </Button>
+            )}
             <Button variant="ghost" style={{ border: '1px solid rgba(255,91,122,0.3)', color: '#FF5B7A' }} onClick={() => {
               if (!selectedLead?.id) return;
               if (!confirm('Delete this lead?')) return;
