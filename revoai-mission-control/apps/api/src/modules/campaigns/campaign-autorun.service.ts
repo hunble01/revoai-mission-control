@@ -83,7 +83,7 @@ export class CampaignAutorunService {
     // ---- Stage 1: research via Google Maps ----
     let researchOut: any = null;
     try {
-      researchOut = await this.research.run({ campaignId, requestedBy: 'autorun' });
+      researchOut = await this.research.run({ campaignId, requestedBy: 'autorun', maxLeads });
       const discoveredCount = Number(researchOut?.metadata?.counts?.leads || 0);
       summary.discovered = discoveredCount;
       await publish('stage1.research', { discovered: discoveredCount });

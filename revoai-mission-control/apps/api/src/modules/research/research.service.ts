@@ -16,6 +16,7 @@ type SearchParams = {
   dataSources?: any;
   dailySendLimit?: number;
   query?: string | null;
+  maxLeads?: number | null;
 };
 
 @Injectable()
@@ -32,15 +33,31 @@ export class ResearchService {
   }
 
   private scoreLead(lead: any, params: SearchParams): 'High' | 'Medium' | 'Low' {
-    let score: 'High' | 'Medium' | 'Low' = 'Medium';
-    const hasFull = !!lead.email && !!lead.phone && !!lead.linkedinUrl;
+    const hasWebsite = !!lead.website;
+    const hasPhone = !!lead.phone;
+    const hasEmail = !!lead.email;
     const exactNiche = params.niche && String(lead.companyName || '').toLowerCase().includes(String(params.niche).toLowerCase());
-    const exactGeo = params.geographyCity && String(lead.region || params.geographyCity || '').toLowerCase().includes(String(params.geographyCity).toLowerCase());
+    const exactGeo = params.geographyCity && String(lead.region || '').toLowerCase().includes(String(params.geographyCity).toLowerCase());
     const owner = /owner|founder/i.test(String(lead.contactName || '') + ' ' + String(lead.contactRole || ''));
-    if (hasFull && exactNiche && exactGeo && owner) score = 'High';
-    if (!lead.email) score = 'Low';
-    if (params.geographyCity && !exactGeo) score = 'Low';
-    return score;
+
+    // Hard penalties — probably not a real, reachable business
+    if (!hasPhone && !hasWebsite) return 'Low';
+    if (params.geographyCity && lead.region && !exactGeo) return 'Low';
+
+    // Positive-signal accumulation. Google Maps leads never have email at
+    // research time (only after enrichment), so we don't penalize its
+    // absence — we reward its presence.
+    let signals = 0;
+    if (hasWebsite) signals += 1;
+    if (hasPhone) signals += 1;
+    if (hasEmail) signals += 2;
+    if (exactNiche) signals += 1;
+    if (exactGeo) signals += 1;
+    if (owner) signals += 2;
+
+    if (signals >= 5) return 'High';
+    if (signals >= 3) return 'Medium';
+    return 'Low';
   }
 
   private async discoverFromHunter(params: SearchParams) {
@@ -101,13 +118,16 @@ export class ResearchService {
     const parts = [params.niche, params.subNiche, params.geographyCity, params.geographyRegion]
       .filter(Boolean).join(' ').trim();
     const textQuery = parts || params.query || 'local businesses';
-    const maxPages = 3;
+    const maxLeads = Math.max(1, Number(params.maxLeads || 60));
+    const pageSize = Math.min(20, maxLeads);
+    const maxPages = Math.min(3, Math.ceil(maxLeads / pageSize));
     const rows: any[] = [];
     let pageToken: string | undefined;
 
     try {
       for (let page = 0; page < maxPages; page += 1) {
-        const body: any = { textQuery, pageSize: 20 };
+        if (rows.length >= maxLeads) break;
+        const body: any = { textQuery, pageSize };
         if (pageToken) body.pageToken = pageToken;
 
         const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
@@ -132,6 +152,7 @@ export class ResearchService {
         const json: any = await res.json();
         const places = Array.isArray(json?.places) ? json.places : [];
         for (const p of places) {
+          if (rows.length >= maxLeads) break;
           const phone = p?.internationalPhoneNumber || p?.nationalPhoneNumber || null;
           rows.push({
             companyName: p?.displayName?.text || p?.displayName || null,
@@ -300,8 +321,9 @@ export class ResearchService {
           dataSources: campaign.dataSources || {},
           dailySendLimit: campaign.dailySendLimit,
           query: payload?.query || null,
+          maxLeads: payload?.maxLeads || null,
         }
-      : { query: payload?.query || 'generic local business research' };
+      : { query: payload?.query || 'generic local business research', maxLeads: payload?.maxLeads || null };
 
     const run = await this.prisma.researchRun.create({
       data: {

@@ -476,6 +476,18 @@ export class LeadsService {
     }
     patch.status = lead.status === 'NEW' ? 'ENRICHED' : lead.status;
 
+    // Re-score now that enrichment may have filled in email / contact name.
+    // Conservative bump — don't downgrade a lead that was already scored higher.
+    const nowHasEmail = !!(lead.email || patch.email);
+    const nowHasName = !!(lead.contactName || patch.contactName);
+    const nowHasWebsite = !!lead.website;
+    const currentScore = lead.fitScore || 'Low';
+    let nextScore = currentScore;
+    if (nowHasEmail && nowHasName && nowHasWebsite) nextScore = 'High';
+    else if (nowHasEmail && nowHasWebsite) nextScore = 'Medium';
+    const rank = (s: string) => (s === 'High' ? 3 : s === 'Medium' ? 2 : 1);
+    if (rank(nextScore) > rank(currentScore)) patch.fitScore = nextScore;
+
     // Stash services + pain + trust marker in sourceDetail for the draft generator
     if (webData?.services?.length || webData?.painHint || webData?.trustMarker) {
       const existing = (() => {
