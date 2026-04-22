@@ -447,9 +447,32 @@ export class ResearchService {
     if (!sourceLeads.length) return { ok: true, promoted: 0, action };
 
     let promoted = 0;
+    let skippedDuplicate = 0;
     for (const l of sourceLeads) {
       const targetStatus = action === 'REJECT' ? 'LOST' : action === 'SNOOZE' ? 'RESEARCHED' : 'APPROVED';
       const nextStep = action === 'SNOOZE' ? 'Review later' : action === 'REJECT' ? 'Do not contact' : 'Ready for outreach draft';
+      const leadWebsite = (l as any).website || l.sourceUrl || undefined;
+      const leadPhone = l.phone || undefined;
+
+      // Dedup: if the same business (matched by website, phone, or
+      // businessName within this campaign) already exists as a Lead,
+      // skip instead of creating a duplicate row.
+      const existing = await this.prisma.lead.findFirst({
+        where: {
+          campaignId,
+          OR: [
+            leadWebsite ? { website: leadWebsite } : null,
+            leadPhone ? { phone: leadPhone } : null,
+            { businessName: l.companyName },
+          ].filter(Boolean) as any,
+        } as any,
+        select: { id: true },
+      });
+      if (existing) {
+        skippedDuplicate += 1;
+        continue;
+      }
+
       try {
         const created = await this.prisma.lead.create({
           data: {
@@ -457,9 +480,9 @@ export class ResearchService {
             businessName: l.companyName,
             contactName: l.contactName || undefined,
             email: l.email || undefined,
-            phone: l.phone || undefined,
+            phone: leadPhone,
             linkedinUrl: l.linkedinUrl || undefined,
-            website: (l as any).website || l.sourceUrl || undefined,
+            website: leadWebsite,
             source: l.sourceType,
             sourceDetail: l.source || undefined,
             fitScore: l.fitScore || undefined,
@@ -491,12 +514,12 @@ export class ResearchService {
         action: 'research.leads.promote',
         resourceType: 'research_run',
         resourceId: runId,
-        metadata: { action, promoted, attempted: sourceLeads.length, campaignId } as any,
+        metadata: { action, promoted, attempted: sourceLeads.length, skippedDuplicate, campaignId } as any,
       },
     });
 
-    await this.events.publish({ eventType: 'research.run.promoted', payload: { runId, campaignId, action, promoted } });
-    return { ok: true, runId, campaignId, action, promoted, attempted: sourceLeads.length };
+    await this.events.publish({ eventType: 'research.run.promoted', payload: { runId, campaignId, action, promoted, skippedDuplicate } });
+    return { ok: true, runId, campaignId, action, promoted, attempted: sourceLeads.length, skippedDuplicate };
   }
 
   async getContent(runId: string) {
@@ -530,7 +553,22 @@ export class ResearchService {
     if (!resolvedCampaignId) throw new NotFoundException('No active campaign available for lead export');
 
     let exported = 0;
+    let skippedDuplicate = 0;
     for (const l of leads) {
+      const leadWebsite = (l as any).website || l.sourceUrl || undefined;
+      const leadPhone = l.phone || undefined;
+      const existing = await this.prisma.lead.findFirst({
+        where: {
+          campaignId: resolvedCampaignId,
+          OR: [
+            leadWebsite ? { website: leadWebsite } : null,
+            leadPhone ? { phone: leadPhone } : null,
+            { businessName: l.companyName },
+          ].filter(Boolean) as any,
+        } as any,
+        select: { id: true },
+      });
+      if (existing) { skippedDuplicate += 1; continue; }
       try {
         await this.prisma.lead.create({
           data: {
@@ -538,8 +576,8 @@ export class ResearchService {
             businessName: l.companyName,
             contactName: l.contactName || undefined,
             email: l.email || undefined,
-            phone: l.phone || undefined,
-            website: (l as any).website || l.sourceUrl || undefined,
+            phone: leadPhone,
+            website: leadWebsite,
             source: l.sourceType,
             sourceDetail: l.source || undefined,
             fitScore: l.fitScore || undefined,
@@ -550,8 +588,8 @@ export class ResearchService {
       } catch {}
     }
 
-    await this.events.publish({ eventType: 'research.run.exported', payload: { runId, exported, campaignId: resolvedCampaignId } });
-    return { ok: true, exported, campaignId: resolvedCampaignId };
+    await this.events.publish({ eventType: 'research.run.exported', payload: { runId, exported, skippedDuplicate, campaignId: resolvedCampaignId } });
+    return { ok: true, exported, skippedDuplicate, campaignId: resolvedCampaignId };
   }
 
   async runCompetitorIntel(competitorId?: string, competitor?: any) {

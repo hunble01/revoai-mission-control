@@ -720,6 +720,33 @@ export class DraftsService {
       throw new BadRequestException(`Recipient ${to} is on the suppression list`);
     }
 
+    // Cross-campaign duplicate-send guard: if this email address has received
+    // a sent email via a DIFFERENT leadId in the last 60 days, block. This
+    // stops the same business showing up in two campaigns from getting
+    // outreach from both. Follow-ups to the SAME lead still pass (same
+    // leadId, so the filter excludes them).
+    const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
+    const leadsWithSameEmail = await this.prisma.lead.findMany({
+      where: { email: { equals: to, mode: 'insensitive' }, id: { not: draft.leadId || '' } },
+      select: { id: true },
+    });
+    const otherLeadIds = leadsWithSameEmail.map((l) => l.id);
+    if (otherLeadIds.length) {
+      const recentOtherSend = await this.prisma.outboundSend.findFirst({
+        where: {
+          provider: 'EMAIL',
+          status: { in: ['sent', 'delivered'] },
+          leadId: { in: otherLeadIds },
+          sentAt: { gte: sixtyDaysAgo },
+        },
+      });
+      if (recentOtherSend) {
+        throw new BadRequestException(
+          `Already contacted ${to} via another campaign/lead within the last 60 days (send ${recentOtherSend.id}).`,
+        );
+      }
+    }
+
     const version = await this.prisma.draftVersion.findFirst({
       where: { draftId: draft.id, versionNumber: draft.currentVersion },
     });
