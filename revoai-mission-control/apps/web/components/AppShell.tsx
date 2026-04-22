@@ -24,12 +24,12 @@ const NAV_GROUPS = [
       { href: '/feed', label: 'Live Feed' },
       { href: '/analytics', label: 'Analytics' },
       { href: '/audit', label: 'Audit' },
+      { href: '/content-calendar', label: 'Content Calendar' },
     ],
   },
   {
     title: 'COMING SOON',
     items: [
-      { href: '/content-calendar', label: 'Content Calendar', isBeta: true },
       { href: '/linkedin', label: 'LinkedIn', isBeta: true },
       { href: '/facebook', label: 'Facebook', isBeta: true },
     ],

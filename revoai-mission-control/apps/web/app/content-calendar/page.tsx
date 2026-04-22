@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
-import { ComingSoon } from '../../components/ComingSoon';
 
 const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -89,8 +88,11 @@ export default function ContentCalendarPage() {
 
   return (
     <div className="dash-stack fade-in">
-      <section className="page-header"><div className="page-eyebrow">INTELLIGENCE / CONTENT CALENDAR</div><h2 className="page-title" style={{ margin: 0 }}>Content Calendar</h2></section>
-      <ComingSoon feature="AI-generated post ideas + weekly calendar" needs="an LLM API key (Anthropic or OpenAI) to generate tailored posts from your topics and competitor intel" />
+      <section className="page-header">
+        <div className="page-eyebrow">INTELLIGENCE / CONTENT CALENDAR</div>
+        <h2 className="page-title" style={{ margin: 0 }}>Content Calendar</h2>
+        <p className="page-desc">Claude-generated post ideas from your campaign niche + brand voice. Schedule to LinkedIn or Facebook.</p>
+      </section>
 
       <div className="table-toolbar">
         <Button variant={tab==='calendar'?'primary':'secondary'} onClick={()=>setTab('calendar')}>Calendar</Button>
