@@ -809,9 +809,11 @@ export class DraftsService {
             auth: { user: smtpUser, pass: smtpPass },
           });
 
+          const replyTo = (process.env.EMAIL_REPLY_TO || '').trim() || undefined;
           const info = await transporter.sendMail({
             from: fromHeader,
             to,
+            replyTo,
             subject: subjectLine,
             text: plainText,
             html: htmlBody,
@@ -840,6 +842,7 @@ export class DraftsService {
           body: JSON.stringify({
             from: fromHeader,
             to,
+            reply_to: (process.env.EMAIL_REPLY_TO || '').trim() || undefined,
             subject: subjectLine,
             text: plainText,
             html: htmlBody,
