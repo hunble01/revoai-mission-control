@@ -456,6 +456,7 @@ model ResearchLead {
   email       String?
   phone       String?
   linkedinUrl String?
+  website     String?
   sourceUrl   String?
   sourceType  String   @default("research_agent")
   source      String?
