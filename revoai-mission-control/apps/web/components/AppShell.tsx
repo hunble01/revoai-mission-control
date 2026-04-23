@@ -191,7 +191,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           </aside>
 
-          <main className="content">
+          <main className="content content-with-frame">
             <header className="topbar">
               <button
                 type="button"
@@ -243,7 +243,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 )}
               </div>
             </header>
-            {children}
+            <div className="route-frame">{children}</div>
           </main>
         </div>
       </div>

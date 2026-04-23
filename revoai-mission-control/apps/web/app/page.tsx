@@ -72,14 +72,23 @@ export default function Home() {
 
   return (
     <div className="dash-stack">
-      <section className="page-header">
-        <div className="page-eyebrow">MISSION CONTROL</div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-          <div>
-            <h2 className="page-title" style={{ margin: 0 }}>Unified Operations Dashboard</h2>
-            <p className="page-desc">Research, approvals, outbound queues, and publishing in one operational view.</p>
-          </div>
-          <Badge tone="info">Last refresh: {lastRefresh}</Badge>
+      <section className="hero-panel">
+        <div className="hero-eyebrow"><span className="live-dot" /> MISSION CONTROL · LIVE</div>
+        <h1 className="hero-title">Your outbound engine, in one view.</h1>
+        <p className="hero-desc">
+          Research → enrichment → AI drafts → approval → send. Watch every stage in real time, jump in where the
+          system needs you, ship the rest on autopilot.
+        </p>
+        <div className="hero-actions">
+          <a href="/campaigns" className="hero-cta">⚡ Run a campaign</a>
+          <a href="/approvals" className="hero-cta-ghost">Open approvals queue ({needsApproval.length})</a>
+          <a href="/feed" className="hero-cta-ghost">Live feed</a>
+        </div>
+        <div className="hero-meta">
+          <span>Leads<strong>{leads.length}</strong></span>
+          <span>Awaiting approval<strong>{needsApproval.length}</strong></span>
+          <span>Queued<strong>{Number(queueOverview?.counts?.queued || 0)}</strong></span>
+          <span>Last refresh<strong>{lastRefresh}</strong></span>
         </div>
       </section>
 
