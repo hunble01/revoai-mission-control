@@ -136,23 +136,36 @@ export class CampaignAutorunService {
     });
     const draftable = refreshed.filter((l) => l.email && l.email.includes('@'));
 
+    let skippedRace = 0;
     if (draftable.length) {
       await this.runInBatches(draftable, draftConcurrency, async (lead) => {
+        // Fast path: skip if this lead already has a pending draft
+        const existing = await this.prisma.draft.findFirst({
+          where: {
+            leadId: lead.id,
+            status: { in: ['DRAFT', 'NEEDS_APPROVAL', 'APPROVED'] as any },
+          },
+          select: { id: true },
+        });
+        if (existing) return;
         try {
-          // Skip if this lead already has a pending draft
-          const existing = await this.prisma.draft.findFirst({
-            where: {
-              leadId: lead.id,
-              status: { in: ['DRAFT', 'NEEDS_APPROVAL', 'APPROVED'] as any },
-            },
-          });
-          if (existing) return;
           await this.leads.generateDraftForLead(lead.id, {}, 'autorun');
           summary.drafted += 1;
         } catch (err: any) {
-          summary.errors.push(`draft ${lead.id}: ${err?.message || err}`);
+          const msg = String(err?.message || err);
+          // Swallow unique-constraint violation from the partial index
+          // idx_draft_leadid_active_status — this means a concurrent autorun
+          // beat us to it. Correct outcome is to skip, not error.
+          if (/idx_draft_leadid_active_status|unique constraint|P2002/i.test(msg)) {
+            skippedRace += 1;
+            return;
+          }
+          summary.errors.push(`draft ${lead.id}: ${msg}`);
         }
       });
+    }
+    if (skippedRace > 0) {
+      await publish('stage4.draft.dedup', { skippedRace });
     }
     await publish('stage4.draft', {
       drafted: summary.drafted,

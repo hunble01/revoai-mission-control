@@ -186,6 +186,24 @@ export default function CampaignsPage() {
       messaging: {
         ...JSON.parse(JSON.stringify(emptyForm)).messaging,
         ...(campaign?.outreachTemplates || {}),
+        // Top-level columns win — they're the source of truth for the autorun.
+        painPoint: campaign?.painPoint ?? (campaign?.outreachTemplates?.painPoint || ''),
+        yourOffer: campaign?.yourOffer ?? (campaign?.outreachTemplates?.yourOffer || ''),
+        yourProof: campaign?.yourProof ?? (campaign?.outreachTemplates?.yourProof || ''),
+        emailSubject: campaign?.emailSubjectTemplate ?? (campaign?.outreachTemplates?.emailSubject || ''),
+        emailBody: campaign?.emailBodyTemplate ?? (campaign?.outreachTemplates?.emailBody || ''),
+        aiEmail: typeof campaign?.emailAiGenerate === 'boolean' ? campaign.emailAiGenerate : (campaign?.outreachTemplates?.aiEmail ?? true),
+        dmBody: campaign?.dmBodyTemplate ?? (campaign?.outreachTemplates?.dmBody || ''),
+        aiDm: typeof campaign?.dmAiGenerate === 'boolean' ? campaign.dmAiGenerate : (campaign?.outreachTemplates?.aiDm ?? true),
+        followupEnabled: typeof campaign?.followupEnabled === 'boolean' ? campaign.followupEnabled : (campaign?.outreachTemplates?.followupEnabled ?? false),
+        followups: Array.isArray(campaign?.followupSequence) && campaign.followupSequence.length
+          ? campaign.followupSequence
+          : (Array.isArray(campaign?.outreachTemplates?.followups) ? campaign.outreachTemplates.followups : JSON.parse(JSON.stringify(emptyForm)).messaging.followups),
+        sendWindowFrom: campaign?.sendWindowFrom ?? (campaign?.outreachTemplates?.sendWindowFrom || '09:00'),
+        sendWindowTo: campaign?.sendWindowTo ?? (campaign?.outreachTemplates?.sendWindowTo || '17:00'),
+        sendDays: Array.isArray(campaign?.sendDays) && campaign.sendDays.length
+          ? campaign.sendDays
+          : (Array.isArray(campaign?.outreachTemplates?.sendDays) ? campaign.outreachTemplates.sendDays : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']),
       },
     });
     setCurrentStep(1);
@@ -236,6 +254,7 @@ export default function CampaignsPage() {
 
   const saveCampaign = async () => {
     try {
+      const m = form.messaging || {};
       const payload = {
         name: form.name,
         status: String(form.status).toLowerCase(),
@@ -254,6 +273,22 @@ export default function CampaignsPage() {
         notes: form.notes,
         dataSources: { ...form.dataSources, priority: form.sourcePriority },
         spreadsheetData: form.spreadsheet,
+        // Map step-4 messaging into the top-level Campaign columns the
+        // autorun + draft-generation code actually reads. outreachTemplates
+        // stays populated for back-compat.
+        painPoint: m.painPoint || null,
+        yourOffer: m.yourOffer || null,
+        yourProof: m.yourProof || null,
+        emailSubjectTemplate: m.emailSubject || null,
+        emailBodyTemplate: m.emailBody || null,
+        emailAiGenerate: typeof m.aiEmail === 'boolean' ? m.aiEmail : true,
+        dmBodyTemplate: m.dmBody || null,
+        dmAiGenerate: typeof m.aiDm === 'boolean' ? m.aiDm : true,
+        followupEnabled: !!m.followupEnabled,
+        followupSequence: Array.isArray(m.followups) ? m.followups : [],
+        sendWindowFrom: m.sendWindowFrom || null,
+        sendWindowTo: m.sendWindowTo || null,
+        sendDays: Array.isArray(m.sendDays) ? m.sendDays : [],
         outreachTemplates: form.messaging,
       };
 
@@ -481,8 +516,12 @@ export default function CampaignsPage() {
                     </div>
                   </Section>
 
-                  <Section label="TARGETING">
-                    <div style={{ display: 'grid', gap: 10 }}>
+                  <Section label="TARGETING (preview — not yet used by pipeline)">
+                    <p className="muted" style={{ marginTop: -6, marginBottom: 8, fontSize: 12 }}>
+                      Saved on the campaign for future LinkedIn Sales-Nav / Apollo-style lookups.
+                      The current pipeline uses Google Maps Places API only, which doesn't take these filters.
+                    </p>
+                    <div style={{ display: 'grid', gap: 10, opacity: 0.85 }}>
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                         {companySizeOptions.map((x) => (
                           <button key={x} type="button" className="ui-btn" style={{ border: form.companySize.includes(x) ? '1px solid #00C9FF' : '1px solid #243044', background: form.companySize.includes(x) ? 'rgba(0,201,255,0.15)' : 'transparent', color: form.companySize.includes(x) ? '#00C9FF' : 'var(--text2)' }} onClick={() => togglePill('companySize', x)}>{x}</button>
@@ -505,10 +544,16 @@ export default function CampaignsPage() {
                   <Section label="OUTREACH">
                     <div style={{ display: 'grid', gap: 10 }}>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                        <select style={inputStyle} value={form.defaultChannel} onChange={(e) => setForm((f: any) => ({ ...f, defaultChannel: e.target.value }))}>{channelOptions.map((x) => <option key={x}>{x}</option>)}</select>
-                        <input style={inputStyle} type="number" value={form.dailySendLimit} onChange={(e) => setForm((f: any) => ({ ...f, dailySendLimit: Number(e.target.value || 20) }))} />
+                        <div>
+                          <div className="muted" style={{ fontSize: 11, marginBottom: 4 }}>Default channel</div>
+                          <select style={inputStyle} value={form.defaultChannel} onChange={(e) => setForm((f: any) => ({ ...f, defaultChannel: e.target.value }))}>{channelOptions.map((x) => <option key={x}>{x}</option>)}</select>
+                        </div>
+                        <div>
+                          <div className="muted" style={{ fontSize: 11, marginBottom: 4 }}>Daily send limit</div>
+                          <input style={inputStyle} type="number" min={1} max={200} value={form.dailySendLimit} onChange={(e) => setForm((f: any) => ({ ...f, dailySendLimit: Number(e.target.value || 20) }))} />
+                        </div>
                       </div>
-                      <textarea style={inputStyle} rows={3} placeholder="Notes" value={form.notes} onChange={(e) => setForm((f: any) => ({ ...f, notes: e.target.value }))} />
+                      <textarea style={inputStyle} rows={3} placeholder="Campaign notes (internal only)" value={form.notes} onChange={(e) => setForm((f: any) => ({ ...f, notes: e.target.value }))} />
                     </div>
                   </Section>
                 </>
@@ -516,20 +561,31 @@ export default function CampaignsPage() {
 
               {currentStep === 2 && (
                 <>
-                  {sources.map((s) => (
-                    <div key={s.key} style={{ background: '#0A0E17', border: '1px solid #1C2333', borderRadius: 6, padding: 12, marginBottom: 10 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-                        <div>
-                          <div><strong>{s.name}</strong></div>
-                          <div className="muted">{s.description}</div>
-                          {s.needsKey && <Badge tone="warning">API key required — configure in Settings</Badge>}
+                  <p className="muted" style={{ marginBottom: 12, fontSize: 12 }}>
+                    ✅ <strong>Google Maps</strong> is what the pipeline uses today — all other sources are previews.
+                  </p>
+                  {sources.map((s) => {
+                    const wired = s.key === 'gmaps';
+                    return (
+                      <div key={s.key} style={{ background: '#0A0E17', border: '1px solid #1C2333', borderRadius: 6, padding: 12, marginBottom: 10, opacity: wired ? 1 : 0.75 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <strong>{s.name}</strong>
+                              {wired
+                                ? <Badge tone="success">Live</Badge>
+                                : <Badge tone="default">Preview — not wired yet</Badge>}
+                            </div>
+                            <div className="muted">{s.description}</div>
+                            {s.needsKey && !wired && <Badge tone="warning">API key required — configure in Settings</Badge>}
+                          </div>
+                          <Toggle on={!!form.dataSources[s.key]} onChange={() => setForm((f: any) => ({ ...f, dataSources: { ...f.dataSources, [s.key]: !f.dataSources[s.key] } }))} />
                         </div>
-                        <Toggle on={!!form.dataSources[s.key]} onChange={() => setForm((f: any) => ({ ...f, dataSources: { ...f.dataSources, [s.key]: !f.dataSources[s.key] } }))} />
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
 
-                  <Section label="SOURCE PRIORITY">
+                  <Section label="SOURCE PRIORITY (used once additional sources ship)">
                     {form.sourcePriority.map((k: SourceKey, i: number) => (
                       <div key={k} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                         <span>{i + 1}. {sources.find((s) => s.key === k)?.name}</span>
@@ -557,6 +613,11 @@ export default function CampaignsPage() {
 
               {currentStep === 3 && (
                 <>
+                  <p className="muted" style={{ marginBottom: 12, fontSize: 12 }}>
+                    Upload a CSV/XLSX to attach existing leads to this campaign. Optional — skip if you want the autorun to discover leads via Google Maps.
+                    <br />
+                    <strong>Note:</strong> the parsed rows are saved on the campaign but the autorun pipeline currently doesn't import them as Leads — that's next on the roadmap.
+                  </p>
                   <label style={{ ...inputStyle, borderStyle: 'dashed', borderColor: '#243044', display: 'block', textAlign: 'center', cursor: 'pointer' }}>
                     <input type="file" accept=".csv,.xlsx" style={{ display: 'none' }} onChange={async (e) => {
                       const parsed = await parseUpload(e.target.files?.[0]);
