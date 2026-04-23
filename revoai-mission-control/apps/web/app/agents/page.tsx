@@ -1,12 +1,14 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 
 import { API_BASE, apiHeaders } from '../../lib/api';
 
 export default function AgentsPage() {
+  const router = useRouter();
   const [runs, setRuns] = useState<any[]>([]);
   const [ideas, setIdeas] = useState<any[]>([]);
   const [settings, setSettings] = useState<any>({});
@@ -65,8 +67,8 @@ export default function AgentsPage() {
           <div className="muted">Configuration summary: {(settings?.campaigns || []).length || 0} active campaigns • sources configured</div>
           <div className="table-toolbar" style={{ marginTop: 10 }}>
             <Button variant="primary" onClick={async () => { setRunningResearch(true); await fetch(`${API_BASE}/api/research/runs`, { method: 'POST', credentials: 'include', headers: apiHeaders, body: JSON.stringify({}) }); await load(); setRunningResearch(false); }}>{runningResearch ? 'Running...' : 'Run Now'}</Button>
-            <Button variant="ghost" onClick={() => window.location.href = '/research'}>View All Runs</Button>
-            <Button variant="ghost" onClick={() => window.location.href = '/settings'}>Configure</Button>
+            <Button variant="ghost" onClick={() => router.push('/research')}>View All Runs</Button>
+            <Button variant="ghost" onClick={() => router.push('/settings')}>Configure</Button>
           </div>
         </div>
 
@@ -82,8 +84,8 @@ export default function AgentsPage() {
           <div className="muted">Configuration summary: {(settings?.content_intelligence?.contentTopics || []).length} topics • {(settings?.content_intelligence?.youtubeChannels || []).length} YouTube • {(settings?.competitors || []).length} competitors</div>
           <div className="table-toolbar" style={{ marginTop: 10 }}>
             <Button variant="primary" onClick={async () => { setRunningContent(true); await fetch(`${API_BASE}/api/content/generate-ideas`, { method: 'POST', credentials: 'include', headers: apiHeaders }); await load(); setRunningContent(false); }}>{runningContent ? 'Running...' : 'Run Now'}</Button>
-            <Button variant="ghost" onClick={() => window.location.href = '/content-calendar?tab=ideas'}>View Ideas</Button>
-            <Button variant="ghost" onClick={() => window.location.href = '/settings'}>Configure</Button>
+            <Button variant="ghost" onClick={() => router.push('/content-calendar?tab=ideas')}>View Ideas</Button>
+            <Button variant="ghost" onClick={() => router.push('/settings')}>Configure</Button>
           </div>
         </div>
       </div>

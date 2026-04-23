@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 import { SidebarNavItem } from './ui/SidebarNavItem';
 
 const NAV_GROUPS = [
@@ -205,13 +206,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <div className="topbar-heading">
                 <div className="topbar-title">Operations Console <span className="topbar-sub">MISSION CONTROL · {clock}</span></div>
                 <div className="flow-links" aria-label="Pipeline flow">
-                  <a href="/leads">Leads</a>
+                  <Link href="/leads" prefetch>Leads</Link>
                   <span>→</span>
-                  <a href="/drafts">Drafts</a>
+                  <Link href="/drafts" prefetch>Drafts</Link>
                   <span>→</span>
-                  <a href="/approvals">Approvals</a>
+                  <Link href="/approvals" prefetch>Approvals</Link>
                   <span>→</span>
-                  <a href="/scheduler">Send</a>
+                  <Link href="/scheduler" prefetch>Send</Link>
                 </div>
               </div>
               <div className="topbar-actions" style={{ position: 'relative' }}>

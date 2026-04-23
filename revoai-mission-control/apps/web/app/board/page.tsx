@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 
@@ -16,6 +17,7 @@ const COLUMNS = [
 ] as const;
 
 export default function BoardPage() {
+  const router = useRouter();
   const [leads, setLeads] = useState<any[]>([]);
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [campaignId, setCampaignId] = useState('ALL');
@@ -98,7 +100,7 @@ export default function BoardPage() {
                         <Badge tone={String(l.preferredChannel || 'EMAIL').toUpperCase() === 'EMAIL' ? 'info' : 'violet' as any}>{String(l.preferredChannel || 'EMAIL').toUpperCase()}</Badge>
                       </div>
                       <div className="muted" style={{ marginTop: 6 }}>{days} days</div>
-                      <Button variant="secondary" onClick={() => window.location.href = `/leads?leadId=${l.id}`} style={{ marginTop: 8 }}>View</Button>
+                      <Button variant="secondary" onClick={() => router.push(`/leads?leadId=${l.id}`)} style={{ marginTop: 8 }}>View</Button>
                     </div>
                   );
                 })}

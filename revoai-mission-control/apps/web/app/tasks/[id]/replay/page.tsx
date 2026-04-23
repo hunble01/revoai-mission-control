@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { Badge } from '../../../../components/ui/Badge';
 import { Card } from '../../../../components/ui/Card';
 import { Button } from '../../../../components/ui/Button';
@@ -140,7 +141,7 @@ export default function TaskReplayPage({ params }: ReplayPageProps) {
 
         <div className="table-toolbar" style={{ marginTop: 12 }}>
           <Button variant="secondary" onClick={load} disabled={loading}>Refresh Replay</Button>
-          <a href="/board" className="demo-step">Return to Board</a>
+          <Link href="/board" prefetch className="demo-step">Return to Board</Link>
         </div>
       </Card>
     </div>

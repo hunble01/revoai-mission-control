@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 
 export function SidebarNavItem({
   href,
@@ -16,12 +17,12 @@ export function SidebarNavItem({
   count?: number;
 }) {
   return (
-    <a href={href} className={`sidebar-link ${active ? 'active' : ''} ${isBeta ? 'beta' : ''}`}>
+    <Link href={href} prefetch className={`sidebar-link ${active ? 'active' : ''} ${isBeta ? 'beta' : ''}`}>
       <span aria-hidden className="sidebar-icon" />
       <span className="sidebar-label">{label}</span>
       {typeof count === 'number' && count > 0 ? <span className="nav-badge">{count}</span> : null}
       {isNew && !(typeof count === 'number' && count > 0) ? <span className="nav-new">NEW</span> : null}
       {isBeta && !(typeof count === 'number' && count > 0) ? <span className="nav-beta">SOON</span> : null}
-    </a>
+    </Link>
   );
 }

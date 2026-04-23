@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { Badge } from '../components/ui/Badge';
 import { Card } from '../components/ui/Card';
 import { Table } from '../components/ui/Table';
@@ -80,9 +81,9 @@ export default function Home() {
           system needs you, ship the rest on autopilot.
         </p>
         <div className="hero-actions">
-          <a href="/campaigns" className="hero-cta">⚡ Run a campaign</a>
-          <a href="/approvals" className="hero-cta-ghost">Open approvals queue ({needsApproval.length})</a>
-          <a href="/feed" className="hero-cta-ghost">Live feed</a>
+          <Link href="/campaigns" prefetch className="hero-cta">⚡ Run a campaign</Link>
+          <Link href="/approvals" prefetch className="hero-cta-ghost">Open approvals queue ({needsApproval.length})</Link>
+          <Link href="/feed" prefetch className="hero-cta-ghost">Live feed</Link>
         </div>
         <div className="hero-meta">
           <span>Leads<strong>{leads.length}</strong></span>

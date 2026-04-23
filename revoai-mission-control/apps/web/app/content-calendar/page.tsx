@@ -143,7 +143,7 @@ export default function ContentCalendarPage() {
           {competitorIntel && <Card title={competitorIntel.competitorName} subtitle={`Last updated ${new Date(competitorIntel.lastUpdated).toLocaleString()}`}>
             <div className="table-toolbar"><Badge tone="default">{competitorIntel.postingFrequency || '—'}</Badge>{(competitorIntel.topTopics||[]).map((t:string)=><Badge key={t} tone="info">{t}</Badge>)}</div>
             <div style={{display:'grid',gap:8, marginTop:8}}>{(competitorIntel.recentPosts||[]).map((p:any,idx:number)=><div key={idx} className="ui-card" style={{padding:10}}><Badge tone={p.platform==='LINKEDIN'?'violet':'info' as any}>{p.platform}</Badge><div style={{marginTop:6}}>{String(p.excerpt||'').slice(0,200)}</div><Button variant="secondary" onClick={()=>{ setTab('ideas'); setComposeIdea({ aiDraft:`Better angle on: ${p.excerpt}` }); setCompose((c:any)=>({...c, content:`Better angle on: ${p.excerpt}`})); }}>Create Better Version</Button></div>)}</div>
-            <div className="table-toolbar" style={{marginTop:8}}>{(competitorIntel.contentGaps||[]).map((g:string)=><Button key={g} variant="ghost">+ {g} Create Post</Button>)}</div>
+            <div className="table-toolbar" style={{marginTop:8}}>{(competitorIntel.contentGaps||[]).map((g:string)=><Button key={g} variant="ghost" onClick={()=>{ setTab('ideas'); setComposeIdea({ aiDraft:`Post idea — fill the content gap: ${g}` }); setCompose((c:any)=>({...c, content:`Post idea — fill the content gap: ${g}`})); }}>+ {g} Create Post</Button>)}</div>
           </Card>}
         </>
       )}
