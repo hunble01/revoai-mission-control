@@ -119,6 +119,8 @@ export default function CampaignsPage() {
   const [autoruns, setAutoruns] = useState<Record<string, { runId: string; stage: string; summary?: any; polling: boolean }>>({});
   const [runPopoverFor, setRunPopoverFor] = useState<string | null>(null);
   const [runParams, setRunParams] = useState<{ maxLeads: number; enrichLimit: number }>({ maxLeads: 40, enrichLimit: 20 });
+  const [schedulePopoverFor, setSchedulePopoverFor] = useState<string | null>(null);
+  const [scheduleDraft, setScheduleDraft] = useState<string>('');
   const [modalOpen, setModalOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
@@ -479,11 +481,29 @@ export default function CampaignsPage() {
                 <td>{replyRate(row)}</td>
                 <td><span style={{ width: 10, height: 10, borderRadius: 999, background: healthColor(row), display: 'inline-block' }} /></td>
                 <td style={{ whiteSpace: 'nowrap' }}>
-                  {row.scheduledAutorunAt && (
-                    <div style={{ fontSize: 10.5, color: '#7FDCFF', fontFamily: 'JetBrains Mono, monospace', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
-                      ⏰ auto-fires {new Date(row.scheduledAutorunAt).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
-                    </div>
-                  )}
+                  <div style={{ marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {row.scheduledAutorunAt ? (
+                      <button
+                        onClick={() => {
+                          const d = new Date(row.scheduledAutorunAt);
+                          const pad = (n: number) => String(n).padStart(2, '0');
+                          setScheduleDraft(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`);
+                          setSchedulePopoverFor(row.id);
+                        }}
+                        style={{ background: 'transparent', border: 0, padding: 0, cursor: 'pointer', fontSize: 10.5, color: '#7FDCFF', fontFamily: 'JetBrains Mono, monospace', textDecoration: 'underline dotted' }}
+                        title="Edit schedule"
+                      >
+                        ⏰ auto-fires {new Date(row.scheduledAutorunAt).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => { setScheduleDraft(''); setSchedulePopoverFor(row.id); }}
+                        style={{ background: 'transparent', border: '1px dashed rgba(127,220,255,.35)', padding: '2px 8px', borderRadius: 999, cursor: 'pointer', fontSize: 10.5, color: '#7FDCFF', fontFamily: 'JetBrains Mono, monospace' }}
+                      >
+                        ⏰ schedule
+                      </button>
+                    )}
+                  </div>
                   <button
                     onClick={() => {
                       if (autoruns[row.id]?.polling) return;
@@ -797,6 +817,90 @@ export default function CampaignsPage() {
                 <BtnGhost onClick={() => setImportStep((s) => Math.max(1, s - 1))}>Back</BtnGhost>
                 {importStep < 3 && <BtnPrimary onClick={() => setImportStep((s) => Math.min(3, s + 1))}>Next</BtnPrimary>}
                 {importStep === 3 && <BtnPrimary onClick={doImport}>Import</BtnPrimary>}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {schedulePopoverFor && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.6)', zIndex: 10000, padding: 16, display: 'flex', alignItems: 'stretch', justifyContent: 'center', overflowY: 'auto' }} onClick={() => setSchedulePopoverFor(null)}>
+          <div style={{ width: 'min(460px, calc(100vw - 32px))', maxHeight: 'calc(100dvh - 32px)', margin: 'auto', display: 'flex', flexDirection: 'column', border: '1px solid #1C2333', background: '#0D1117', borderRadius: 12, boxShadow: '0 20px 60px rgba(0,0,0,.5)', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 18 }}>
+              <div className="page-eyebrow">⏰ Schedule Autorun</div>
+              <h3 style={{ margin: '6px 0 4px' }}>{campaigns.find((c) => c.id === schedulePopoverFor)?.name || 'Campaign'}</h3>
+              <p className="muted" style={{ marginTop: 0, marginBottom: 14, fontSize: 13, lineHeight: 1.5 }}>
+                Pick a date + time in <strong>your local timezone</strong>. The scheduler fires the autorun within ~15 minutes of this time on that day.
+              </p>
+              <label style={{ display: 'grid', gap: 6 }}>
+                <span style={{ fontSize: 12, color: '#8B95A8' }}>When should it run? (your local time)</span>
+                <input type="datetime-local" value={scheduleDraft}
+                  onChange={(e) => setScheduleDraft(e.target.value)}
+                  style={{ background: 'rgba(17,24,39,.65)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px', fontSize: 14, fontFamily: 'inherit', colorScheme: 'dark' }} />
+              </label>
+              {scheduleDraft && (
+                <div style={{ marginTop: 12, background: 'rgba(0,201,255,.06)', border: '1px solid rgba(0,201,255,.15)', borderRadius: 8, padding: 10, fontSize: 12, lineHeight: 1.5 }}>
+                  Fires approximately: <strong>{new Date(scheduleDraft).toLocaleString(undefined, { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })}</strong>
+                  {(() => {
+                    const scheduledTs = new Date(scheduleDraft).getTime();
+                    if (Number.isNaN(scheduledTs)) return null;
+                    const now = Date.now();
+                    if (scheduledTs < now) return <div style={{ marginTop: 6, color: '#FFC466' }}>⚠️ This is in the past — fires on the next 15-min tick.</div>;
+                    const mins = Math.round((scheduledTs - now) / 60000);
+                    if (mins < 60) return <div style={{ marginTop: 6, color: '#8B95A8' }}>In ~{mins} min</div>;
+                    const hrs = Math.round(mins / 60);
+                    if (hrs < 48) return <div style={{ marginTop: 6, color: '#8B95A8' }}>In ~{hrs}h</div>;
+                    const days = Math.round(hrs / 24);
+                    return <div style={{ marginTop: 6, color: '#8B95A8' }}>In ~{days} days</div>;
+                  })()}
+                </div>
+              )}
+            </div>
+            <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'space-between', gap: 8, padding: '12px 18px', borderTop: '1px solid #1C2333', background: '#0D1117' }}>
+              <BtnGhost
+                onClick={async () => {
+                  const cid = schedulePopoverFor;
+                  if (!cid) return;
+                  setSchedulePopoverFor(null);
+                  try {
+                    const res = await fetch(`${base}/api/campaigns/${cid}`, {
+                      method: 'PATCH', credentials: 'include',
+                      headers: { 'content-type': 'application/json' },
+                      body: JSON.stringify({ scheduledAutorunAt: null }),
+                    });
+                    if (!res.ok) throw new Error('Clear failed');
+                    toast('success', 'Schedule cleared');
+                    loadCampaigns().catch(() => {});
+                  } catch (e: any) {
+                    toast('error', e?.message || 'Clear failed');
+                  }
+                }}
+                style={{ color: '#FF8AA0' }}
+              >Clear schedule</BtnGhost>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <BtnGhost onClick={() => setSchedulePopoverFor(null)}>Cancel</BtnGhost>
+                <BtnPrimary
+                  onClick={async () => {
+                    if (!scheduleDraft) { toast('warning', 'Pick a date + time first'); return; }
+                    const cid = schedulePopoverFor;
+                    if (!cid) return;
+                    // Browser parses datetime-local as local, toISOString() converts to UTC.
+                    const utcIso = new Date(scheduleDraft).toISOString();
+                    setSchedulePopoverFor(null);
+                    try {
+                      const res = await fetch(`${base}/api/campaigns/${cid}`, {
+                        method: 'PATCH', credentials: 'include',
+                        headers: { 'content-type': 'application/json' },
+                        body: JSON.stringify({ scheduledAutorunAt: utcIso }),
+                      });
+                      if (!res.ok) throw new Error('Save failed');
+                      toast('success', `Scheduled for ${new Date(utcIso).toLocaleString()}`);
+                      loadCampaigns().catch(() => {});
+                    } catch (e: any) {
+                      toast('error', e?.message || 'Save failed');
+                    }
+                  }}
+                >Save schedule</BtnPrimary>
               </div>
             </div>
           </div>
