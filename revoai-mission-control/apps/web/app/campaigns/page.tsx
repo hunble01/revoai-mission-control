@@ -117,6 +117,8 @@ function Section({ label, children }: any) {
 export default function CampaignsPage() {
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [autoruns, setAutoruns] = useState<Record<string, { runId: string; stage: string; summary?: any; polling: boolean }>>({});
+  const [runPopoverFor, setRunPopoverFor] = useState<string | null>(null);
+  const [runParams, setRunParams] = useState<{ maxLeads: number; enrichLimit: number }>({ maxLeads: 40, enrichLimit: 20 });
   const [modalOpen, setModalOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
@@ -311,13 +313,15 @@ export default function CampaignsPage() {
     }
   };
 
-  const doAutorun = async (campaignId: string) => {
+  const doAutorun = async (campaignId: string, params?: { maxLeads?: number; enrichLimit?: number }) => {
     if (autoruns[campaignId]?.polling) return;
+    const maxLeads = Math.max(1, Math.min(60, Number(params?.maxLeads ?? 40)));
+    const enrichLimit = Math.max(0, Math.min(maxLeads, Number(params?.enrichLimit ?? 20)));
     try {
       const res = await fetch(`${base}/api/campaigns/${campaignId}/autorun`, {
         method: 'POST', credentials: 'include',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ maxLeads: 40, enrichLimit: 20 }),
+        body: JSON.stringify({ maxLeads, enrichLimit }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.runId) throw new Error(data?.error?.message || 'Autorun failed to start');
@@ -458,7 +462,11 @@ export default function CampaignsPage() {
                 <td><span style={{ width: 10, height: 10, borderRadius: 999, background: healthColor(row), display: 'inline-block' }} /></td>
                 <td style={{ whiteSpace: 'nowrap' }}>
                   <button
-                    onClick={() => doAutorun(row.id)}
+                    onClick={() => {
+                      if (autoruns[row.id]?.polling) return;
+                      setRunParams({ maxLeads: 40, enrichLimit: 20 });
+                      setRunPopoverFor(row.id);
+                    }}
                     disabled={autoruns[row.id]?.polling}
                     style={{
                       padding: '6px 14px', borderRadius: 999,
@@ -779,6 +787,62 @@ export default function CampaignsPage() {
             <div style={{ display: 'flex', justifyContent: 'end', gap: 8 }}>
               <BtnGhost onClick={() => setConfirmDelete(null)}>Cancel</BtnGhost>
               <BtnDanger onClick={() => doDelete(confirmDelete.id)}>Delete</BtnDanger>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {runPopoverFor && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.6)', display: 'grid', placeItems: 'center', zIndex: 10000, padding: 16 }} onClick={() => setRunPopoverFor(null)}>
+          <div style={{ width: 'min(460px, calc(100vw - 32px))', padding: 18, border: '1px solid #1C2333', background: '#0D1117', borderRadius: 12, boxShadow: '0 20px 60px rgba(0,0,0,.5)' }} onClick={(e) => e.stopPropagation()}>
+            <div className="page-eyebrow">⚡ Run Campaign</div>
+            <h3 style={{ margin: '6px 0 4px' }}>{campaigns.find((c) => c.id === runPopoverFor)?.name || 'Campaign'}</h3>
+            <p className="muted" style={{ marginTop: 0, marginBottom: 14, fontSize: 13, lineHeight: 1.5 }}>
+              Kicks off the full pipeline: discover → enrich → AI drafts → lands in <a href="/approvals" style={{ color: '#00C9FF' }}>/approvals</a> for your review.
+            </p>
+
+            <div style={{ display: 'grid', gap: 12 }}>
+              <label style={{ display: 'grid', gap: 4 }}>
+                <span style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                  <span>How many leads to discover?</span>
+                  <span className="muted">{runParams.maxLeads} <span style={{ fontSize: 10 }}>(max 60 per run)</span></span>
+                </span>
+                <input type="range" min={5} max={60} step={5} value={runParams.maxLeads}
+                  onChange={(e) => {
+                    const v = Math.min(60, Math.max(1, Number(e.target.value)));
+                    setRunParams((p) => ({ maxLeads: v, enrichLimit: Math.min(p.enrichLimit, v) }));
+                  }}
+                  style={{ width: '100%', accentColor: '#00C9FF' }} />
+                <span className="muted" style={{ fontSize: 11 }}>
+                  Google Maps Places API cap is 60/run. Cost: ~$0.02 per 20 results.
+                </span>
+              </label>
+
+              <label style={{ display: 'grid', gap: 4 }}>
+                <span style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                  <span>How many to LLM-enrich + draft?</span>
+                  <span className="muted">{runParams.enrichLimit} <span style={{ fontSize: 10 }}>of {runParams.maxLeads}</span></span>
+                </span>
+                <input type="range" min={0} max={runParams.maxLeads} step={5} value={runParams.enrichLimit}
+                  onChange={(e) => setRunParams((p) => ({ ...p, enrichLimit: Math.min(runParams.maxLeads, Math.max(0, Number(e.target.value))) }))}
+                  style={{ width: '100%', accentColor: '#00C9FF' }} />
+                <span className="muted" style={{ fontSize: 11 }}>
+                  Each enriched lead costs ~$0.001 (Claude Haiku). Set to 0 to just import leads without drafting.
+                </span>
+              </label>
+
+              <div style={{ background: 'rgba(0,201,255,.06)', border: '1px solid rgba(0,201,255,.15)', borderRadius: 8, padding: 10, fontSize: 12, lineHeight: 1.5 }}>
+                Estimated: discover up to <strong>{runParams.maxLeads}</strong> businesses, enrich + draft up to <strong>{runParams.enrichLimit}</strong>. Real email-capture rate is typically 30-80% depending on niche, so expect <strong>{Math.round(runParams.enrichLimit * 0.4)}–{Math.round(runParams.enrichLimit * 0.8)}</strong> drafts in /approvals.
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+              <BtnGhost onClick={() => setRunPopoverFor(null)}>Cancel</BtnGhost>
+              <BtnPrimary onClick={() => {
+                const cid = runPopoverFor;
+                setRunPopoverFor(null);
+                if (cid) doAutorun(cid, runParams);
+              }}>⚡ Start run</BtnPrimary>
             </div>
           </div>
         </div>
