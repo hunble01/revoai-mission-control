@@ -47,6 +47,7 @@ export class CampaignsService {
       sendWindowFrom: data.sendWindowFrom || null,
       sendWindowTo: data.sendWindowTo || null,
       sendDays: Array.isArray(data.sendDays) ? data.sendDays : [],
+      scheduledAutorunAt: data.scheduledAutorunAt ? new Date(data.scheduledAutorunAt) : (data.scheduledAutorunAt === null ? null : undefined),
       status: this.normalizeStatus(data.status),
       isActive: this.normalizeStatus(data.status) === 'active',
     };

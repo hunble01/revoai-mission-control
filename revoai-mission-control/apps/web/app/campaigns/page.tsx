@@ -479,6 +479,11 @@ export default function CampaignsPage() {
                 <td>{replyRate(row)}</td>
                 <td><span style={{ width: 10, height: 10, borderRadius: 999, background: healthColor(row), display: 'inline-block' }} /></td>
                 <td style={{ whiteSpace: 'nowrap' }}>
+                  {row.scheduledAutorunAt && (
+                    <div style={{ fontSize: 10.5, color: '#7FDCFF', fontFamily: 'JetBrains Mono, monospace', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      ⏰ auto-fires {new Date(row.scheduledAutorunAt).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                    </div>
+                  )}
                   <button
                     onClick={() => {
                       if (autoruns[row.id]?.polling) return;

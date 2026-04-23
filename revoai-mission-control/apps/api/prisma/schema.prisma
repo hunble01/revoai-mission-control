@@ -141,6 +141,7 @@ model Campaign {
   sendWindowFrom    String?   @map("send_window_from")
   sendWindowTo      String?   @map("send_window_to")
   sendDays          Json      @default("[]") @map("send_days")
+  scheduledAutorunAt DateTime? @map("scheduled_autorun_at")
   status            String    @default("active")
   isActive          Boolean   @default(true)
   createdAt         DateTime  @default(now())

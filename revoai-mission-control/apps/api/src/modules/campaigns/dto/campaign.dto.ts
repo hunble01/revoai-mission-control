@@ -30,5 +30,6 @@ export class CreateCampaignDto {
   @IsOptional() @IsString() sendWindowFrom?: string;
   @IsOptional() @IsString() sendWindowTo?: string;
   @IsOptional() @IsArray() sendDays?: string[];
+  @IsOptional() scheduledAutorunAt?: string | null;
   @IsOptional() @IsString() status?: string;
 }
