@@ -410,9 +410,46 @@ export class ResearchService {
       this.prisma.researchIntel.findMany({ where: { runId } }),
     ]);
 
-    const withEmail = leads.filter((l: any) => !!l.email).length;
     const withPhone = leads.filter((l: any) => !!l.phone).length;
-    const withLinkedin = leads.filter((l: any) => !!l.linkedinUrl).length;
+    const withWebsite = leads.filter((l: any) => !!l.website).length;
+
+    // Downstream funnel — what happened AFTER this research run's leads
+    // were promoted into the Lead table. Places API returns phone + website
+    // but rarely emails; emails come from LLM enrichment of the website
+    // once a lead is promoted. So the funnel is the useful signal, not
+    // the research-table columns in isolation.
+    let promoted = 0;
+    let enriched = 0;
+    let drafted = 0;
+    let sent = 0;
+    if (run.campaignId && leads.length) {
+      const runTime = run.createdAt;
+      const businessNames = Array.from(new Set(leads.map((l: any) => l.companyName).filter(Boolean)));
+      const promotedLeads = await this.prisma.lead.findMany({
+        where: {
+          campaignId: run.campaignId,
+          businessName: { in: businessNames },
+          createdAt: { gte: runTime },
+        },
+        select: { id: true, email: true, sourceDetail: true },
+      });
+      promoted = promotedLeads.length;
+      enriched = promotedLeads.filter((l: any) => String(l.sourceDetail || '').includes('enrichedAt')).length;
+      const leadIds = promotedLeads.map((l: any) => l.id);
+      if (leadIds.length) {
+        const [draftCount, sendCount] = await Promise.all([
+          this.prisma.draft.count({ where: { leadId: { in: leadIds } } }),
+          this.prisma.outboundSend.count({
+            where: {
+              leadId: { in: leadIds },
+              status: { in: ['sent', 'delivered', 'opened', 'clicked'] as any },
+            },
+          }),
+        ]);
+        drafted = draftCount;
+        sent = sendCount;
+      }
+    }
 
     return {
       runId: run.id,
@@ -422,9 +459,16 @@ export class ResearchService {
         leads: leads.length,
         content: content.length,
         intel: intel.length,
-        withEmail,
         withPhone,
-        withLinkedin,
+        withWebsite,
+        // Back-compat: some UIs still read withEmail / withLinkedin
+        withEmail: leads.filter((l: any) => !!l.email).length,
+        withLinkedin: leads.filter((l: any) => !!l.linkedinUrl).length,
+        // Downstream funnel (the useful signal)
+        promoted,
+        enriched,
+        drafted,
+        sent,
       },
       topLeadSources: Array.from(new Set(leads.map((l: any) => l.source || l.sourceType || 'unknown'))).slice(0, 5),
       topCompetitors: intel.slice(0, 5).map((i: any) => ({ competitor: i.competitor, insight: i.insight })),

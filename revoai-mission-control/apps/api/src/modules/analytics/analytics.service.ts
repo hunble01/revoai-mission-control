@@ -6,14 +6,19 @@ export class AnalyticsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async funnel() {
-    const [researched, contacted, replied, booked, closed] = await Promise.all([
-      this.prisma.lead.count({ where: { status: 'RESEARCHED' } as any }),
+    // "Researched" = any lead we've discovered (top of funnel). Autorun
+    // promotes leads with status='APPROVED' not 'RESEARCHED', so counting
+    // by that one status returned 0 even when we had 40+ leads. Use total
+    // leads minus terminal-failure states instead — that matches user
+    // intuition of "how many leads are in my database".
+    const [total, contacted, replied, booked, closed] = await Promise.all([
+      this.prisma.lead.count(),
       this.prisma.lead.count({ where: { status: 'CONTACTED' } as any }),
       this.prisma.lead.count({ where: { status: 'REPLIED' } as any }),
       this.prisma.lead.count({ where: { status: 'BOOKED' } as any }),
       this.prisma.lead.count({ where: { status: 'LOST' } as any }),
     ]);
-    return { researched, contacted, replied, booked, closed };
+    return { researched: total, contacted, replied, booked, closed };
   }
 
   async channels() {

@@ -155,6 +155,24 @@ export function LiveAgentDashboard() {
       });
     });
 
+    // Seed per-agent counters from DB so they reflect real today-activity
+    // on first load (otherwise they sit at 0 until a new event arrives
+    // over the socket — confusing when emails were sent earlier in the day).
+    fetch(`${API_BASE}/api/stats/agent-counts`, { credentials: 'include', headers })
+      .then((r) => r.json())
+      .then((counts: any) => {
+        setAgents((prev) => ({
+          ...prev,
+          discovery: { ...prev.discovery, count: Number(counts?.discovery || 0) },
+          enrichment: { ...prev.enrichment, count: Number(counts?.enrichment || 0) },
+          drafter: { ...prev.drafter, count: Number(counts?.drafter || 0) },
+          sender: { ...prev.sender, count: Number(counts?.sender || 0) },
+          followup: { ...prev.followup, count: Number(counts?.followup || 0) },
+          tracker: { ...prev.tracker, count: Number(counts?.tracker || 0) },
+        }));
+      })
+      .catch(() => {});
+
     // Also pull recent events to seed the tape so the UI isn't empty on load
     fetch(`${API_BASE}/api/events/feed?limit=30`, { credentials: 'include', headers })
       .then((r) => r.json())

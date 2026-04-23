@@ -90,15 +90,37 @@ export default function ResearchPage() {
         </Card>
 
         <div style={{ display: 'grid', gap: 12 }}>
-          <Card title="Run Summary" subtitle={selectedRunId || 'Select a run'}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,minmax(0,1fr))', gap: 8 }}>
-              <div className="ui-card" style={{ padding: 10 }}><div className="kpi-title">Leads</div><div className="kpi-value cyan">{summary?.counts?.leads ?? 0}</div></div>
-              <div className="ui-card" style={{ padding: 10 }}><div className="kpi-title">With Email</div><div className="kpi-value emerald">{summary?.counts?.withEmail ?? 0}</div></div>
-              <div className="ui-card" style={{ padding: 10 }}><div className="kpi-title">With Phone</div><div className="kpi-value amber">{summary?.counts?.withPhone ?? 0}</div></div>
-              <div className="ui-card" style={{ padding: 10 }}><div className="kpi-title">With LinkedIn</div><div className="kpi-value violet">{summary?.counts?.withLinkedin ?? 0}</div></div>
-              <div className="ui-card" style={{ padding: 10 }}><div className="kpi-title">Content</div><div className="kpi-value">{summary?.counts?.content ?? 0}</div></div>
-              <div className="ui-card" style={{ padding: 10 }}><div className="kpi-title">Intel</div><div className="kpi-value">{summary?.counts?.intel ?? 0}</div></div>
+          <Card title="Funnel from this research run" subtitle="What Places API returned → what became leads → drafts → sends">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,minmax(0,1fr))', gap: 8 }}>
+              <div className="ui-card" style={{ padding: 10 }}>
+                <div className="kpi-title" style={{ fontSize: 10, color: '#7C8599', letterSpacing: '.1em', textTransform: 'uppercase' }}>🔍 Discovered</div>
+                <div className="kpi-value cyan" style={{ fontSize: 24 }}>{summary?.counts?.leads ?? 0}</div>
+                <div className="muted text-xs mono">{summary?.counts?.withPhone ?? 0} w/ phone · {summary?.counts?.withWebsite ?? 0} w/ website</div>
+              </div>
+              <div className="ui-card" style={{ padding: 10 }}>
+                <div className="kpi-title" style={{ fontSize: 10, color: '#7C8599', letterSpacing: '.1em', textTransform: 'uppercase' }}>→ Promoted</div>
+                <div className="kpi-value emerald" style={{ fontSize: 24 }}>{summary?.counts?.promoted ?? 0}</div>
+                <div className="muted text-xs mono">into Lead table</div>
+              </div>
+              <div className="ui-card" style={{ padding: 10 }}>
+                <div className="kpi-title" style={{ fontSize: 10, color: '#7C8599', letterSpacing: '.1em', textTransform: 'uppercase' }}>🧠 Enriched</div>
+                <div className="kpi-value violet" style={{ fontSize: 24 }}>{summary?.counts?.enriched ?? 0}</div>
+                <div className="muted text-xs mono">website scraped</div>
+              </div>
+              <div className="ui-card" style={{ padding: 10 }}>
+                <div className="kpi-title" style={{ fontSize: 10, color: '#7C8599', letterSpacing: '.1em', textTransform: 'uppercase' }}>✍️ Drafted</div>
+                <div className="kpi-value amber" style={{ fontSize: 24 }}>{summary?.counts?.drafted ?? 0}</div>
+                <div className="muted text-xs mono">AI cold emails</div>
+              </div>
+              <div className="ui-card" style={{ padding: 10 }}>
+                <div className="kpi-title" style={{ fontSize: 10, color: '#7C8599', letterSpacing: '.1em', textTransform: 'uppercase' }}>📮 Sent</div>
+                <div className="kpi-value" style={{ fontSize: 24, color: '#FF5B7A' }}>{summary?.counts?.sent ?? 0}</div>
+                <div className="muted text-xs mono">via Resend</div>
+              </div>
             </div>
+            <p className="muted" style={{ marginTop: 10, fontSize: 11.5 }}>
+              Places API returns phone + website, not email. Emails come from AI enrichment after promotion. If "Enriched" shows a number but "Drafted" is lower, the gap = leads where Claude couldn't find a visible email on the website.
+            </p>
           </Card>
 
           <Card title="Run Detail" subtitle={selectedRunId || 'Select a run'}>

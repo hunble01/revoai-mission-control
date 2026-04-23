@@ -1316,7 +1316,11 @@ export class DraftsService {
       }
     }
 
-    await this.events.publish({ eventType: 'outbound.queue.processed', payload: { count: results.length, channel: channel || 'ALL' } });
+    // Only emit when there was actual work. Otherwise this floods /feed
+    // every minute with empty-queue noise and drowns out real events.
+    if (results.length > 0) {
+      await this.events.publish({ eventType: 'outbound.queue.processed', payload: { count: results.length, channel: channel || 'ALL' } });
+    }
     return { ok: true, processed: results.length, results };
   }
 
