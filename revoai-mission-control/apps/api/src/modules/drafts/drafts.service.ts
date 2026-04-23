@@ -815,12 +815,52 @@ export class DraftsService {
     const smtpPass = String(process.env.EMAIL_SMTP_PASS || '').trim();
     const smtpSecure = String(process.env.EMAIL_SMTP_SECURE || 'false').toLowerCase() === 'true';
     const useSmtp = !!(smtpHost && smtpUser && smtpPass && from);
+    // Prefer Resend REST API when the SMTP config is actually Resend — the
+    // REST API returns the Resend-internal email ID (UUID) which unlocks
+    // GET /emails/:id polling for delivered / opened / clicked / bounced
+    // events. SMTP returns its own Message-ID header that Resend's REST
+    // API can't look up (404s).
+    const useResendRest = smtpHost === 'smtp.resend.com' && smtpPass.startsWith('re_') && !!from;
 
     while (attempts < maxAttempts) {
       attempts += 1;
       try {
-        if (stubMode && !useSmtp && (!providerSendUrl || !accessToken)) {
+        if (stubMode && !useSmtp && !useResendRest && (!providerSendUrl || !accessToken)) {
           messageId = `stub_email_${Date.now()}`;
+          sendStatus = 'sent';
+          sendError = null;
+          break;
+        }
+
+        if (useResendRest) {
+          const replyTo = (process.env.EMAIL_REPLY_TO || '').trim() || undefined;
+          const resendRes = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${smtpPass}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              from: fromHeader,
+              to,
+              reply_to: replyTo,
+              subject: subjectLine,
+              text: plainText,
+              html: htmlBody,
+              headers: {
+                'List-Unsubscribe': `<${unsubscribeUrl}>`,
+                'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+              },
+            }),
+          });
+          const resendJson: any = await resendRes.json().catch(() => ({}));
+          if (!resendRes.ok) {
+            sendStatus = classifyFailure(resendRes.status, resendJson?.message || resendJson?.error?.message) as any;
+            sendError = resendJson?.message || resendJson?.error?.message || `Resend send failed (HTTP ${resendRes.status})`;
+            if (sendStatus === 'transient_failure' && attempts < maxAttempts) continue;
+            break;
+          }
+          messageId = resendJson?.id || null;
           sendStatus = 'sent';
           sendError = null;
           break;
