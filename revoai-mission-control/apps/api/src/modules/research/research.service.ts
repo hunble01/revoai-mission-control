@@ -115,7 +115,12 @@ export class ResearchService {
     const key = String(process.env.GOOGLE_MAPS_API_KEY || '').trim();
     if (!key) return { rows: [], warning: 'Google Maps API key missing' };
 
-    const parts = [params.niche, params.subNiche, params.geographyCity, params.geographyRegion]
+    // Places API does best with BROAD natural-language queries like
+    // "dental clinic Toronto". Concatenating subNiche ("family + cosmetic
+    // dentistry") on top nukes recall because Places treats it as required
+    // match terms. subNiche is used downstream as context for AI drafting,
+    // not as a search qualifier here.
+    const parts = [params.niche, params.geographyCity, params.geographyRegion]
       .filter(Boolean).join(' ').trim();
     const textQuery = parts || params.query || 'local businesses';
     const maxLeads = Math.max(1, Number(params.maxLeads || 60));
