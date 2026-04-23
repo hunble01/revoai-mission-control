@@ -337,7 +337,25 @@ export default function CampaignsPage() {
             clearInterval(pollInterval);
             const s = status.summary || {};
             setAutoruns((prev) => ({ ...prev, [campaignId]: { runId: data.runId, stage: 'complete', summary: s, polling: false } }));
-            toast('success', `Autorun done: ${s.discovered || 0} found · ${s.drafted || 0} drafted`);
+            // Interpret the summary so "0 drafted" isn't mysterious.
+            const discovered = Number(s.discovered || 0);
+            const promoted = Number(s.promoted || 0);
+            const skippedDup = Number(s.skippedDuplicate || 0);
+            const drafted = Number(s.drafted || 0);
+            const enriched = Number(s.enriched || 0);
+            let msg: string;
+            if (discovered === 0) {
+              msg = 'Nothing found. Try a broader niche or different city.';
+            } else if (promoted === 0 && skippedDup >= discovered) {
+              msg = `${discovered} businesses found — all already in your database from a previous run. Try a new niche or city.`;
+            } else if (drafted === 0 && enriched > 0) {
+              msg = `${discovered} found, ${promoted} new leads, but none had visible emails. Try a niche with more public contact info (agencies / clinics / law firms).`;
+            } else if (drafted === 0) {
+              msg = `${discovered} found, ${promoted} new leads added — no drafts generated yet (enrichment cap hit).`;
+            } else {
+              msg = `Autorun done: ${discovered} found · ${promoted} new leads · ${drafted} drafts in /approvals`;
+            }
+            toast(drafted > 0 ? 'success' : 'info', msg);
             loadCampaigns().catch(() => {});
           } else if (status?.status === 'error') {
             clearInterval(pollInterval);

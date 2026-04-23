@@ -30,6 +30,7 @@ type RunSummary = {
   runId: string;
   discovered: number;
   promoted: number;
+  skippedDuplicate: number;
   enriched: number;
   drafted: number;
   errors: string[];
@@ -69,7 +70,7 @@ export class CampaignAutorunService {
   }
 
   private async runFullInternal(runId: string, campaignId: string, opts: RunOptions): Promise<RunSummary> {
-    const summary: RunSummary = { runId, discovered: 0, promoted: 0, enriched: 0, drafted: 0, errors: [] };
+    const summary: RunSummary = { runId, discovered: 0, promoted: 0, skippedDuplicate: 0, enriched: 0, drafted: 0, errors: [] };
     const maxLeads = opts.maxLeads ?? 40;
     const enrichLimit = opts.enrichLimit ?? 25;
     const enrichConcurrency = 3;
@@ -101,6 +102,7 @@ export class CampaignAutorunService {
       if (!sourceRunId) throw new Error('research run did not return an id');
       const promotion = await this.research.promoteLeads(sourceRunId, { action: 'APPROVE', campaignId });
       summary.promoted = promotion?.promoted || 0;
+      summary.skippedDuplicate = promotion?.skippedDuplicate || 0;
       // Fetch the promoted Leads — they're the most recent in this campaign
       if (summary.promoted > 0) {
         promotedLeads = await this.prisma.lead.findMany({
@@ -109,7 +111,7 @@ export class CampaignAutorunService {
           take: Math.min(maxLeads, summary.promoted),
         });
       }
-      await publish('stage2.promote', { promoted: summary.promoted });
+      await publish('stage2.promote', { promoted: summary.promoted, skippedDuplicate: summary.skippedDuplicate });
     } catch (err: any) {
       summary.errors.push(`promote: ${err?.message || err}`);
       await publish('error', { stage: 'promote', message: String(err?.message || err) });

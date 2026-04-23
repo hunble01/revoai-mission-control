@@ -26,7 +26,7 @@ export class CreateCampaignDto {
   @IsOptional() @IsString() dmBodyTemplate?: string;
   @IsOptional() dmAiGenerate?: boolean;
   @IsOptional() followupEnabled?: boolean;
-  @IsOptional() @IsObject() followupSequence?: any;
+  @IsOptional() followupSequence?: any;
   @IsOptional() @IsString() sendWindowFrom?: string;
   @IsOptional() @IsString() sendWindowTo?: string;
   @IsOptional() @IsArray() sendDays?: string[];
