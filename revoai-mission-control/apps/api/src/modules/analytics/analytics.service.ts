@@ -31,10 +31,14 @@ export class AnalyticsService {
       FACEBOOK: { sent: 0, replied: 0 },
     };
 
+    // Count all post-send states as "sent" — delivery tracker promotes
+    // status to delivered/opened/clicked/bounced, so counting literally
+    // 'sent' misses most of the history.
+    const sentStates = new Set(['sent', 'delivered', 'opened', 'clicked', 'bounced', 'complained']);
     for (const s of sends as any[]) {
       const p = String(s.provider || '').toUpperCase();
       if (!map[p]) map[p] = { sent: 0, replied: 0 };
-      if (String(s.status || '').toLowerCase() === 'sent') map[p].sent += 1;
+      if (sentStates.has(String(s.status || '').toLowerCase())) map[p].sent += 1;
     }
 
     for (const m of linkedin as any[]) {
@@ -70,7 +74,12 @@ export class AnalyticsService {
       end.setDate(start.getDate() + 1);
 
       const [sends, replies, bookings] = await Promise.all([
-        this.prisma.outboundSend.count({ where: { sentAt: { gte: start, lt: end }, status: 'sent' } as any }),
+        this.prisma.outboundSend.count({
+          where: {
+            sentAt: { gte: start, lt: end },
+            status: { in: ['sent', 'delivered', 'opened', 'clicked', 'bounced', 'complained'] } as any,
+          } as any,
+        }),
         this.prisma.lead.count({ where: { status: 'REPLIED', lastActionAt: { gte: start, lt: end } } as any }),
         this.prisma.lead.count({ where: { status: 'BOOKED', lastActionAt: { gte: start, lt: end } } as any }),
       ]);

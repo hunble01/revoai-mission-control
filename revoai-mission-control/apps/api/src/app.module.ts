@@ -24,8 +24,11 @@ import { FacebookModule } from './modules/facebook/facebook.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { ContentModule } from './modules/content/content.module';
 import { UnsubscribeModule } from './modules/unsubscribe/unsubscribe.module';
+import { DeliveryTrackerModule } from './modules/delivery-tracker/delivery-tracker.module';
+import { PrismaService } from './prisma/prisma.service';
 
 @Module({
+  providers: [PrismaService],
   imports: [
     EventsModule,
     ApprovalsModule,
@@ -51,6 +54,7 @@ import { UnsubscribeModule } from './modules/unsubscribe/unsubscribe.module';
     AnalyticsModule,
     ContentModule,
     UnsubscribeModule,
+    DeliveryTrackerModule,
   ],
   controllers: [HealthController],
 })

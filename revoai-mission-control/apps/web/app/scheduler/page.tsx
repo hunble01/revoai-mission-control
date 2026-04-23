@@ -32,9 +32,43 @@ export default function SchedulerPage() {
   };
   useEffect(() => { load(); }, []);
 
+  const systemCrons = [
+    { name: '🔁 Follow-up Cron', schedule: 'Every 6 hours', purpose: 'Generates Day 3/7/14 AI follow-up drafts for contacted leads', status: 'Active' },
+    { name: '⏰ Scheduled Autorun', schedule: 'Every 15 minutes', purpose: 'Fires campaigns whose scheduledAutorunAt has passed', status: 'Active' },
+    { name: '📮 Queue Drain', schedule: 'Every 60 seconds', purpose: 'Processes approved drafts in the outbound queue and sends via Resend', status: 'Active' },
+    { name: '📊 Delivery Tracker', schedule: 'Every 30 minutes', purpose: 'Polls Resend API for delivered/opened/clicked/bounced events', status: 'Active' },
+  ];
+
   return <div className="dash-stack fade-in">
     <section className="page-header"><div className="page-eyebrow">OPERATIONS / SCHEDULER</div><h2 className="page-title" style={{ margin: 0 }}>Scheduler</h2></section>
-    <div style={{ display: 'grid', gap: 10 }}>
+
+    <Card title="Live System Crons" subtitle="Background workers running inside the API container">
+      <div style={{ display: 'grid', gap: 8 }}>
+        {systemCrons.map((c) => (
+          <div key={c.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '10px 12px', background: 'rgba(16,214,138,.04)', border: '1px solid rgba(16,214,138,.18)', borderRadius: 8 }}>
+            <div>
+              <div style={{ fontWeight: 700, color: '#E8EDF5' }}>{c.name}</div>
+              <div className="muted" style={{ fontSize: 12 }}>{c.purpose}</div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: '#10D68A', letterSpacing: '.06em' }}>● {c.status}</div>
+              <div className="muted" style={{ fontSize: 11, fontFamily: 'JetBrains Mono, monospace' }}>{c.schedule}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="muted" style={{ fontSize: 11, marginTop: 10, marginBottom: 0 }}>
+        These run in-memory inside the API process. Disable individually via env flags (FOLLOWUP_AUTOCRON, SCHEDULED_AUTORUN, QUEUE_DRAIN, DELIVERY_TRACKER_AUTOCRON).
+      </p>
+    </Card>
+
+    <Card title="DB-Stored Scheduler Jobs" subtitle={jobs.length ? `${jobs.length} custom cron job${jobs.length === 1 ? '' : 's'}` : 'None configured yet'}>
+      <div style={{ display: 'grid', gap: 10 }}>
+      {!jobs.length && (
+        <p className="muted" style={{ fontSize: 12, margin: 0 }}>
+          No custom cron jobs in the database. The live system crons above handle the full outreach pipeline. Add custom jobs here later if you need one-off scheduled tasks.
+        </p>
+      )}
       {jobs.map((j: any) => {
         const e = editor[j.id] || { frequency: 'DAILY', time: '09:00', days: ['Mon'], custom: j.cronExpr };
         return <Card key={j.id} title={j.name} subtitle={cronToText(j.cronExpr)}>
@@ -47,6 +81,7 @@ export default function SchedulerPage() {
           </div>
         </Card>;
       })}
-    </div>
+      </div>
+    </Card>
   </div>;
 }
