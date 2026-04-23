@@ -71,18 +71,15 @@ export default function Home() {
   }, [leads, needsApproval, queueOverview, sendHistory, socialPosts]);
 
   return (
-    <div className="dash-stack fade-in">
-      <section className="hero-gradient">
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+    <div className="dash-stack">
+      <section className="page-header">
+        <div className="page-eyebrow">MISSION CONTROL</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
           <div>
-            <div className="page-eyebrow">MISSION CONTROL</div>
-            <h1 style={{ marginTop: 8 }}>Good to see you back.</h1>
-            <p>Here's a live snapshot of your outbound engine — research pulls, approvals waiting, what's shipping to inboxes.</p>
+            <h2 className="page-title" style={{ margin: 0 }}>Unified Operations Dashboard</h2>
+            <p className="page-desc">Research, approvals, outbound queues, and publishing in one operational view.</p>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end' }}>
-            <Badge tone="info">Last refresh {lastRefresh}</Badge>
-            <a href="/campaigns" className="ui-btn ui-btn-primary">⚡ Run a campaign</a>
-          </div>
+          <Badge tone="info">Last refresh: {lastRefresh}</Badge>
         </div>
       </section>
 
@@ -92,7 +89,7 @@ export default function Home() {
         </Card>
       ) : (
       <>
-      <section className="kpi-grid">
+      <section className="kpi-grid" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
         {kpis.map((k, i) => (
           <div key={k.label} className={`kpi-card ${i % 4 === 0 ? 'cyan' : i % 4 === 1 ? 'emerald' : i % 4 === 2 ? 'amber' : 'violet'}`}>
             <div className="kpi-label">{k.label}</div>
