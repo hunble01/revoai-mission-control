@@ -143,7 +143,7 @@ export default function CampaignsPage() {
     }
   }, []);
 
-  const toast = (type: 'success' | 'error', text: string) => {
+  const toast = (type: 'success' | 'error' | 'info' | 'warning', text: string) => {
     if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('app-toast', { detail: { type, text } }));
   };
 
