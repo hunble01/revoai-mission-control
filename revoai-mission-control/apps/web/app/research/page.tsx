@@ -153,17 +153,19 @@ export default function ResearchPage() {
       </div>
 
       {selectedLead && (
-        <aside style={{ position: 'fixed', right: 0, top: 0, width: 360, height: '100vh', background: '#0D1117', borderLeft: '1px solid #1C2333', zIndex: 9999, padding: 16 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}><strong>{selectedLead.companyName}</strong><Button variant="secondary" onClick={() => setSelectedLead(null)}>✕</Button></div>
-          <div className="muted">Contact: {selectedLead.contactName || '—'}</div>
-          <div className="muted">Email: {selectedLead.email || '—'}</div>
-          <div className="muted">Phone: {selectedLead.phone || '—'}</div>
-          <div className="muted">LinkedIn: {selectedLead.linkedinUrl || '—'}</div>
-          <div className="muted">Source: {selectedLead.source || selectedLead.sourceType || '—'}</div>
-          <div style={{ marginTop: 12 }}>
-            <Button variant="primary" onClick={() => { setSelectedLeadIds([selectedLead.id]); bulkPromote('APPROVE'); }}>Approve</Button>{' '}
-            <Button variant="secondary" onClick={() => { setSelectedLeadIds([selectedLead.id]); bulkPromote('SNOOZE'); }}>Snooze</Button>{' '}
-            <Button variant="ghost" onClick={() => { setSelectedLeadIds([selectedLead.id]); bulkPromote('REJECT'); }}>Reject</Button>
+        <aside style={{ position: 'fixed', right: 0, top: 0, width: 'min(360px, 100vw)', height: '100dvh', background: '#0D1117', borderLeft: '1px solid #1C2333', zIndex: 9999, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ flexShrink: 0, padding: 16, borderBottom: '1px solid #1C2333', display: 'flex', justifyContent: 'space-between' }}><strong>{selectedLead.companyName}</strong><Button variant="secondary" onClick={() => setSelectedLead(null)}>✕</Button></div>
+          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: 16 }}>
+            <div className="muted">Contact: {selectedLead.contactName || '—'}</div>
+            <div className="muted">Email: {selectedLead.email || '—'}</div>
+            <div className="muted">Phone: {selectedLead.phone || '—'}</div>
+            <div className="muted">LinkedIn: {selectedLead.linkedinUrl || '—'}</div>
+            <div className="muted">Source: {selectedLead.source || selectedLead.sourceType || '—'}</div>
+            <div style={{ marginTop: 12 }}>
+              <Button variant="primary" onClick={() => { setSelectedLeadIds([selectedLead.id]); bulkPromote('APPROVE'); }}>Approve</Button>{' '}
+              <Button variant="secondary" onClick={() => { setSelectedLeadIds([selectedLead.id]); bulkPromote('SNOOZE'); }}>Snooze</Button>{' '}
+              <Button variant="ghost" onClick={() => { setSelectedLeadIds([selectedLead.id]); bulkPromote('REJECT'); }}>Reject</Button>
+            </div>
           </div>
         </aside>
       )}

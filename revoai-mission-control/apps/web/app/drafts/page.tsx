@@ -297,10 +297,10 @@ export default function DraftsPage() {
       </Card>
 
       {showCompose && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.7)', zIndex: 7000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div style={{ width: '100%', maxWidth: 680, background: '#0D1117', border: '1px solid #1C2333', borderRadius: 8, overflow: 'hidden' }}>
-            <div style={{ padding: '14px 16px', borderBottom: '1px solid #1C2333' }}><strong>Compose Draft</strong></div>
-            <div style={{ padding: 16, display: 'grid', gap: 10 }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.7)', zIndex: 7000, display: 'flex', alignItems: 'stretch', justifyContent: 'center', padding: 16, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          <div style={{ width: '100%', maxWidth: 680, maxHeight: 'calc(100dvh - 32px)', margin: 'auto', display: 'flex', flexDirection: 'column', background: '#0D1117', border: '1px solid #1C2333', borderRadius: 8, overflow: 'hidden' }}>
+            <div style={{ flexShrink: 0, padding: '14px 16px', borderBottom: '1px solid #1C2333' }}><strong>Compose Draft</strong></div>
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: 16, display: 'grid', gap: 10 }}>
               <select className="ui-input" value={compose.campaignId} onChange={(e) => setCompose((curr) => ({ ...curr, campaignId: e.target.value, leadId: '' }))}>
                 <option value="">Select Campaign</option>
                 {campaigns.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}

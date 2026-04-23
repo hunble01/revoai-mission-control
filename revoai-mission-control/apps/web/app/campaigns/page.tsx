@@ -452,14 +452,14 @@ export default function CampaignsPage() {
       </Card>
 
       {mounted && modalOpen && portalEl && createPortal(
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.8)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', boxSizing: 'border-box' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', width: '100%', maxWidth: '760px', height: 'calc(100vh - 32px)', minHeight: 'calc(100vh - 32px)', background: '#0D1117', border: '1px solid #1C2333', borderRadius: '8px', overflow: 'hidden' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100dvh', background: 'rgba(0,0,0,0.8)', zIndex: 9999, display: 'flex', alignItems: 'stretch', justifyContent: 'center', padding: '16px', boxSizing: 'border-box', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', width: '100%', maxWidth: '760px', maxHeight: 'calc(100dvh - 32px)', margin: 'auto', background: '#0D1117', border: '1px solid #1C2333', borderRadius: '8px', overflow: 'hidden' }}>
             <div style={{ flexShrink: 0, padding: '12px 16px 10px', borderBottom: '1px solid #1C2333' }}>
               <div className="page-eyebrow">Campaign Setup</div>
               <div style={{ fontWeight: 600 }}>Step {currentStep} / 4</div>
             </div>
 
-            <div style={{ flex: 1, overflowY: currentStep === 1 ? 'hidden' : 'auto', overflowX: 'hidden', padding: '12px 16px' }}>
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', padding: '12px 16px', WebkitOverflowScrolling: 'touch' }}>
               {currentStep === 1 && (
                 <>
                   <Section label="CAMPAIGN INFO">
@@ -657,13 +657,13 @@ export default function CampaignsPage() {
       )}
 
       {mounted && importModalOpen && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.8)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', boxSizing: 'border-box' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', width: '100%', maxWidth: '680px', height: 'calc(100vh - 48px)', minHeight: 'calc(100vh - 48px)', background: '#0D1117', border: '1px solid #1C2333', borderRadius: '8px', overflow: 'hidden' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100dvh', background: 'rgba(0,0,0,0.8)', zIndex: 9999, display: 'flex', alignItems: 'stretch', justifyContent: 'center', padding: '16px', boxSizing: 'border-box', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', width: '100%', maxWidth: '680px', maxHeight: 'calc(100dvh - 32px)', margin: 'auto', background: '#0D1117', border: '1px solid #1C2333', borderRadius: '8px', overflow: 'hidden' }}>
             <div style={{ flexShrink: 0, padding: '18px 24px 14px', borderBottom: '1px solid #1C2333' }}>
               <div className="page-eyebrow">Import Leads</div>
               <div style={{ fontWeight: 600 }}>Step {importStep} / 3</div>
             </div>
-            <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '20px 24px' }}>
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', padding: '20px 24px', WebkitOverflowScrolling: 'touch' }}>
               {importStep === 1 && (
                 <select style={inputStyle} value={importCampaignId} onChange={(e) => setImportCampaignId(e.target.value)}>
                   {activeCampaigns.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}

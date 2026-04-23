@@ -348,10 +348,10 @@ export default function LeadsPage() {
       </Card>
 
       {showAddLead && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.7)', zIndex: 7000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div style={{ width: '100%', maxWidth: 620, background: '#0D1117', border: '1px solid #1C2333', borderRadius: 8, overflow: 'hidden' }}>
-            <div style={{ padding: '14px 16px', borderBottom: '1px solid #1C2333' }}><strong>Add Lead</strong></div>
-            <div style={{ padding: 16, display: 'grid', gap: 10 }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.7)', zIndex: 7000, display: 'flex', alignItems: 'stretch', justifyContent: 'center', padding: 16, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          <div style={{ width: '100%', maxWidth: 620, maxHeight: 'calc(100dvh - 32px)', margin: 'auto', display: 'flex', flexDirection: 'column', background: '#0D1117', border: '1px solid #1C2333', borderRadius: 8, overflow: 'hidden' }}>
+            <div style={{ flexShrink: 0, padding: '14px 16px', borderBottom: '1px solid #1C2333' }}><strong>Add Lead</strong></div>
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: 16, display: 'grid', gap: 10 }}>
               <Input value={newLead.businessName} onChange={(e) => setNewLead((n) => ({ ...n, businessName: e.target.value }))} placeholder="Business Name *" />
               <Input value={newLead.contactName} onChange={(e) => setNewLead((n) => ({ ...n, contactName: e.target.value }))} placeholder="Contact Name" />
               <Input value={newLead.email} onChange={(e) => setNewLead((n) => ({ ...n, email: e.target.value }))} placeholder="Email *" />
@@ -374,7 +374,7 @@ export default function LeadsPage() {
 
       <>
         <div style={{ position: 'fixed', inset: 0, background: selectedLead ? 'rgba(0,0,0,0.4)' : 'transparent', zIndex: selectedLead ? 7999 : -1, pointerEvents: selectedLead ? 'auto' : 'none' }} onClick={() => setSelectedLead(null)} />
-        <aside style={{ position: 'fixed', right: 0, top: 0, height: '100vh', width: 420, background: '#0D1117', borderLeft: '1px solid #1C2333', zIndex: 8000, display: 'flex', flexDirection: 'column', transform: selectedLead ? 'translateX(0)' : 'translateX(100%)', transition: 'transform 0.25s ease' }}>
+        <aside style={{ position: 'fixed', right: 0, top: 0, height: '100dvh', width: 'min(420px, 100vw)', background: '#0D1117', borderLeft: '1px solid #1C2333', zIndex: 8000, display: 'flex', flexDirection: 'column', transform: selectedLead ? 'translateX(0)' : 'translateX(100%)', transition: 'transform 0.25s ease' }}>
           <div style={{ padding: 16, borderBottom: '1px solid #1C2333', display: 'flex', justifyContent: 'space-between' }}>
             <div><div style={{ fontWeight: 700 }}>{selectedLead?.businessName || 'Unknown'}</div><div className="muted">{selectedLead?.contactName || '—'}</div></div>
             <Button variant="secondary" onClick={() => setSelectedLead(null)}>✕</Button>
