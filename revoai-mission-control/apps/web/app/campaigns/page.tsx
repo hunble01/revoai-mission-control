@@ -793,8 +793,9 @@ export default function CampaignsPage() {
       )}
 
       {runPopoverFor && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.6)', display: 'grid', placeItems: 'center', zIndex: 10000, padding: 16 }} onClick={() => setRunPopoverFor(null)}>
-          <div style={{ width: 'min(460px, calc(100vw - 32px))', padding: 18, border: '1px solid #1C2333', background: '#0D1117', borderRadius: 12, boxShadow: '0 20px 60px rgba(0,0,0,.5)' }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.6)', zIndex: 10000, padding: 16, display: 'flex', alignItems: 'stretch', justifyContent: 'center', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }} onClick={() => setRunPopoverFor(null)}>
+          <div style={{ width: 'min(460px, calc(100vw - 32px))', maxHeight: 'calc(100dvh - 32px)', margin: 'auto', display: 'flex', flexDirection: 'column', border: '1px solid #1C2333', background: '#0D1117', borderRadius: 12, boxShadow: '0 20px 60px rgba(0,0,0,.5)', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
+          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: 18 }}>
             <div className="page-eyebrow">⚡ Run Campaign</div>
             <h3 style={{ margin: '6px 0 4px' }}>{campaigns.find((c) => c.id === runPopoverFor)?.name || 'Campaign'}</h3>
             <p className="muted" style={{ marginTop: 0, marginBottom: 14, fontSize: 13, lineHeight: 1.5 }}>
@@ -835,15 +836,16 @@ export default function CampaignsPage() {
                 Estimated: discover up to <strong>{runParams.maxLeads}</strong> businesses, enrich + draft up to <strong>{runParams.enrichLimit}</strong>. Real email-capture rate is typically 30-80% depending on niche, so expect <strong>{Math.round(runParams.enrichLimit * 0.4)}–{Math.round(runParams.enrichLimit * 0.8)}</strong> drafts in /approvals.
               </div>
             </div>
+          </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
-              <BtnGhost onClick={() => setRunPopoverFor(null)}>Cancel</BtnGhost>
-              <BtnPrimary onClick={() => {
-                const cid = runPopoverFor;
-                setRunPopoverFor(null);
-                if (cid) doAutorun(cid, runParams);
-              }}>⚡ Start run</BtnPrimary>
-            </div>
+          <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '12px 18px', borderTop: '1px solid #1C2333', background: '#0D1117' }}>
+            <BtnGhost onClick={() => setRunPopoverFor(null)}>Cancel</BtnGhost>
+            <BtnPrimary onClick={() => {
+              const cid = runPopoverFor;
+              setRunPopoverFor(null);
+              if (cid) doAutorun(cid, runParams);
+            }}>⚡ Start run</BtnPrimary>
+          </div>
           </div>
         </div>
       )}
