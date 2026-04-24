@@ -113,6 +113,15 @@ export default function ContentCalendarPage() {
             <div className="table-toolbar" style={{ marginTop: 8 }}><Button variant="primary" onClick={runIdeas}>Run Content Agent</Button><span className="muted">Last run: {lastRun || '—'}</span></div>
           </Card>
           <div style={{ display:'grid', gap:12 }}>
+            {ideas.length === 0 && (
+              <div style={{ background: '#0D1117', border: '1px dashed #1C2333', borderRadius: 8, padding: 20, textAlign: 'center' }}>
+                <div style={{ fontSize: 28, marginBottom: 8 }}>💡</div>
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>No content ideas yet</div>
+                <div className="muted" style={{ fontSize: 13, marginBottom: 12 }}>
+                  Click <strong>Run Content Agent</strong> above to generate 6 AI post ideas from your active campaign's niche, pain point, and offer. Drafts can be turned into LinkedIn / Facebook posts.
+                </div>
+              </div>
+            )}
             {ideas.map((i:any)=><div key={i.id} style={{ background:'#0D1117', border:'1px solid #1C2333', borderRadius:8, padding:16 }}>
               <div style={{display:'flex',justifyContent:'space-between'}}><Badge tone={i.platform==='LINKEDIN'?'violet':i.platform==='FACEBOOK'?'info':'default' as any}>{i.platform}</Badge><Badge tone={i.contentType==='Educational'?'info':i.contentType==='Social Proof'?'success':i.contentType==='Engagement'?'warning':'danger'}>{i.contentType}</Badge></div>
               <div style={{fontWeight:700, marginTop:8}}>{i.headline || i.angle}</div>
