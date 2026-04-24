@@ -259,22 +259,61 @@ export default function ApprovalsPage() {
         <Button variant="secondary" onClick={load}>Refresh Queue</Button>
       </div>
 
-      {!!selected.length && (
-        <div className="table-toolbar">
-          <Button
-            variant="ghost"
-            style={{ borderColor: 'rgba(16,214,138,.35)', color: 'var(--emerald)' }}
-            onClick={() => Promise.all(filtered.filter((x: any) => selected.includes(x.id)).map(approve)).then(() => setSelected([]))}
-          >
-            Approve All Selected
-          </Button>
-          <Button
-            variant="ghost"
-            style={{ borderColor: 'rgba(255,91,122,.35)', color: 'var(--rose)' }}
-            onClick={() => Promise.all(filtered.filter((x: any) => selected.includes(x.id)).map(reject)).then(() => setSelected([]))}
-          >
-            Reject All Selected
-          </Button>
+      {filtered.length > 0 && (
+        <div className="table-toolbar" style={{ background: 'rgba(0,201,255,0.04)', border: '1px solid rgba(0,201,255,0.15)', padding: '8px 12px', borderRadius: 8 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
+            <input
+              type="checkbox"
+              checked={selected.length === filtered.length && filtered.length > 0}
+              ref={(el) => { if (el) el.indeterminate = selected.length > 0 && selected.length < filtered.length; }}
+              onChange={(e) => setSelected(e.target.checked ? filtered.map((x: any) => x.id) : [])}
+            />
+            <span>{selected.length === 0 ? `Select all ${filtered.length}` : `${selected.length} selected`}</span>
+          </label>
+          {!!selected.length && (
+            <>
+              <span style={{ flex: 1 }} />
+              <Button
+                variant="primary"
+                onClick={async () => {
+                  const items = filtered.filter((x: any) => selected.includes(x.id));
+                  let ok = 0, fail = 0;
+                  for (const d of items) {
+                    try {
+                      const ar = await fetch(`${API_BASE}/api/drafts/${d.id}/approve`, { method: 'POST', credentials: 'include', headers: apiHeaders });
+                      if (!ar.ok) throw new Error(`approve ${ar.status}`);
+                      const qr = await fetch(`${API_BASE}/api/drafts/${d.id}/queue-send`, { method: 'POST', credentials: 'include', headers: apiHeaders });
+                      if (!qr.ok) throw new Error(`queue ${qr.status}`);
+                      ok += 1;
+                      // Throttle ~250ms between requests so we don't hammer the API
+                      await new Promise((r) => setTimeout(r, 250));
+                    } catch {
+                      fail += 1;
+                    }
+                  }
+                  setDrafts((curr: any[]) => curr.filter((x: any) => !selected.includes(x.id)));
+                  setSelected([]);
+                  toast(fail === 0 ? 'success' : 'warning', `Queued ${ok} for send${fail ? ` · ${fail} failed` : ''}`);
+                }}
+              >
+                ⚡ Approve & Queue {selected.length} for send
+              </Button>
+              <Button
+                variant="ghost"
+                style={{ borderColor: 'rgba(16,214,138,.35)', color: 'var(--emerald)' }}
+                onClick={() => Promise.all(filtered.filter((x: any) => selected.includes(x.id)).map(approve)).then(() => setSelected([]))}
+              >
+                Approve only (no send)
+              </Button>
+              <Button
+                variant="ghost"
+                style={{ borderColor: 'rgba(255,91,122,.35)', color: 'var(--rose)' }}
+                onClick={() => Promise.all(filtered.filter((x: any) => selected.includes(x.id)).map(reject)).then(() => setSelected([]))}
+              >
+                Reject {selected.length}
+              </Button>
+            </>
+          )}
         </div>
       )}
 

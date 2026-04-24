@@ -270,6 +270,18 @@ export default function LeadsPage() {
         </div>
         <div className="table-toolbar" style={{ alignSelf: 'flex-start' }}>
           <Button variant="secondary" onClick={enrichSelected} disabled={!selectedLeadIds.length || enrichingSelected}>{enrichingSelected ? 'Enriching…' : '⊕ Enrich Selected'}</Button>
+          <Button variant="ghost" onClick={() => {
+            const rows = (selectedLeadIds.length ? leads.filter((l: any) => selectedLeadIds.includes(l.id)) : leads);
+            const cols = ['businessName','contactName','contactRole','email','phone','website','status','fitScore','source','region','campaignId','createdAt'];
+            const escape = (v: any) => { const s = String(v ?? '').replace(/"/g, '""'); return /[",\n]/.test(s) ? `"${s}"` : s; };
+            const csv = [cols.join(','), ...rows.map((r: any) => cols.map((c) => escape(r[c])).join(','))].join('\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = `leads-${new Date().toISOString().slice(0,10)}.csv`;
+            a.click(); URL.revokeObjectURL(url);
+            toast('success', `Exported ${rows.length} lead${rows.length === 1 ? '' : 's'}`);
+          }}>⬇ Export CSV</Button>
           <Button variant="primary" onClick={() => setShowAddLead(true)}>+ Add Lead</Button>
         </div>
       </section>

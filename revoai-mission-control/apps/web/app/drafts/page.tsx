@@ -195,6 +195,17 @@ export default function DraftsPage() {
           <p className="page-desc">Review and send approved outreach drafts.</p>
         </div>
         <div className="table-toolbar">
+          <Button variant="ghost" onClick={() => {
+            const cols = ['timestamp','channel','status','recipientEmail','subject','externalMessageId','error'];
+            const escape = (v: any) => { const s = String(v ?? '').replace(/"/g, '""'); return /[",\n]/.test(s) ? `"${s}"` : s; };
+            const csv = [cols.join(','), ...sendHistory.map((r: any) => cols.map((c) => escape(r[c])).join(','))].join('\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = `send-history-${new Date().toISOString().slice(0,10)}.csv`;
+            a.click(); URL.revokeObjectURL(url);
+            toast('success', `Exported ${sendHistory.length} send${sendHistory.length === 1 ? '' : 's'}`);
+          }}>⬇ Export send history</Button>
           <Button variant="secondary" onClick={() => setShowCompose(true)}>+ Compose</Button>
           <Button variant="secondary" onClick={load}>Refresh</Button>
         </div>
