@@ -34,7 +34,7 @@ const AGENTS: AgentDef[] = [
     color: '#00C9FF',
     accent: 'rgba(0,201,255,.14)',
     matchEvents: (t) => /research|stage1\.research|autorun.*(started|stage1|stage2\.promote)/i.test(t),
-    countLabel: 'leads discovered today',
+    countLabel: 'leads discovered · last 24h',
   },
   {
     key: 'enrichment',
@@ -44,7 +44,7 @@ const AGENTS: AgentDef[] = [
     color: '#9B72FF',
     accent: 'rgba(155,114,255,.14)',
     matchEvents: (t) => /stage3\.enrich|lead\.enriched/i.test(t),
-    countLabel: 'businesses enriched today',
+    countLabel: 'businesses enriched · last 24h',
   },
   {
     key: 'drafter',
@@ -54,7 +54,7 @@ const AGENTS: AgentDef[] = [
     color: '#10D68A',
     accent: 'rgba(16,214,138,.14)',
     matchEvents: (t) => /stage4\.draft|draft\.created|draft\.generated/i.test(t),
-    countLabel: 'drafts written today',
+    countLabel: 'drafts written · last 24h',
   },
   {
     key: 'sender',
@@ -64,7 +64,7 @@ const AGENTS: AgentDef[] = [
     color: '#F5A623',
     accent: 'rgba(245,166,35,.14)',
     matchEvents: (t) => /email\.sent|outbound\.sent|draft\.approved|queue\.sent/i.test(t),
-    countLabel: 'emails sent today',
+    countLabel: 'emails sent · last 24h',
   },
   {
     key: 'followup',
@@ -74,7 +74,7 @@ const AGENTS: AgentDef[] = [
     color: '#FF5B7A',
     accent: 'rgba(255,91,122,.14)',
     matchEvents: (t) => /followup|follow-up|sequence\.paused|auto-cycle/i.test(t),
-    countLabel: 'follow-ups generated today',
+    countLabel: 'follow-ups generated · last 24h',
   },
   {
     key: 'tracker',
@@ -84,7 +84,7 @@ const AGENTS: AgentDef[] = [
     color: '#00E5D0',
     accent: 'rgba(0,229,208,.14)',
     matchEvents: (t) => /delivery\.|email\.(opened|clicked|bounced|delivered)/i.test(t),
-    countLabel: 'delivery events today',
+    countLabel: 'delivery events · last 24h',
   },
 ];
 

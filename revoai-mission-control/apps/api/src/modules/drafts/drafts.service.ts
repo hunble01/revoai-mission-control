@@ -1010,8 +1010,12 @@ export class DraftsService {
       take: 500,
     });
 
-    const sent = rows.filter((r: any) => String(r.status).toLowerCase() === 'sent').length;
-    const failed = rows.length - sent;
+    // Delivery tracker promotes status to delivered/opened/clicked/bounced
+    // after the initial send. Count any of those as a successful send.
+    const sentStates = new Set(['sent', 'delivered', 'opened', 'clicked', 'bounced', 'complained']);
+    const failedStates = new Set(['transient_failure', 'auth_error', 'config_error', 'policy_limit', 'failed']);
+    const sent = rows.filter((r: any) => sentStates.has(String(r.status).toLowerCase())).length;
+    const failed = rows.filter((r: any) => failedStates.has(String(r.status).toLowerCase())).length;
     const failureRate = rows.length ? Math.round((failed / rows.length) * 100) : 0;
 
     return {
@@ -1020,7 +1024,7 @@ export class DraftsService {
       lastAttemptAt: rows[0]?.sentAt || null,
       stable: failureRate < 20,
       recentFailures: rows
-        .filter((r: any) => String(r.status).toLowerCase() !== 'sent')
+        .filter((r: any) => failedStates.has(String(r.status).toLowerCase()))
         .slice(0, 5)
         .map((r: any) => ({ id: r.id, status: r.status, error: r.error, sentAt: r.sentAt })),
     };

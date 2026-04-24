@@ -27,65 +27,65 @@ export class FeedController {
   }
 
   /**
-   * Today's counts for each Live Agent card. Seeds the dashboard on
-   * page load so counters reflect real activity even before any new
-   * event arrives over the socket.
+   * Rolling-24h counts for each Live Agent card. Seeds the dashboard on
+   * page load so counters reflect real recent activity even before any
+   * new event arrives over the socket.
+   *
+   * Why rolling-24h instead of calendar-today: the server runs in UTC
+   * but users are in EDT. Counting "today" in UTC resets counters at
+   * 8pm local time, which looks broken from the user's perspective.
+   * Last-24h is timezone-agnostic and shows "recent activity" which
+   * is the actual signal users care about.
    */
   @Get('stats/agent-counts')
   async agentCounts(@Req() req: any) {
     assertAdminToken(req);
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
+    const windowStart = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
     const [
-      researchLeadsToday,
-      leadsEnrichedToday,
-      draftsCreatedToday,
-      sendsToday,
-      followUpDraftsToday,
-      deliveryEventsToday,
+      researchLeadsRecent,
+      leadsEnrichedRecent,
+      draftsCreatedRecent,
+      sendsRecent,
+      followUpDraftsRecent,
+      deliveryEventsRecent,
     ] = await Promise.all([
-      // Discovery: research_leads discovered today
-      this.prisma.researchLead.count({ where: { createdAt: { gte: todayStart } } }),
-      // Enrichment: leads whose sourceDetail JSON shows today's enrichedAt
+      this.prisma.researchLead.count({ where: { createdAt: { gte: windowStart } } }),
       this.prisma.lead.count({
         where: {
-          updatedAt: { gte: todayStart },
+          updatedAt: { gte: windowStart },
           sourceDetail: { contains: 'enrichedAt' } as any,
         },
       }),
-      // Drafter: drafts created today
-      this.prisma.draft.count({ where: { createdAt: { gte: todayStart } } }),
-      // Sender: sends today
+      this.prisma.draft.count({ where: { createdAt: { gte: windowStart } } }),
       this.prisma.outboundSend.count({
         where: {
-          sentAt: { gte: todayStart },
+          sentAt: { gte: windowStart },
           status: { in: ['sent', 'delivered', 'opened', 'clicked', 'bounced'] as any },
         },
       }),
-      // Follow-up: follow-up drafts generated today (draftType OUTREACH_FOLLOWUP)
       this.prisma.draft.count({
         where: {
-          createdAt: { gte: todayStart },
+          createdAt: { gte: windowStart },
           draftType: 'OUTREACH_FOLLOWUP' as any,
         },
       }).catch(() => 0),
-      // Delivery tracker: OutboundSend rows whose status landed on a delivery event today
       this.prisma.outboundSend.count({
         where: {
-          sentAt: { gte: todayStart },
+          sentAt: { gte: windowStart },
           status: { in: ['delivered', 'opened', 'clicked', 'bounced', 'complained'] as any },
         },
       }),
     ]);
 
     return {
-      discovery: researchLeadsToday,
-      enrichment: leadsEnrichedToday,
-      drafter: draftsCreatedToday,
-      sender: sendsToday,
-      followup: followUpDraftsToday,
-      tracker: deliveryEventsToday,
+      windowHours: 24,
+      discovery: researchLeadsRecent,
+      enrichment: leadsEnrichedRecent,
+      drafter: draftsCreatedRecent,
+      sender: sendsRecent,
+      followup: followUpDraftsRecent,
+      tracker: deliveryEventsRecent,
       asOf: new Date().toISOString(),
     };
   }
