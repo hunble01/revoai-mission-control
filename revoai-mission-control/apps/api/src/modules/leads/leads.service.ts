@@ -513,6 +513,91 @@ export class LeadsService {
     return { ok: true, lead: updated, enrichment: webData || null };
   }
 
+  /**
+   * Reply-assist: classifies an inbound reply from a lead and suggests
+   * a response draft. Does NOT send anything — returns text for the
+   * user to review, edit, and send manually.
+   */
+  async assistReply(leadId: string, replyText: string) {
+    const trimmed = String(replyText || '').trim();
+    if (!trimmed) throw new BadRequestException('replyText required');
+    const lead = await this.prisma.lead.findUnique({ where: { id: leadId }, include: { campaign: true } });
+    if (!lead) throw new NotFoundException('Lead not found');
+
+    const apiKey = (process.env.ANTHROPIC_API_KEY || '').trim();
+    if (!apiKey) throw new BadRequestException('ANTHROPIC_API_KEY not configured');
+
+    const model = (process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001').trim();
+    const brand = await this.prisma.brandSettings.findUnique({ where: { id: 'default' } });
+    const senderName = brand?.yourName || 'Michael';
+    const senderCompany = brand?.companyName || 'RevoAI';
+
+    // Pull the most recent draft we sent to this lead so Claude has
+    // context on what they're replying TO
+    const priorSend = await this.prisma.draft.findFirst({
+      where: { leadId, status: { in: ['SENT', 'APPROVED'] as any } },
+      orderBy: { updatedAt: 'desc' },
+      include: { versions: { orderBy: { versionNumber: 'desc' }, take: 1 } },
+    });
+    const priorBody = priorSend?.versions?.[0]?.content || (priorSend as any)?.content || '';
+
+    const systemPrompt = `You are ${senderName}, founder of ${senderCompany}. A cold-outreach recipient just replied to your email about RevoAI (AI receptionist + SMS booking assistant for local service businesses, $97 CAD/month).
+
+Analyze the reply and return STRICT JSON only (no code fences, no prose). Schema:
+{
+  "intent": "interested" | "objection" | "question" | "not_interested" | "out_of_office" | "unsubscribe" | "bounce" | "wrong_person" | "other",
+  "confidence": 0.0-1.0,
+  "reasoning": "<one short sentence — what signals in the reply led to this classification>",
+  "recommendedAction": "reply_now" | "reply_after_check" | "pause_sequence" | "mark_unsubscribed" | "no_action",
+  "suggestedResponse": "<2-6 sentence reply draft in the founder's voice — ONLY if recommendedAction is reply_now or reply_after_check, else empty string>"
+}
+
+Voice rules for suggestedResponse:
+- Natural founder voice. No buzzwords. No 'revolutionize'. No em-dashes.
+- Address their specific concern/question.
+- If they asked about price — say $97/month CAD, 10-min setup, 7-day free trial.
+- If objection — acknowledge then pivot to concrete value.
+- If interested — offer a 15-min call. Keep it short.
+- If question — answer directly in 1-2 sentences then CTA.
+- Close with '— ${senderName}' on its own line.
+- NEVER invent product features not in the brief above.`;
+
+    const userMessage = [
+      `Lead: ${lead.businessName || 'Unknown business'}${lead.contactName ? ` · Contact: ${lead.contactName}` : ''}${lead.campaign?.niche ? ` · Niche: ${lead.campaign.niche}` : ''}`,
+      priorBody ? `\nOur most recent email to them:\n---\n${priorBody.slice(0, 1500)}\n---` : '',
+      `\nTheir reply:\n---\n${trimmed.slice(0, 3000)}\n---`,
+      '\nReturn the JSON now.',
+    ].filter(Boolean).join('\n');
+
+    try {
+      const client = new Anthropic({ apiKey });
+      const resp = await client.messages.create({
+        model,
+        max_tokens: 800,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userMessage }],
+      });
+      const raw = (resp.content || [])
+        .map((b: any) => (b.type === 'text' ? b.text : ''))
+        .join('')
+        .trim()
+        .replace(/^```json\s*/, '')
+        .replace(/```\s*$/, '')
+        .trim();
+      const parsed = JSON.parse(raw);
+      return {
+        ok: true,
+        intent: String(parsed?.intent || 'other'),
+        confidence: Number(parsed?.confidence || 0),
+        reasoning: String(parsed?.reasoning || ''),
+        recommendedAction: String(parsed?.recommendedAction || 'no_action'),
+        suggestedResponse: String(parsed?.suggestedResponse || ''),
+      };
+    } catch (err: any) {
+      throw new BadRequestException(`reply-assist failed: ${err?.message || err}`);
+    }
+  }
+
   async generateDraftForLead(id: string, body: any, actorId?: string) {
     const lead = await this.prisma.lead.findUnique({ where: { id } });
     if (!lead) throw new NotFoundException('Lead not found');

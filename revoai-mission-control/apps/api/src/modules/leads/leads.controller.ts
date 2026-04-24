@@ -66,6 +66,13 @@ export class LeadsController {
     return this.leads.enrichLead(id);
   }
 
+  @Post(':id/reply-assist')
+  replyAssist(@Req() req: any, @Param('id') id: string, @Body() body: any) {
+    assertAdminToken(req);
+    assertAdminRole(getActorRole(req), 'reply assist');
+    return this.leads.assistReply(id, String(body?.replyText || ''));
+  }
+
   @Post(':id/generate-draft')
   generateDraft(@Req() req: any, @Param('id') id: string, @Body() body: any) {
     assertAdminToken(req);

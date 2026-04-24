@@ -26,6 +26,10 @@ export default function LeadsPage() {
   const [bulkStatus, setBulkStatus] = useState('NEW');
   const [bulkCampaignId, setBulkCampaignId] = useState('');
   const [selectedLead, setSelectedLead] = useState<any | null>(null);
+  const [replyAssistOpen, setReplyAssistOpen] = useState(false);
+  const [replyText, setReplyText] = useState('');
+  const [replyAnalysis, setReplyAnalysis] = useState<any | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
   const [leadNotes, setLeadNotes] = useState('');
   const [enrichingSelected, setEnrichingSelected] = useState(false);
 
@@ -482,6 +486,11 @@ export default function LeadsPage() {
           <div style={{ padding: 16, borderTop: '1px solid #1C2333', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <Button variant="primary" onClick={() => selectedLead?.id && createDraftForLead(selectedLead)}>Draft Outreach</Button>
             <Button variant="secondary" onClick={() => selectedLead?.id && enrichLead(selectedLead.id)}>Enrich</Button>
+            <Button
+              variant="secondary"
+              style={{ border: '1px solid rgba(155,114,255,0.4)', color: '#9B72FF' }}
+              onClick={() => { setReplyText(''); setReplyAnalysis(null); setReplyAssistOpen(true); }}
+            >💬 Help with reply</Button>
             {String(selectedLead?.status || '').toUpperCase() !== 'REPLIED' && (
               <Button
                 variant="secondary"
@@ -519,6 +528,75 @@ export default function LeadsPage() {
           </div>
         </aside>
       </>
+
+      {replyAssistOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.6)', zIndex: 10000, padding: 16, display: 'flex', alignItems: 'stretch', justifyContent: 'center', overflowY: 'auto' }} onClick={() => setReplyAssistOpen(false)}>
+          <div style={{ width: 'min(640px, calc(100vw - 32px))', maxHeight: 'calc(100dvh - 32px)', margin: 'auto', display: 'flex', flexDirection: 'column', border: '1px solid #1C2333', background: '#0D1117', borderRadius: 12, boxShadow: '0 20px 60px rgba(0,0,0,.5)', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 18 }}>
+              <div className="page-eyebrow">💬 Reply Intelligence</div>
+              <h3 style={{ margin: '6px 0 4px' }}>{selectedLead?.businessName || 'Lead'}</h3>
+              <p className="muted" style={{ marginTop: 0, marginBottom: 14, fontSize: 13, lineHeight: 1.5 }}>
+                Paste their reply below. Claude classifies their intent and drafts a response in your founder voice.
+              </p>
+              <textarea value={replyText}
+                onChange={(e) => setReplyText(e.target.value)}
+                placeholder="Paste the email reply here..."
+                style={{ width: '100%', minHeight: 140, background: 'rgba(17,24,39,.65)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px', fontSize: 13, fontFamily: 'inherit', resize: 'vertical' }} />
+
+              {replyAnalysis && (
+                <div style={{ marginTop: 14, display: 'grid', gap: 12 }}>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <Badge tone={
+                      replyAnalysis.intent === 'interested' ? 'success' :
+                      replyAnalysis.intent === 'objection' || replyAnalysis.intent === 'question' ? 'warning' :
+                      replyAnalysis.intent === 'not_interested' || replyAnalysis.intent === 'unsubscribe' ? 'danger' :
+                      'info'
+                    }>{String(replyAnalysis.intent).replace(/_/g, ' ')}</Badge>
+                    <span className="muted text-xs mono">confidence: {Math.round((replyAnalysis.confidence || 0) * 100)}%</span>
+                    <span className="muted text-xs mono">action: {String(replyAnalysis.recommendedAction).replace(/_/g, ' ')}</span>
+                  </div>
+                  <div className="muted" style={{ fontSize: 12, fontStyle: 'italic' }}>{replyAnalysis.reasoning}</div>
+                  {replyAnalysis.suggestedResponse && (
+                    <div>
+                      <div className="page-eyebrow" style={{ marginBottom: 6 }}>SUGGESTED RESPONSE</div>
+                      <div style={{ background: 'rgba(0,201,255,.04)', border: '1px solid rgba(0,201,255,.18)', borderRadius: 8, padding: 14, whiteSpace: 'pre-wrap', fontSize: 13.5, lineHeight: 1.55 }}>
+                        {replyAnalysis.suggestedResponse}
+                      </div>
+                      <div className="table-toolbar" style={{ marginTop: 8 }}>
+                        <Button variant="primary" onClick={() => {
+                          navigator.clipboard.writeText(replyAnalysis.suggestedResponse).then(() => toast('success', 'Copied to clipboard'));
+                        }}>📋 Copy response</Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '12px 18px', borderTop: '1px solid #1C2333' }}>
+              <Button variant="ghost" onClick={() => setReplyAssistOpen(false)}>Close</Button>
+              <Button variant="primary" disabled={!replyText.trim() || analyzing}
+                onClick={async () => {
+                  if (!selectedLead?.id || !replyText.trim()) return;
+                  setAnalyzing(true);
+                  setReplyAnalysis(null);
+                  try {
+                    const res = await fetch(`${API_BASE}/api/leads/${selectedLead.id}/reply-assist`, {
+                      method: 'POST', credentials: 'include', headers: apiHeaders, body: JSON.stringify({ replyText }),
+                    });
+                    const j = await res.json();
+                    if (!res.ok) throw new Error(j?.error?.message || 'Analysis failed');
+                    setReplyAnalysis(j);
+                  } catch (e: any) {
+                    toast('error', e?.message || 'Analysis failed');
+                  } finally {
+                    setAnalyzing(false);
+                  }
+                }}
+              >{analyzing ? 'Analyzing…' : '🧠 Analyze with Claude'}</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
