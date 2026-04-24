@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventsService } from '../events/events.service';
+import { FollowUpService } from './followup.service';
+import { UnsubscribeService } from '../unsubscribe/unsubscribe.service';
 import { Channel } from '@prisma/client';
 import Anthropic from '@anthropic-ai/sdk';
 
@@ -372,7 +374,12 @@ function generateOutreachCopy(
 
 @Injectable()
 export class LeadsService {
-  constructor(private readonly prisma: PrismaService, private readonly events: EventsService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly events: EventsService,
+    private readonly followUp: FollowUpService,
+    private readonly unsubscribe: UnsubscribeService,
+  ) {}
 
   list(q?: { search?: string; status?: string }) {
     return this.prisma.lead.findMany({
@@ -585,17 +592,104 @@ Voice rules for suggestedResponse:
         .replace(/```\s*$/, '')
         .trim();
       const parsed = JSON.parse(raw);
+      const intent = String(parsed?.intent || 'other');
+      const confidence = Number(parsed?.confidence || 0);
+      const reasoning = String(parsed?.reasoning || '');
+      const recommendedAction = String(parsed?.recommendedAction || 'no_action');
+      const suggestedResponse = String(parsed?.suggestedResponse || '');
+
+      const saved = await (this.prisma as any).replyAnalysis.create({
+        data: {
+          leadId,
+          replyText: trimmed.slice(0, 8000),
+          intent,
+          confidence,
+          reasoning,
+          recommendedAction,
+          suggestedResponse,
+        },
+      });
+
       return {
         ok: true,
-        intent: String(parsed?.intent || 'other'),
-        confidence: Number(parsed?.confidence || 0),
-        reasoning: String(parsed?.reasoning || ''),
-        recommendedAction: String(parsed?.recommendedAction || 'no_action'),
-        suggestedResponse: String(parsed?.suggestedResponse || ''),
+        id: saved.id,
+        intent,
+        confidence,
+        reasoning,
+        recommendedAction,
+        suggestedResponse,
       };
     } catch (err: any) {
       throw new BadRequestException(`reply-assist failed: ${err?.message || err}`);
     }
+  }
+
+  /**
+   * List recent reply analyses for a lead — audit trail in the /leads drawer.
+   */
+  async listReplyAnalyses(leadId: string, limit = 10) {
+    const lead = await this.prisma.lead.findUnique({ where: { id: leadId } });
+    if (!lead) throw new NotFoundException('Lead not found');
+    return (this.prisma as any).replyAnalysis.findMany({
+      where: { leadId },
+      orderBy: { createdAt: 'desc' },
+      take: Math.min(Number(limit) || 10, 50),
+    });
+  }
+
+  /**
+   * Apply the recommended action on a reply analysis. One-click follow-through:
+   *   pause_sequence    → mark lead as REPLIED + pause follow-ups
+   *   mark_unsubscribed → suppress email + pause follow-ups + status LOST
+   *   mark_bounced      → suppress email (BOUNCE) + pause follow-ups + status LOST
+   *   no_action         → record only, no side effect
+   *
+   * Idempotent — re-applying the same action is a no-op on the side effects but
+   * refreshes the audit row.
+   */
+  async applyReplyAction(leadId: string, analysisId: string, action: string, actorId?: string) {
+    const lead = await this.prisma.lead.findUnique({ where: { id: leadId } });
+    if (!lead) throw new NotFoundException('Lead not found');
+
+    const analysis = await (this.prisma as any).replyAnalysis.findUnique({ where: { id: analysisId } });
+    if (!analysis || analysis.leadId !== leadId) throw new NotFoundException('Reply analysis not found for this lead');
+
+    const allowed = ['pause_sequence', 'mark_unsubscribed', 'mark_bounced', 'no_action'];
+    if (!allowed.includes(action)) {
+      throw new BadRequestException(`Invalid action. Allowed: ${allowed.join(', ')}`);
+    }
+
+    if (action === 'pause_sequence') {
+      await this.followUp.pauseSequence(leadId, 'replied');
+    } else if (action === 'mark_unsubscribed') {
+      if (lead.email) {
+        await this.unsubscribe.suppress(lead.email, 'UNSUBSCRIBE', 'reply', 'Marked from Reply Intelligence', lead.campaignId);
+      }
+      await this.followUp.pauseSequence(leadId, 'unsubscribed');
+    } else if (action === 'mark_bounced') {
+      if (lead.email) {
+        await this.unsubscribe.suppress(lead.email, 'BOUNCE', 'reply', 'Bounce detected from Reply Intelligence', lead.campaignId);
+      }
+      await this.followUp.pauseSequence(leadId, 'unsubscribed');
+    }
+
+    const updated = await (this.prisma as any).replyAnalysis.update({
+      where: { id: analysisId },
+      data: { appliedAction: action, appliedAt: new Date(), appliedBy: actorId || null },
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorType: 'user',
+        actorId: actorId || null,
+        action: 'lead.reply.action_applied',
+        resourceType: 'lead',
+        resourceId: leadId,
+        metadata: { analysisId, action, intent: analysis.intent } as any,
+      },
+    });
+
+    return { ok: true, analysis: updated };
   }
 
   async generateDraftForLead(id: string, body: any, actorId?: string) {

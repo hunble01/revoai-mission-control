@@ -73,6 +73,20 @@ export class LeadsController {
     return this.leads.assistReply(id, String(body?.replyText || ''));
   }
 
+  @Get(':id/reply-analyses')
+  listReplyAnalyses(@Req() req: any, @Param('id') id: string, @Query('limit') limit?: string) {
+    assertAdminToken(req);
+    return this.leads.listReplyAnalyses(id, limit ? Number(limit) : 10);
+  }
+
+  @Post(':id/reply-action')
+  replyAction(@Req() req: any, @Param('id') id: string, @Body() body: any) {
+    assertAdminToken(req);
+    assertAdminRole(getActorRole(req), 'reply action');
+    const actorId = req?.headers?.['x-actor-id'] ? String(req.headers['x-actor-id']) : undefined;
+    return this.leads.applyReplyAction(id, String(body?.analysisId || ''), String(body?.action || ''), actorId);
+  }
+
   @Post(':id/generate-draft')
   generateDraft(@Req() req: any, @Param('id') id: string, @Body() body: any) {
     assertAdminToken(req);

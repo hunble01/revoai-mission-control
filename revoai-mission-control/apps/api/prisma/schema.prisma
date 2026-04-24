@@ -427,6 +427,24 @@ model EmailSuppression {
   @@map("email_suppressions")
 }
 
+model ReplyAnalysis {
+  id                 String   @id @default(uuid())
+  leadId             String   @map("lead_id")
+  replyText          String   @map("reply_text")
+  intent             String
+  confidence         Float    @default(0)
+  reasoning          String   @default("")
+  recommendedAction  String   @map("recommended_action")
+  suggestedResponse  String   @default("") @map("suggested_response")
+  appliedAction      String?  @map("applied_action")
+  appliedAt          DateTime? @map("applied_at")
+  appliedBy          String?  @map("applied_by")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  @@index([leadId, createdAt])
+  @@map("reply_analyses")
+}
+
 model ResearchRun {
   id          String   @id @default(uuid())
   campaignId  String?  @map("campaign_id")

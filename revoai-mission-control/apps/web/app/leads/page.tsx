@@ -30,6 +30,8 @@ export default function LeadsPage() {
   const [replyText, setReplyText] = useState('');
   const [replyAnalysis, setReplyAnalysis] = useState<any | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
+  const [applyingAction, setApplyingAction] = useState<string | null>(null);
+  const [replyHistory, setReplyHistory] = useState<any[]>([]);
   const [leadNotes, setLeadNotes] = useState('');
   const [enrichingSelected, setEnrichingSelected] = useState(false);
 
@@ -489,7 +491,18 @@ export default function LeadsPage() {
             <Button
               variant="secondary"
               style={{ border: '1px solid rgba(155,114,255,0.4)', color: '#9B72FF' }}
-              onClick={() => { setReplyText(''); setReplyAnalysis(null); setReplyAssistOpen(true); }}
+              onClick={async () => {
+                setReplyText('');
+                setReplyAnalysis(null);
+                setReplyAssistOpen(true);
+                if (selectedLead?.id) {
+                  try {
+                    const res = await fetch(`${API_BASE}/api/leads/${selectedLead.id}/reply-analyses?limit=10`, { credentials: 'include', headers: apiHeaders });
+                    if (res.ok) setReplyHistory(await res.json());
+                    else setReplyHistory([]);
+                  } catch { setReplyHistory([]); }
+                }
+              }}
             >💬 Help with reply</Button>
             {String(selectedLead?.status || '').toUpperCase() !== 'REPLIED' && (
               <Button
@@ -569,6 +582,98 @@ export default function LeadsPage() {
                       </div>
                     </div>
                   )}
+
+                  {replyAnalysis.id && !replyAnalysis.appliedAction && (() => {
+                    const applyAction = async (action: string, confirmText?: string) => {
+                      if (!selectedLead?.id || !replyAnalysis?.id) return;
+                      if (confirmText && !confirm(confirmText)) return;
+                      setApplyingAction(action);
+                      try {
+                        const res = await fetch(`${API_BASE}/api/leads/${selectedLead.id}/reply-action`, {
+                          method: 'POST', credentials: 'include', headers: apiHeaders,
+                          body: JSON.stringify({ analysisId: replyAnalysis.id, action }),
+                        });
+                        const j = await res.json();
+                        if (!res.ok) throw new Error(j?.error?.message || 'Action failed');
+                        setReplyAnalysis({ ...replyAnalysis, appliedAction: action, appliedAt: new Date().toISOString() });
+                        if (action === 'pause_sequence') {
+                          const next = { ...selectedLead, status: 'REPLIED', followUpStage: 99, sequencePausedReason: 'replied' };
+                          setSelectedLead(next);
+                          setLeads((curr) => curr.map((x) => x.id === next.id ? next : x));
+                        } else if (action === 'mark_unsubscribed' || action === 'mark_bounced') {
+                          const next = { ...selectedLead, status: 'LOST', followUpStage: 99, sequencePausedReason: 'unsubscribed' };
+                          setSelectedLead(next);
+                          setLeads((curr) => curr.map((x) => x.id === next.id ? next : x));
+                        }
+                        toast('success', `Applied: ${action.replace(/_/g, ' ')}`);
+                      } catch (e: any) {
+                        toast('error', e?.message || 'Failed to apply action');
+                      } finally {
+                        setApplyingAction(null);
+                      }
+                    };
+                    const rec = String(replyAnalysis.recommendedAction || '');
+                    const recommendedKey = rec === 'reply_now' || rec === 'reply_after_check'
+                      ? 'pause_sequence'
+                      : (rec === 'pause_sequence' || rec === 'mark_unsubscribed' || rec === 'no_action' ? rec : null);
+                    return (
+                      <div>
+                        <div className="page-eyebrow" style={{ marginBottom: 6 }}>APPLY</div>
+                        <div className="muted" style={{ fontSize: 12, marginBottom: 8 }}>
+                          Run a follow-up action on this lead. Sending the response is still manual — use Copy above.
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          <Button
+                            variant={recommendedKey === 'pause_sequence' ? 'primary' : 'secondary'}
+                            disabled={!!applyingAction}
+                            onClick={() => applyAction('pause_sequence')}
+                          >{applyingAction === 'pause_sequence' ? 'Applying…' : '✓ Mark as Replied + pause sequence'}</Button>
+                          <Button
+                            variant={recommendedKey === 'mark_unsubscribed' ? 'primary' : 'secondary'}
+                            disabled={!!applyingAction}
+                            onClick={() => applyAction('mark_unsubscribed', 'Suppress this email and stop all future outreach? This is hard to undo.')}
+                          >{applyingAction === 'mark_unsubscribed' ? 'Applying…' : '🚫 Unsubscribe + suppress'}</Button>
+                          <Button
+                            variant="ghost"
+                            disabled={!!applyingAction}
+                            onClick={() => applyAction('mark_bounced', 'Mark this address as bounced? It will be added to the suppression list.')}
+                          >{applyingAction === 'mark_bounced' ? 'Applying…' : '↩ Mark bounced'}</Button>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {replyAnalysis.appliedAction && (
+                    <div className="muted" style={{ fontSize: 12, fontStyle: 'italic', padding: '8px 10px', background: 'rgba(20,200,150,0.08)', border: '1px solid rgba(20,200,150,0.2)', borderRadius: 6 }}>
+                      ✓ Applied: {String(replyAnalysis.appliedAction).replace(/_/g, ' ')}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {!replyAnalysis && replyHistory.length > 0 && (
+                <div style={{ marginTop: 18 }}>
+                  <div className="page-eyebrow" style={{ marginBottom: 8 }}>RECENT REPLY ANALYSES</div>
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    {replyHistory.slice(0, 5).map((h: any) => (
+                      <div key={h.id} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 10, fontSize: 12.5 }}>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginBottom: 4 }}>
+                          <Badge tone={
+                            h.intent === 'interested' ? 'success' :
+                            h.intent === 'objection' || h.intent === 'question' ? 'warning' :
+                            h.intent === 'not_interested' || h.intent === 'unsubscribe' ? 'danger' :
+                            'info'
+                          }>{String(h.intent).replace(/_/g, ' ')}</Badge>
+                          <span className="muted text-xs mono">{Math.round((h.confidence || 0) * 100)}%</span>
+                          <span className="muted text-xs">{new Date(h.createdAt).toLocaleString()}</span>
+                          {h.appliedAction && (
+                            <span className="text-xs" style={{ color: '#14C896' }}>✓ {String(h.appliedAction).replace(/_/g, ' ')}</span>
+                          )}
+                        </div>
+                        <div className="muted" style={{ fontSize: 11.5, fontStyle: 'italic' }}>{h.reasoning}</div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
