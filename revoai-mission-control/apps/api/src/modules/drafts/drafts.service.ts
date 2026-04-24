@@ -1256,14 +1256,21 @@ export class DraftsService {
     const classifyFailure = (msg: string) => {
       const m = String(msg || '').toLowerCase();
       if (m.includes('expired') || m.includes('missing') || m.includes('not connected') || m.includes('auth')) return 'AUTH_OR_TOKEN';
-      if (m.includes('daily cap') || m.includes('limit') || m.includes('kill-switch')) return 'POLICY_LIMIT';
+      // Rate-limit is transient — not a real policy limit. Retry with backoff.
+      if (m.includes('rate limit') || m.includes('too many requests') || m.includes('429') || m.includes('5 requests per second')) return 'TRANSIENT';
+      if (m.includes('daily cap') || m.includes('kill-switch')) return 'POLICY_LIMIT';
+      if (m.includes('limit')) return 'POLICY_LIMIT';
       if (m.includes('timeout') || m.includes('temporary') || m.includes('transient')) return 'TRANSIENT';
       if (m.includes('unsupported') || m.includes('missing draft')) return 'CONFIG';
       return 'PROVIDER_OR_UNKNOWN';
     };
 
     const results: any[] = [];
+    const THROTTLE_MS = 250; // 4 sends/sec — stays comfortably under Resend's 5/sec free-tier limit
+    let isFirst = true;
     for (const q of rows as any[]) {
+      if (!isFirst) await new Promise((r) => setTimeout(r, THROTTLE_MS));
+      isFirst = false;
       await this.prisma.outboundQueue.update({ where: { id: q.id }, data: { status: 'SENDING', workerLockedAt: new Date() } as any });
       try {
         if (!q.draftId) throw new Error('Missing draftId in queue payload');
