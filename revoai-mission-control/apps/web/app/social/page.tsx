@@ -19,12 +19,76 @@ type SocialPost = {
   createdAt: string;
 };
 
-const PLATFORM_META: Record<Channel, { label: string; icon: string; charLimit: number; tone: 'info' | 'warning' | 'success' | 'danger' }> = {
-  LINKEDIN: { label: 'LinkedIn', icon: '🔵', charLimit: 3000, tone: 'info' },
-  FACEBOOK: { label: 'Facebook', icon: '🟦', charLimit: 5000, tone: 'info' },
-  INSTAGRAM: { label: 'Instagram', icon: '🟪', charLimit: 2200, tone: 'warning' },
-  YOUTUBE: { label: 'YouTube Short', icon: '🔴', charLimit: 100, tone: 'danger' },
+type PlatformMeta = {
+  label: string;
+  icon: string;
+  letter: string;
+  charLimit: number;
+  tone: 'info' | 'warning' | 'success' | 'danger';
+  color: string;
+  gradient: string;
+  glow: string;
 };
+
+const PLATFORM_META: Record<Channel, PlatformMeta> = {
+  LINKEDIN: {
+    label: 'LinkedIn', icon: '🔵', letter: 'in', charLimit: 3000, tone: 'info',
+    color: '#0A7ABF',
+    gradient: 'linear-gradient(135deg, #0A7ABF 0%, #0966A3 100%)',
+    glow: 'rgba(10,122,191,0.35)',
+  },
+  FACEBOOK: {
+    label: 'Facebook', icon: '🟦', letter: 'f', charLimit: 5000, tone: 'info',
+    color: '#1877F2',
+    gradient: 'linear-gradient(135deg, #1877F2 0%, #0866FF 100%)',
+    glow: 'rgba(24,119,242,0.35)',
+  },
+  INSTAGRAM: {
+    label: 'Instagram', icon: '🟪', letter: 'ig', charLimit: 2200, tone: 'warning',
+    color: '#E1306C',
+    gradient: 'linear-gradient(135deg, #FFD600 0%, #F77737 25%, #E1306C 50%, #C13584 75%, #833AB4 100%)',
+    glow: 'rgba(225,48,108,0.35)',
+  },
+  YOUTUBE: {
+    label: 'YouTube Short', icon: '🔴', letter: 'yt', charLimit: 100, tone: 'danger',
+    color: '#FF0033',
+    gradient: 'linear-gradient(135deg, #FF0033 0%, #CC0029 100%)',
+    glow: 'rgba(255,0,51,0.35)',
+  },
+};
+
+function PlatformChip({ channel, selected, onClick, size = 'md' }: { channel: Channel; selected?: boolean; onClick?: () => void; size?: 'sm' | 'md' | 'lg' }) {
+  const m = PLATFORM_META[channel];
+  const dim = size === 'lg' ? 44 : size === 'sm' ? 24 : 32;
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 8,
+        padding: size === 'lg' ? '10px 16px' : '6px 12px',
+        borderRadius: size === 'lg' ? 14 : 999,
+        border: '1px solid ' + (selected ? m.color : 'var(--border)'),
+        background: selected ? `linear-gradient(135deg, ${m.color}22, ${m.color}11)` : 'rgba(255,255,255,0.02)',
+        color: selected ? m.color : 'var(--text)',
+        cursor: onClick ? 'pointer' : 'default',
+        fontWeight: 600, fontSize: size === 'lg' ? 14 : 12,
+        transition: 'all .18s',
+        boxShadow: selected ? `0 0 24px ${m.glow}` : 'none',
+      }}
+    >
+      <span style={{
+        width: dim, height: dim, borderRadius: dim / 4,
+        background: m.gradient,
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        color: '#fff', fontWeight: 700, fontSize: dim * 0.4, fontFamily: '"JetBrains Mono", monospace',
+        textTransform: 'lowercase', letterSpacing: '-0.04em',
+        boxShadow: selected ? `0 4px 16px ${m.glow}` : '0 2px 8px rgba(0,0,0,0.4)',
+      }}>{m.letter}</span>
+      <span>{m.label}</span>
+      {selected && <span style={{ color: m.color, fontSize: 14 }}>✓</span>}
+    </button>
+  );
+}
 
 const TABS = ['Compose', 'Queue', 'Calendar', 'DMs', 'Analytics'] as const;
 type Tab = typeof TABS[number];
@@ -328,78 +392,199 @@ export default function SocialHubPage() {
     return days;
   }, [posts]);
 
+  const tabIcons: Record<Tab, string> = { Compose: '✍️', Queue: '📋', Calendar: '📅', DMs: '💬', Analytics: '📊' };
+  const tabCounts: Record<Tab, number> = {
+    Compose: 0,
+    Queue: posts.length,
+    Calendar: posts.filter((p) => p.status === 'scheduled').length,
+    DMs: liDms.length + metaDms.length,
+    Analytics: 0,
+  };
+
   return (
     <div className="dash-stack fade-in">
-      <section className="page-header">
-        <div className="page-eyebrow">OPERATIONS / SOCIAL HUB</div>
-        <h2 className="page-title" style={{ margin: 0 }}>Social Hub</h2>
-        <p className="muted" style={{ marginTop: 4, fontSize: 13 }}>Compose, schedule, and publish across LinkedIn, Facebook, Instagram, and YouTube — all in one place.</p>
+      {/* Aurora hero */}
+      <section style={{
+        position: 'relative', overflow: 'hidden',
+        borderRadius: 18, padding: '28px 28px 24px',
+        background: 'radial-gradient(120% 140% at 0% 0%, rgba(225,48,108,0.18), transparent 50%), radial-gradient(120% 140% at 100% 100%, rgba(10,122,191,0.22), transparent 55%), linear-gradient(180deg, #0F1320 0%, #0B0F1B 100%)',
+        border: '1px solid rgba(155,114,255,0.18)',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.04)',
+      }}>
+        {/* Floating platform ribbon */}
+        <div aria-hidden style={{ position: 'absolute', top: 22, right: 28, display: 'flex', gap: 6, opacity: 0.6 }}>
+          {(['LINKEDIN', 'FACEBOOK', 'INSTAGRAM', 'YOUTUBE'] as Channel[]).map((c, i) => {
+            const m = PLATFORM_META[c];
+            return (
+              <span key={c} style={{
+                width: 28, height: 28, borderRadius: 8,
+                background: m.gradient,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                color: '#fff', fontWeight: 700, fontSize: 11, fontFamily: '"JetBrains Mono", monospace',
+                textTransform: 'lowercase', letterSpacing: '-0.04em',
+                transform: `translateY(${i % 2 === 0 ? -2 : 2}px)`,
+                boxShadow: `0 4px 12px ${m.glow}`,
+              }}>{m.letter}</span>
+            );
+          })}
+        </div>
+
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '4px 10px', borderRadius: 999, background: 'rgba(155,114,255,0.12)', border: '1px solid rgba(155,114,255,0.3)', marginBottom: 12 }}>
+          <span style={{ width: 6, height: 6, borderRadius: 999, background: '#9B72FF', boxShadow: '0 0 10px #9B72FF' }} />
+          <span style={{ fontSize: 11, color: '#9B72FF', fontFamily: '"JetBrains Mono", monospace', letterSpacing: '0.12em', textTransform: 'uppercase' }}>SOCIAL COMMAND CENTER</span>
+        </div>
+
+        <h1 style={{ margin: 0, fontSize: 32, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.1, background: 'linear-gradient(90deg, #E8EDF5 0%, #9B72FF 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          One place. Every platform.
+        </h1>
+        <p style={{ margin: '10px 0 0', maxWidth: 720, color: '#A8B2C5', fontSize: 14, lineHeight: 1.6 }}>
+          Write a post once and send it to LinkedIn, Facebook, Instagram, and YouTube. Schedule it for the right time. Catch trending stories. Get Claude to draft replies for every comment and DM. All from here.
+        </p>
+
+        {/* Quick action strip */}
+        <div style={{ display: 'flex', gap: 8, marginTop: 18, flexWrap: 'wrap' }}>
+          <button onClick={() => setTab('Compose')} style={{
+            padding: '10px 18px', borderRadius: 10, border: 'none', cursor: 'pointer',
+            background: 'linear-gradient(135deg, #9B72FF 0%, #6B4FE8 100%)',
+            color: '#fff', fontWeight: 700, fontSize: 13,
+            boxShadow: '0 8px 24px rgba(155,114,255,0.35)',
+          }}>✍️ New post</button>
+          <button onClick={() => { setTab('Calendar'); }} style={{ padding: '10px 18px', borderRadius: 10, border: '1px solid var(--border)', cursor: 'pointer', background: 'rgba(255,255,255,0.02)', color: 'var(--text)', fontWeight: 600, fontSize: 13 }}>📅 See calendar</button>
+          <button onClick={() => setTab('DMs')} style={{ padding: '10px 18px', borderRadius: 10, border: '1px solid var(--border)', cursor: 'pointer', background: 'rgba(255,255,255,0.02)', color: 'var(--text)', fontWeight: 600, fontSize: 13 }}>💬 Messages {tabCounts.DMs > 0 ? `(${tabCounts.DMs})` : ''}</button>
+        </div>
       </section>
 
-      <div className="table-toolbar" style={{ gap: 6, flexWrap: 'wrap' }}>
-        {TABS.map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            style={{
-              padding: '8px 14px',
-              borderRadius: 8,
-              border: '1px solid ' + (tab === t ? 'rgba(155,114,255,0.55)' : 'var(--border)'),
-              background: tab === t ? 'rgba(155,114,255,0.12)' : 'transparent',
-              color: tab === t ? '#9B72FF' : 'var(--text)',
-              fontWeight: tab === t ? 700 : 500,
-              cursor: 'pointer',
-              fontSize: 13,
-            }}
-          >{t}</button>
+      {/* Plain-English feature strip */}
+      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
+        {[
+          { icon: '✍️', accent: '#9B72FF', title: 'Write once, post everywhere', body: 'Pick the platforms, write your post, click Cast. Every platform gets its own version automatically.' },
+          { icon: '⏰', accent: '#00C9FF', title: 'Schedule it for later', body: 'Set a date and time. Posts auto-publish when the moment hits — no extra clicks.' },
+          { icon: '🧠', accent: '#10D68A', title: 'Claude proofreads everything', body: 'Brand-voice lint catches off-tone words. The AI review button flags weak hooks and missing CTAs.' },
+          { icon: '🔥', accent: '#F5A623', title: 'Catch trending stories', body: 'Pulls Hacker News, Reddit, Google News. One click drafts your take on a hot story.' },
+          { icon: '💬', accent: '#FF5B7A', title: 'Reply faster', body: 'Paste any comment or DM. Claude tells you the intent and drafts your response.' },
+          { icon: '📊', accent: '#0A7ABF', title: 'Track it all', body: 'Live funnel of posts, DMs, and replies across every platform.' },
+        ].map((f) => (
+          <div key={f.title} style={{
+            border: '1px solid var(--border)', borderRadius: 12, padding: 14,
+            background: `radial-gradient(120% 140% at 0% 0%, ${f.accent}10, transparent 55%), linear-gradient(180deg, #0F1320 0%, #0B0F1B 100%)`,
+            transition: 'transform .18s, border-color .18s',
+          }}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = f.accent + '55'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
+          >
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: `${f.accent}18`, border: `1px solid ${f.accent}40`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, marginBottom: 10 }}>{f.icon}</div>
+            <div style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--text)', marginBottom: 4 }}>{f.title}</div>
+            <div className="muted" style={{ fontSize: 12, lineHeight: 1.5 }}>{f.body}</div>
+          </div>
         ))}
+      </section>
+
+      {/* Pill tabs */}
+      <div style={{ display: 'flex', gap: 6, padding: 6, background: 'rgba(13,17,23,0.7)', border: '1px solid var(--border)', borderRadius: 14, flexWrap: 'wrap' }}>
+        {TABS.map((t) => {
+          const isActive = tab === t;
+          return (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              style={{
+                flex: '1 1 auto', minWidth: 110,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                padding: '10px 16px',
+                borderRadius: 10,
+                border: 'none',
+                background: isActive ? 'linear-gradient(135deg, rgba(155,114,255,0.25) 0%, rgba(107,79,232,0.18) 100%)' : 'transparent',
+                color: isActive ? '#fff' : 'var(--muted)',
+                fontWeight: isActive ? 700 : 500,
+                cursor: 'pointer', fontSize: 13,
+                boxShadow: isActive ? '0 4px 16px rgba(155,114,255,0.25), inset 0 1px 0 rgba(255,255,255,0.06)' : 'none',
+                transition: 'all .18s',
+              }}
+            >
+              <span>{tabIcons[t]}</span>
+              <span>{t}</span>
+              {tabCounts[t] > 0 && (
+                <span style={{ marginLeft: 4, padding: '1px 7px', borderRadius: 999, background: isActive ? '#9B72FF' : 'rgba(255,255,255,0.06)', color: isActive ? '#fff' : 'var(--muted)', fontSize: 10, fontWeight: 700 }}>{tabCounts[t]}</span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {error && <div className="error-banner">{error}</div>}
 
       {tab === 'Compose' && (
-        <Card title="Compose" subtitle="Pick one or more platforms. Each gets its own SocialPost row, all linked by groupId.">
-          <div style={{ display: 'grid', gap: 12 }}>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {(Object.keys(PLATFORM_META) as Channel[]).map((c) => {
-                const sel = selectedChannels.includes(c);
-                const m = PLATFORM_META[c];
-                return (
-                  <button
-                    key={c}
-                    onClick={() => toggleChannel(c)}
-                    style={{
-                      padding: '8px 14px',
-                      borderRadius: 999,
-                      border: '1px solid ' + (sel ? 'rgba(155,114,255,0.55)' : 'var(--border)'),
-                      background: sel ? 'rgba(155,114,255,0.12)' : 'rgba(255,255,255,0.02)',
-                      color: sel ? '#9B72FF' : 'var(--text)',
-                      cursor: 'pointer',
-                      fontSize: 13,
-                      fontWeight: 600,
-                    }}
-                  >{m.icon} {m.label}{sel ? ' ✓' : ''}</button>
-                );
-              })}
+        <Card title="✍️ Compose" subtitle="Pick the platforms, write the post, schedule or save as draft. Each platform gets its own version, linked together.">
+          <div style={{ display: 'grid', gap: 14 }}>
+            <div>
+              <div className="page-eyebrow" style={{ marginBottom: 8 }}>WHERE TO POST</div>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                {(Object.keys(PLATFORM_META) as Channel[]).map((c) => (
+                  <PlatformChip key={c} channel={c} selected={selectedChannels.includes(c)} onClick={() => toggleChannel(c)} size="lg" />
+                ))}
+              </div>
             </div>
 
-            <textarea
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              placeholder="Write your post. Brand voice is checked as you type."
-              style={{ width: '100%', minHeight: 180, background: 'rgba(17,24,39,.65)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px', fontSize: 13, fontFamily: 'inherit', resize: 'vertical' }}
-            />
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 12 }}>
+              <div>
+                <div className="page-eyebrow" style={{ marginBottom: 8 }}>YOUR POST</div>
+                <textarea
+                  value={body}
+                  onChange={(e) => setBody(e.target.value)}
+                  placeholder="Write your post here. Claude proofreads as you type."
+                  style={{ width: '100%', minHeight: 220, background: 'rgba(17,24,39,.65)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px', fontSize: 14, fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.6 }}
+                />
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', marginTop: 8 }}>
+                  {selectedChannels.map((c) => {
+                    const m = PLATFORM_META[c];
+                    const pct = Math.min(100, (body.length / m.charLimit) * 100);
+                    const over = body.length > m.charLimit;
+                    return (
+                      <div key={c} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontFamily: '"JetBrains Mono", monospace' }}>
+                        <span style={{ width: 14, height: 14, borderRadius: 4, background: m.gradient }} />
+                        <span style={{ color: over ? '#FF5B7A' : 'var(--muted)' }}>{body.length}/{m.charLimit}</span>
+                        <span style={{ width: 50, height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                          <span style={{ display: 'block', height: '100%', width: `${pct}%`, background: over ? '#FF5B7A' : m.color, transition: 'width .2s' }} />
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
 
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, alignItems: 'center' }}>
-              {selectedChannels.map((c) => {
-                const m = PLATFORM_META[c];
-                const over = body.length > m.charLimit;
-                return (
-                  <span key={c} className="muted" style={{ fontSize: 12, fontFamily: 'JetBrains Mono, monospace', color: over ? '#FF5B7A' : undefined }}>
-                    {m.icon} {body.length} / {m.charLimit}
-                  </span>
-                );
-              })}
+              <div>
+                <div className="page-eyebrow" style={{ marginBottom: 8 }}>LIVE PREVIEW</div>
+                {selectedChannels.length === 0 ? (
+                  <div style={{ padding: 24, border: '1px dashed var(--border)', borderRadius: 10, textAlign: 'center' }} className="muted">Pick a platform above to preview.</div>
+                ) : (
+                  <div style={{ display: 'grid', gap: 8, maxHeight: 320, overflowY: 'auto' }}>
+                    {selectedChannels.map((c) => {
+                      const m = PLATFORM_META[c];
+                      return (
+                        <div key={c} style={{
+                          border: `1px solid ${m.color}33`, borderRadius: 10, padding: 12,
+                          background: `linear-gradient(135deg, ${m.color}08 0%, transparent 60%), rgba(13,17,23,0.6)`,
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                            <span style={{ width: 32, height: 32, borderRadius: 8, background: m.gradient, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 12, fontFamily: '"JetBrains Mono", monospace', textTransform: 'lowercase', letterSpacing: '-0.04em' }}>{m.letter}</span>
+                            <div>
+                              <div style={{ fontSize: 12, fontWeight: 700 }}>{m.label}</div>
+                              <div className="muted" style={{ fontSize: 10 }}>preview · how it'll look</div>
+                            </div>
+                          </div>
+                          <div style={{ fontSize: 12.5, lineHeight: 1.6, whiteSpace: 'pre-wrap', color: body ? 'var(--text)' : 'var(--muted)', fontStyle: body ? 'normal' : 'italic' }}>
+                            {body || 'Your post will appear here as you type…'}
+                            {hashtags.length > 0 && body && <div style={{ marginTop: 8, color: m.color, fontSize: 12 }}>{hashtags.join(' ')}</div>}
+                          </div>
+                          {mediaUrl && (
+                            <div style={{ marginTop: 8, padding: 8, borderRadius: 6, background: 'rgba(255,255,255,0.03)', border: '1px dashed var(--border)', fontSize: 11 }} className="muted">🖼 {mediaUrl}</div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
 
             {issues.length > 0 && (
@@ -527,9 +712,17 @@ export default function SocialHubPage() {
                 const m = PLATFORM_META[p.channel as Channel] || PLATFORM_META.LINKEDIN;
                 const scheduledAtLocal = p.scheduledAt ? new Date(p.scheduledAt).toLocaleString() : null;
                 return (
-                  <div key={p.id} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, display: 'grid', gap: 8, background: 'rgba(255,255,255,0.01)' }}>
+                  <div key={p.id} style={{
+                    border: `1px solid ${m.color}33`, borderLeft: `4px solid ${m.color}`,
+                    borderRadius: 10, padding: 12, display: 'grid', gap: 8,
+                    background: `linear-gradient(135deg, ${m.color}08 0%, transparent 60%), rgba(13,17,23,0.5)`,
+                    transition: 'transform .15s, box-shadow .15s',
+                  }}
+                    onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = `0 8px 24px ${m.glow}`; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}
+                  >
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                      <Badge tone={m.tone}>{m.icon} {m.label}</Badge>
+                      <PlatformChip channel={p.channel as Channel} size="sm" />
                       <Badge tone={p.status === 'posted' ? 'success' : p.status === 'scheduled' ? 'info' : p.status === 'approved' ? 'warning' : undefined}>{p.status}</Badge>
                       {p.groupId && <span className="muted text-xs mono" title="Cross-platform group id">grp · {p.groupId.slice(-6)}</span>}
                       {scheduledAtLocal && <span className="muted text-xs">📅 {scheduledAtLocal}</span>}
@@ -552,32 +745,53 @@ export default function SocialHubPage() {
       )}
 
       {tab === 'Calendar' && (
-        <Card title="14-Day Calendar" subtitle="Scheduled posts shown by day. Drag-to-reschedule coming later.">
-          <div style={{ display: 'grid', gap: 8 }}>
-            {calendarDays.map((d) => (
-              <div key={d.date} style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: 12, padding: '8px 10px', borderBottom: '1px solid var(--border)' }}>
-                <div className="muted" style={{ fontSize: 12, fontWeight: 600 }}>{d.label}</div>
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  {d.posts.length === 0 ? (
-                    <span className="muted text-xs" style={{ fontStyle: 'italic' }}>—</span>
-                  ) : d.posts.map((p) => {
-                    const m = PLATFORM_META[p.channel as Channel] || PLATFORM_META.LINKEDIN;
-                    return (
-                      <span key={p.id} style={{ padding: '4px 10px', borderRadius: 6, background: 'rgba(155,114,255,.08)', border: '1px solid rgba(155,114,255,.22)', fontSize: 12 }}>
-                        {m.icon} {new Date(p.scheduledAt!).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} · {p.body.slice(0, 60)}{p.body.length > 60 ? '…' : ''}
-                      </span>
-                    );
-                  })}
+        <Card title="📅 14-Day Calendar" subtitle="Every scheduled post shown on the day it'll fire.">
+          <div style={{ display: 'grid', gap: 6 }}>
+            {calendarDays.map((d) => {
+              const isToday = d.date === new Date().toISOString().slice(0, 10);
+              const dayChip = new Date(d.date).toLocaleDateString([], { weekday: 'short' });
+              const dayNum = new Date(d.date).getDate();
+              return (
+                <div key={d.date} style={{
+                  display: 'grid', gridTemplateColumns: '70px 1fr', gap: 12,
+                  padding: '12px', borderRadius: 10,
+                  border: isToday ? '1px solid rgba(155,114,255,0.4)' : '1px solid var(--border)',
+                  background: isToday ? 'rgba(155,114,255,0.06)' : 'rgba(13,17,23,0.4)',
+                }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+                    <div style={{ fontSize: 10, color: isToday ? '#9B72FF' : 'var(--muted)', fontFamily: '"JetBrains Mono", monospace', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{dayChip}</div>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: isToday ? '#9B72FF' : 'var(--text)', lineHeight: 1 }}>{dayNum}</div>
+                    {isToday && <div style={{ fontSize: 9, color: '#9B72FF', fontWeight: 700 }}>TODAY</div>}
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', minHeight: 36 }}>
+                    {d.posts.length === 0 ? (
+                      <span className="muted text-xs" style={{ fontStyle: 'italic' }}>nothing scheduled</span>
+                    ) : d.posts.map((p) => {
+                      const m = PLATFORM_META[p.channel as Channel] || PLATFORM_META.LINKEDIN;
+                      return (
+                        <span key={p.id} title={p.body} style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 6,
+                          padding: '6px 10px', borderRadius: 8,
+                          background: `linear-gradient(135deg, ${m.color}20 0%, ${m.color}08 100%)`,
+                          border: `1px solid ${m.color}40`, fontSize: 12,
+                        }}>
+                          <span style={{ width: 18, height: 18, borderRadius: 4, background: m.gradient, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 9, fontWeight: 700, fontFamily: '"JetBrains Mono", monospace', textTransform: 'lowercase', letterSpacing: '-0.04em' }}>{m.letter}</span>
+                          <span className="mono text-xs" style={{ color: m.color }}>{new Date(p.scheduledAt!).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>
+                          <span style={{ maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.body.slice(0, 50)}</span>
+                        </span>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </Card>
       )}
 
       {tab === 'DMs' && (
         <div className="dash-stack">
-          <Card title="LinkedIn DM Queue" subtitle="20/day cap enforced. Suppression-list aware. Drafted DMs from /leads land here.">
+          <Card title="💼 LinkedIn DM Queue" subtitle="20/day cap. If a lead unsubscribed from your email, we'll never DM them. Drafted DMs from /leads land here.">
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
               <Button variant="ghost" onClick={exportDmsCsv} disabled={liDms.length === 0 && metaDms.length === 0}>⬇ Export all DMs CSV</Button>
             </div>
@@ -585,23 +799,34 @@ export default function SocialHubPage() {
               <div className="muted" style={{ padding: 16, textAlign: 'center', border: '1px dashed var(--border)', borderRadius: 8 }}>No queued LinkedIn DMs. Draft one from /leads (must have linkedinUrl).</div>
             ) : (
               <div style={{ display: 'grid', gap: 8 }}>
-                {liDms.map((m) => (
-                  <div key={m.id} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 10 }}>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
-                      <Badge tone="info">🔵 LinkedIn</Badge>
-                      <Badge tone={m.status === 'approved' ? 'warning' : undefined}>{m.status}</Badge>
-                      <span className="muted text-xs">{new Date(m.createdAt).toLocaleString()}</span>
+                {liDms.map((m) => {
+                  const liMeta = PLATFORM_META.LINKEDIN;
+                  return (
+                    <div key={m.id} style={{
+                      border: `1px solid ${liMeta.color}33`, borderLeft: `4px solid ${liMeta.color}`,
+                      borderRadius: 10, padding: 12,
+                      background: `linear-gradient(135deg, ${liMeta.color}06 0%, transparent 60%), rgba(13,17,23,0.5)`,
+                    }}>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                        <PlatformChip channel="LINKEDIN" size="sm" />
+                        <Badge tone={m.status === 'approved' ? 'warning' : undefined}>{m.status}</Badge>
+                        <span className="muted text-xs">{new Date(m.createdAt).toLocaleString()}</span>
+                      </div>
+                      <div style={{
+                        whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.6, marginBottom: 10,
+                        padding: '10px 14px', borderRadius: 12,
+                        background: 'rgba(255,255,255,0.03)', borderTopLeftRadius: 4,
+                      }}>{m.messageBody}</div>
+                      {m.status === 'queued' && <Button variant="primary" onClick={() => approveLiDm(m.id)}>✓ Approve</Button>}
+                      {m.status === 'approved' && <Button variant="primary" onClick={() => sendLiDm(m.id)}>📤 Send DM now</Button>}
                     </div>
-                    <div style={{ whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.55, marginBottom: 8 }}>{m.messageBody}</div>
-                    {m.status === 'queued' && <Button variant="primary" onClick={() => approveLiDm(m.id)}>Approve</Button>}
-                    {m.status === 'approved' && <Button variant="primary" onClick={() => sendLiDm(m.id)}>📤 Send DM</Button>}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </Card>
 
-          <Card title="Facebook + Instagram DM Queue" subtitle="">
+          <Card title="📱 Facebook + Instagram DMs" subtitle="">
             <div style={{ background: 'rgba(255,193,7,.06)', border: '1px solid rgba(255,193,7,.28)', borderRadius: 8, padding: '10px 12px', marginBottom: 12 }}>
               <div className="page-eyebrow" style={{ color: '#FFB628', marginBottom: 4 }}>HONEST CONSTRAINT</div>
               <div className="muted" style={{ fontSize: 12.5, lineHeight: 1.6 }}>
@@ -616,16 +841,24 @@ export default function SocialHubPage() {
                 {metaDms.map((m) => {
                   const meta = m.channel === 'INSTAGRAM' ? PLATFORM_META.INSTAGRAM : PLATFORM_META.FACEBOOK;
                   return (
-                    <div key={m.id} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 10 }}>
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
-                        <Badge tone={meta.tone}>{meta.icon} {meta.label}</Badge>
+                    <div key={m.id} style={{
+                      border: `1px solid ${meta.color}33`, borderLeft: `4px solid ${meta.color}`,
+                      borderRadius: 10, padding: 12,
+                      background: `linear-gradient(135deg, ${meta.color}06 0%, transparent 60%), rgba(13,17,23,0.5)`,
+                    }}>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                        <PlatformChip channel={m.channel as Channel} size="sm" />
                         <Badge tone={m.status === 'approved' ? 'warning' : undefined}>{m.status}</Badge>
                         {m.recipientHandle && <span className="muted text-xs mono">@{m.recipientHandle}</span>}
                       </div>
-                      <div style={{ whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.55, marginBottom: 8 }}>{m.messageBody}</div>
+                      <div style={{
+                        whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.6, marginBottom: 10,
+                        padding: '10px 14px', borderRadius: 12,
+                        background: 'rgba(255,255,255,0.03)', borderTopLeftRadius: 4,
+                      }}>{m.messageBody}</div>
                       {m.status === 'queued' && (
                         <div style={{ display: 'flex', gap: 6 }}>
-                          <Button variant="primary" onClick={() => approveMetaDm(m.id)}>Approve (then send manually)</Button>
+                          <Button variant="primary" onClick={() => approveMetaDm(m.id)}>✓ Approve (then send manually)</Button>
                           <Button variant="ghost" style={{ color: '#FF5B7A' }} onClick={() => rejectMetaDm(m.id)}>Reject</Button>
                         </div>
                       )}
@@ -641,20 +874,26 @@ export default function SocialHubPage() {
       {tab === 'Analytics' && (
         <div className="dash-stack">
           {analyticsSummary && (
-            <Card title="30-Day Cross-Platform Funnel" subtitle="All counts from the last 30 days.">
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8 }}>
+            <Card title="📊 Last 30 days at a glance" subtitle="Everything you've sent across LinkedIn, Facebook, Instagram, and YouTube.">
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
                 {[
-                  { k: 'Total Posts', v: analyticsSummary.totals.posts },
-                  { k: 'Posted', v: analyticsSummary.totals.posted },
-                  { k: 'Scheduled', v: analyticsSummary.totals.scheduled },
-                  { k: 'Drafts', v: analyticsSummary.totals.drafts },
-                  { k: 'LinkedIn DMs', v: analyticsSummary.totals.linkedinDms },
-                  { k: 'Meta DMs', v: analyticsSummary.totals.metaDms },
-                  { k: 'Replies analyzed', v: analyticsSummary.totals.socialReplies },
+                  { k: 'Total posts', v: analyticsSummary.totals.posts, accent: '#9B72FF', desc: 'across all platforms' },
+                  { k: 'Published', v: analyticsSummary.totals.posted, accent: '#10D68A', desc: 'live and out the door' },
+                  { k: 'Scheduled', v: analyticsSummary.totals.scheduled, accent: '#00C9FF', desc: 'firing automatically' },
+                  { k: 'Drafts', v: analyticsSummary.totals.drafts, accent: '#F5A623', desc: 'awaiting your review' },
+                  { k: 'LinkedIn DMs', v: analyticsSummary.totals.linkedinDms, accent: '#0A7ABF', desc: 'sent or queued' },
+                  { k: 'Meta DMs', v: analyticsSummary.totals.metaDms, accent: '#1877F2', desc: 'FB + IG combined' },
+                  { k: 'Replies analyzed', v: analyticsSummary.totals.socialReplies, accent: '#FF5B7A', desc: 'Claude classified' },
                 ].map((s) => (
-                  <div key={s.k} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 12, textAlign: 'center' }}>
-                    <div style={{ fontSize: 24, fontWeight: 700 }}>{s.v}</div>
-                    <div className="muted text-xs">{s.k}</div>
+                  <div key={s.k} style={{
+                    position: 'relative', overflow: 'hidden',
+                    border: `1px solid ${s.accent}33`, borderRadius: 12, padding: 14,
+                    background: `radial-gradient(120% 140% at 0% 0%, ${s.accent}10, transparent 55%), linear-gradient(180deg, #0F1320 0%, #0B0F1B 100%)`,
+                  }}>
+                    <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 2, background: `linear-gradient(90deg, transparent, ${s.accent}, transparent)` }} />
+                    <div style={{ fontSize: 32, fontWeight: 800, color: s.accent, lineHeight: 1, marginBottom: 4 }}>{s.v}</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>{s.k}</div>
+                    <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>{s.desc}</div>
                   </div>
                 ))}
               </div>
