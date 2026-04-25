@@ -27,6 +27,7 @@ import { SocialReplyModule } from './modules/social-reply/social-reply.module';
 import { YoutubeModule } from './modules/youtube/youtube.module';
 import { TodayModule } from './modules/today/today.module';
 import { TrendsModule } from './modules/trends/trends.module';
+import { ImagesModule } from './modules/images/images.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { ContentModule } from './modules/content/content.module';
 import { UnsubscribeModule } from './modules/unsubscribe/unsubscribe.module';
@@ -63,6 +64,7 @@ import { PrismaService } from './prisma/prisma.service';
     YoutubeModule,
     TodayModule,
     TrendsModule,
+    ImagesModule,
     AnalyticsModule,
     ContentModule,
     UnsubscribeModule,

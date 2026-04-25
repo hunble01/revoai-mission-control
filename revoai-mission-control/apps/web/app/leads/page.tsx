@@ -276,6 +276,21 @@ export default function LeadsPage() {
         </div>
         <div className="table-toolbar" style={{ alignSelf: 'flex-start' }}>
           <Button variant="secondary" onClick={enrichSelected} disabled={!selectedLeadIds.length || enrichingSelected}>{enrichingSelected ? 'Enriching…' : '⊕ Enrich Selected'}</Button>
+          <Button variant="secondary" style={{ border: '1px solid rgba(10,122,191,0.4)', color: '#0A7ABF' }} disabled={!selectedLeadIds.length} onClick={async () => {
+            if (!selectedLeadIds.length) return;
+            if (!confirm(`Draft LinkedIn DMs for ${selectedLeadIds.length} selected lead${selectedLeadIds.length === 1 ? '' : 's'}? Skips leads without a LinkedIn URL, leads already in the queue, and anyone email-unsubscribed.`)) return;
+            try {
+              const res = await fetch(`${API_BASE}/api/leads/bulk-draft-linkedin-dm`, {
+                method: 'POST', credentials: 'include', headers: apiHeaders,
+                body: JSON.stringify({ leadIds: selectedLeadIds }),
+              });
+              const j = await res.json();
+              if (!res.ok) throw new Error(j?.error?.message || 'Bulk draft failed');
+              toast('success', `Drafted ${j.drafted} · skipped ${j.skipped_no_linkedin + j.skipped_suppressed + j.skipped_already_queued + j.skipped_done}${j.failed ? ` · failed ${j.failed}` : ''} — review in /social DMs`);
+            } catch (e: any) {
+              toast('error', e?.message || 'Bulk draft failed');
+            }
+          }}>💼 Draft LinkedIn DMs</Button>
           <Button variant="ghost" onClick={() => {
             const rows = (selectedLeadIds.length ? leads.filter((l: any) => selectedLeadIds.includes(l.id)) : leads);
             const cols = ['businessName','contactName','contactRole','email','phone','website','status','fitScore','source','region','campaignId','createdAt'];

@@ -119,6 +119,14 @@ export default function SocialHubPage() {
   // A/B variants
   const [variants, setVariants] = useState<string[]>([]);
   const [generatingVariants, setGeneratingVariants] = useState(false);
+
+  // Image generation
+  const [imageOpen, setImageOpen] = useState(false);
+  const [imagePrompt, setImagePrompt] = useState('');
+  const [imageSize, setImageSize] = useState<'1024x1024' | '1024x1792' | '1792x1024'>('1024x1024');
+  const [imageGenerating, setImageGenerating] = useState(false);
+  const [imageRefining, setImageRefining] = useState(false);
+  const [imageResult, setImageResult] = useState<{ url: string; source: string; costCents: number | null; prompt: string } | null>(null);
   const [bestTimes, setBestTimes] = useState<Record<string, { suggestion: string; nextWindowAtIso: string }>>({});
 
   // DMs
@@ -634,6 +642,21 @@ export default function SocialHubPage() {
                 {generatingVariants ? 'Generating…' : '🎲 Generate 3 alternates'}
               </Button>
               <Button variant="ghost" onClick={async () => {
+                setImageOpen(true);
+                if (!imagePrompt && body.trim()) {
+                  setImageRefining(true);
+                  try {
+                    const res = await fetch(`${API_BASE}/api/images/refine-prompt`, {
+                      method: 'POST', credentials: 'include', headers: apiHeaders,
+                      body: JSON.stringify({ body, platform: selectedChannels[0] || 'LINKEDIN' }),
+                    });
+                    const j = await res.json();
+                    if (j?.ok && j.prompt) setImagePrompt(j.prompt);
+                  } catch { /* silent */ }
+                  finally { setImageRefining(false); }
+                }
+              }}>🎨 Generate image</Button>
+              <Button variant="ghost" onClick={async () => {
                 if (!body.trim()) { toast('warning', 'Write something first'); return; }
                 setAiReviewing(true);
                 setAiIssues([]);
@@ -959,6 +982,102 @@ export default function SocialHubPage() {
               ))}
             </div>
           </Card>
+        </div>
+      )}
+
+      {imageOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.65)', backdropFilter: 'blur(4px)', zIndex: 10000, padding: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', overflowY: 'auto' }} onClick={() => setImageOpen(false)}>
+          <div style={{
+            width: 'min(720px, calc(100vw - 32px))', maxHeight: 'calc(100dvh - 32px)',
+            display: 'flex', flexDirection: 'column',
+            border: '1px solid rgba(155,114,255,0.3)', borderRadius: 16, overflow: 'hidden',
+            background: 'radial-gradient(120% 140% at 0% 0%, rgba(225,48,108,0.08), transparent 50%), linear-gradient(180deg, #0F1320 0%, #0B0F1B 100%)',
+            boxShadow: '0 24px 80px rgba(0,0,0,0.55)',
+          }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ padding: 18, borderBottom: '1px solid var(--border)' }}>
+              <div className="page-eyebrow" style={{ marginBottom: 4, color: '#9B72FF' }}>🎨 GENERATE IMAGE</div>
+              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Make an image for your post</h3>
+              <p className="muted" style={{ margin: '4px 0 0', fontSize: 12.5 }}>Claude expands your post into a vivid prompt. Then DALL-E 3 generates the image.</p>
+            </div>
+
+            <div style={{ padding: 18, overflowY: 'auto', display: 'grid', gap: 14 }}>
+              <div>
+                <div className="page-eyebrow" style={{ marginBottom: 6 }}>IMAGE PROMPT</div>
+                <textarea
+                  value={imagePrompt}
+                  onChange={(e) => setImagePrompt(e.target.value)}
+                  placeholder={imageRefining ? 'Refining prompt from post body…' : 'Describe the image. Or click ✨ Refine from post.'}
+                  style={{ width: '100%', minHeight: 100, background: 'rgba(17,24,39,.65)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px', fontSize: 13, fontFamily: 'inherit', resize: 'vertical' }}
+                />
+                <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                  <Button variant="ghost" onClick={async () => {
+                    if (!body.trim()) { toast('warning', 'Write the post body first'); return; }
+                    setImageRefining(true);
+                    try {
+                      const res = await fetch(`${API_BASE}/api/images/refine-prompt`, {
+                        method: 'POST', credentials: 'include', headers: apiHeaders,
+                        body: JSON.stringify({ body, platform: selectedChannels[0] || 'LINKEDIN' }),
+                      });
+                      const j = await res.json();
+                      if (j?.ok && j.prompt) { setImagePrompt(j.prompt); toast('success', 'Prompt refined'); }
+                    } catch (e: any) { toast('error', e?.message || 'Refine failed'); }
+                    finally { setImageRefining(false); }
+                  }} disabled={imageRefining}>{imageRefining ? 'Refining…' : '✨ Refine from post'}</Button>
+                  <select value={imageSize} onChange={(e) => setImageSize(e.target.value as any)} style={{ background: 'rgba(17,24,39,.65)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 10px', fontSize: 12 }}>
+                    <option value="1024x1024">Square (1024×1024)</option>
+                    <option value="1024x1792">Portrait (1024×1792 — IG / Reels)</option>
+                    <option value="1792x1024">Landscape (1792×1024 — LI / FB)</option>
+                  </select>
+                </div>
+              </div>
+
+              {imageResult && (
+                <div>
+                  <div className="page-eyebrow" style={{ marginBottom: 6 }}>RESULT</div>
+                  <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border)', background: 'rgba(0,0,0,0.4)' }}>
+                    <img src={imageResult.url} alt="Generated" style={{ width: '100%', display: 'block' }} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+                    <div style={{ position: 'absolute', top: 8, left: 8, display: 'flex', gap: 6 }}>
+                      <span style={{ padding: '3px 8px', borderRadius: 6, background: 'rgba(0,0,0,0.7)', fontSize: 10, fontFamily: '"JetBrains Mono", monospace', color: imageResult.source === 'stub' ? '#F5A623' : '#10D68A' }}>
+                        {imageResult.source === 'stub' ? 'STUB · placeholder' : `DALL-E 3 · $${((imageResult.costCents || 0) / 100).toFixed(2)}`}
+                      </span>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                    <Button variant="primary" onClick={() => {
+                      setMediaUrl(imageResult.url);
+                      toast('success', 'Image attached to your post');
+                      setImageOpen(false);
+                    }}>📎 Use this image</Button>
+                    <Button variant="ghost" onClick={() => { setImageResult(null); }}>🔄 Generate another</Button>
+                    <a href={imageResult.url} target="_blank" rel="noreferrer"><Button variant="ghost">↗ Open</Button></a>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '12px 18px', borderTop: '1px solid var(--border)' }}>
+              <Button variant="ghost" onClick={() => setImageOpen(false)}>Close</Button>
+              <Button variant="primary" disabled={!imagePrompt.trim() || imageGenerating} onClick={async () => {
+                if (!imagePrompt.trim()) return;
+                setImageGenerating(true);
+                setImageResult(null);
+                try {
+                  const res = await fetch(`${API_BASE}/api/images/generate`, {
+                    method: 'POST', credentials: 'include', headers: apiHeaders,
+                    body: JSON.stringify({ prompt: imagePrompt, size: imageSize, platform: selectedChannels[0] || null }),
+                  });
+                  const j = await res.json();
+                  if (!res.ok || !j?.ok) throw new Error(j?.error?.message || 'Generation failed');
+                  setImageResult({ url: j.asset.url, source: j.asset.source, costCents: j.asset.costCents, prompt: j.asset.prompt });
+                  toast('success', j.asset.source === 'stub' ? 'Stub image (no key)' : 'Image generated');
+                } catch (e: any) {
+                  toast('error', e?.message || 'Generation failed');
+                } finally {
+                  setImageGenerating(false);
+                }
+              }}>{imageGenerating ? '✨ Generating…' : '✨ Generate image'}</Button>
+            </div>
+          </div>
         </div>
       )}
     </div>

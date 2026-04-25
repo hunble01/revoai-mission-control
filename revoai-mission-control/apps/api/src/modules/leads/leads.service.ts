@@ -803,6 +803,64 @@ Return STRICT JSON: {"messageBody": "<the DM, 2-3 sentences, signed>"}`;
     return { ok: true, message: created };
   }
 
+  /**
+   * Bulk-draft LinkedIn DMs for a set of leads. Skips:
+   *   - Leads without a linkedinUrl
+   *   - Leads on the email suppression list (cross-channel parity)
+   *   - Leads that already have a queued/approved/sent LinkedIn message
+   *   - Leads with status 'REPLIED' / 'BOOKED' / 'LOST' (don't disturb)
+   *
+   * Runs draftLinkedinDmForLead per lead with a small concurrency limit to
+   * stay polite with Anthropic. Returns counts so the UI can show a clean
+   * summary toast.
+   */
+  async bulkDraftLinkedinDms(leadIds: string[], actorId?: string) {
+    if (!Array.isArray(leadIds) || leadIds.length === 0) {
+      throw new BadRequestException('leadIds[] required');
+    }
+    const ids = leadIds.slice(0, 200);
+    const summary = { drafted: 0, skipped_no_linkedin: 0, skipped_suppressed: 0, skipped_already_queued: 0, skipped_done: 0, failed: 0, skippedDetail: [] as Array<{ leadId: string; reason: string }> };
+
+    const concurrency = 4;
+    const queue = [...ids];
+    const runOne = async (leadId: string) => {
+      try {
+        const lead = await this.prisma.lead.findUnique({ where: { id: leadId } });
+        if (!lead) { summary.failed++; return; }
+        if (!lead.linkedinUrl) { summary.skipped_no_linkedin++; summary.skippedDetail.push({ leadId, reason: 'no_linkedin_url' }); return; }
+        if (['REPLIED', 'BOOKED', 'LOST'].includes(String(lead.status))) {
+          summary.skipped_done++; summary.skippedDetail.push({ leadId, reason: `status_${lead.status}` }); return;
+        }
+        if (lead.email) {
+          const suppressed = await this.unsubscribe.isSuppressed(lead.email);
+          if (suppressed) { summary.skipped_suppressed++; summary.skippedDetail.push({ leadId, reason: 'email_suppressed' }); return; }
+        }
+        const existing = await this.prisma.linkedinMessage.findFirst({
+          where: { leadId, status: { in: ['queued', 'approved', 'sent'] as any } as any },
+        });
+        if (existing) { summary.skipped_already_queued++; summary.skippedDetail.push({ leadId, reason: 'already_queued' }); return; }
+
+        await this.draftLinkedinDmForLead(leadId, actorId);
+        summary.drafted++;
+      } catch (err) {
+        summary.failed++;
+      }
+    };
+
+    const workers: Promise<void>[] = [];
+    for (let i = 0; i < concurrency; i++) {
+      workers.push((async () => {
+        while (queue.length) {
+          const next = queue.shift();
+          if (next) await runOne(next);
+        }
+      })());
+    }
+    await Promise.all(workers);
+
+    return { ok: true, total: ids.length, ...summary };
+  }
+
   async generateDraftForLead(id: string, body: any, actorId?: string) {
     const lead = await this.prisma.lead.findUnique({ where: { id } });
     if (!lead) throw new NotFoundException('Lead not found');

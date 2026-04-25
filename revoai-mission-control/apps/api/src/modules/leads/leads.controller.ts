@@ -102,4 +102,13 @@ export class LeadsController {
     const actorId = req?.headers?.['x-actor-id'] ? String(req.headers['x-actor-id']) : undefined;
     return this.leads.draftLinkedinDmForLead(id, actorId);
   }
+
+  @Post('bulk-draft-linkedin-dm')
+  bulkDraftLinkedinDms(@Req() req: any, @Body() body: any) {
+    assertAdminToken(req);
+    assertAdminRole(getActorRole(req), 'lead bulk linkedin dm');
+    const actorId = req?.headers?.['x-actor-id'] ? String(req.headers['x-actor-id']) : undefined;
+    const ids = Array.isArray(body?.leadIds) ? body.leadIds.map((x: any) => String(x)) : [];
+    return this.leads.bulkDraftLinkedinDms(ids, actorId);
+  }
 }

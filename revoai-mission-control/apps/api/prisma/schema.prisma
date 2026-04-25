@@ -592,6 +592,23 @@ model MetaMessage {
   @@map("meta_messages")
 }
 
+model MediaAsset {
+  id          String   @id @default(uuid())
+  kind        String   // 'image' | 'video' | 'audio'
+  source      String   // 'dalle3' | 'stable_diffusion' | 'upload' | 'stub'
+  prompt      String?
+  url         String
+  width       Int?
+  height      Int?
+  costCents   Int?     @map("cost_cents")
+  metadata    Json     @default("{}")
+  createdBy   String?  @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([kind, createdAt])
+  @@map("media_assets")
+}
+
 model TrendingItem {
   id           String   @id @default(uuid())
   source       String   // 'hacker_news' | 'reddit' | 'google_news' | 'manual'
