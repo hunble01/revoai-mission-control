@@ -38,6 +38,7 @@ export default function SchedulerPage() {
     { name: '📮 Queue Drain', schedule: 'Every 60 seconds', purpose: 'Processes approved drafts in the outbound queue and sends via Resend', status: 'Active' },
     { name: '📊 Delivery Tracker', schedule: 'Every 30 minutes', purpose: 'Polls Resend API for delivered/opened/clicked/bounced events', status: 'Active' },
     { name: '📣 Social Publish Cron', schedule: 'Every 60 seconds', purpose: 'Publishes scheduled social posts (LinkedIn / Facebook / Instagram) when their scheduledAt passes', status: 'Active' },
+    { name: '⚡ Social Autopilot', schedule: 'Every 60 minutes', purpose: 'Auto-generates RevoAI-product-focused posts (with optional images), scheduled into best-time windows. Drafts wait for your approval unless autoApprove is on.', status: 'Active' },
   ];
 
   return <div className="dash-stack fade-in">

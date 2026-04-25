@@ -220,7 +220,50 @@ export default function SocialHubPage() {
     setBestTimes(out);
   };
 
-  useEffect(() => { loadPosts(); loadBestTimes(); }, []);
+  useEffect(() => { loadPosts(); loadBestTimes(); loadAutopilot(); }, []);
+
+  // Autopilot
+  const [autopilot, setAutopilot] = useState<any | null>(null);
+  const [autopilotRunning, setAutopilotRunning] = useState(false);
+  const loadAutopilot = async () => {
+    try {
+      const r = await fetch(`${API_BASE}/api/social-autopilot/status`, { credentials: 'include', headers: apiHeaders });
+      if (r.ok) setAutopilot(await r.json());
+    } catch { /* silent */ }
+  };
+  const updateAutopilot = async (patch: any) => {
+    try {
+      const r = await fetch(`${API_BASE}/api/social-autopilot/config`, {
+        method: 'POST', credentials: 'include', headers: apiHeaders,
+        body: JSON.stringify(patch),
+      });
+      if (r.ok) {
+        const cfg = await r.json();
+        setAutopilot((prev: any) => ({ ...(prev || {}), config: cfg }));
+        toast('success', 'Autopilot settings saved');
+      }
+    } catch (e: any) { toast('error', e?.message || 'Save failed'); }
+  };
+  const runAutopilotNow = async () => {
+    setAutopilotRunning(true);
+    try {
+      const r = await fetch(`${API_BASE}/api/social-autopilot/run-now`, {
+        method: 'POST', credentials: 'include', headers: apiHeaders,
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j?.error || j?.skipped || 'Run failed');
+      if (j?.ok) {
+        toast('success', `Drafted ${j.platform} ${j.mix} post — review in Queue`);
+        await loadPosts();
+        await loadAutopilot();
+      } else if (j?.skipped) {
+        toast('warning', `Skipped: ${j.skipped}`);
+      } else {
+        toast('error', j?.error || 'Run failed');
+      }
+    } catch (e: any) { toast('error', e?.message || 'Run failed'); }
+    finally { setAutopilotRunning(false); }
+  };
   useEffect(() => { if (tab === 'Analytics') loadInsights(); }, [tab]);
   useEffect(() => { if (tab === 'DMs') loadDms(); }, [tab]);
 
@@ -486,6 +529,96 @@ export default function SocialHubPage() {
           </div>
         ))}
       </section>
+
+      {/* Autopilot panel */}
+      {autopilot && (() => {
+        const cfg = autopilot.config || {};
+        const enabled = !!cfg.enabled;
+        return (
+          <section style={{
+            position: 'relative', overflow: 'hidden',
+            border: `1px solid ${enabled ? 'rgba(16,214,138,0.4)' : 'rgba(245,166,35,0.3)'}`,
+            borderRadius: 14, padding: 18,
+            background: enabled
+              ? 'radial-gradient(120% 140% at 0% 0%, rgba(16,214,138,0.10), transparent 55%), linear-gradient(180deg, #0F1320 0%, #0B0F1B 100%)'
+              : 'radial-gradient(120% 140% at 0% 0%, rgba(245,166,35,0.06), transparent 55%), linear-gradient(180deg, #0F1320 0%, #0B0F1B 100%)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+              <div>
+                <div className="page-eyebrow" style={{ color: enabled ? '#10D68A' : '#F5A623', marginBottom: 4 }}>⚡ AUTOPILOT</div>
+                <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>
+                  {enabled ? 'Running on autopilot' : 'Autopilot is paused'}
+                </h3>
+                <p className="muted" style={{ margin: '4px 0 0', fontSize: 12.5 }}>
+                  {enabled
+                    ? `Auto-generates ${cfg.postsPerDay} post/day · ${cfg.mixProductPct}% RevoAI / ${100 - cfg.mixProductPct}% trends · ${cfg.autoImage ? 'with images' : 'text only'} · drafts ${cfg.autoApprove ? 'auto-publish' : 'wait for your approval'}`
+                    : 'Turn on to auto-generate daily product-focused posts.'}
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <Button variant={enabled ? 'ghost' : 'primary'} onClick={() => updateAutopilot({ enabled: !enabled })}>
+                  {enabled ? 'Pause' : '▶ Turn on'}
+                </Button>
+                <Button variant="primary" disabled={autopilotRunning} onClick={runAutopilotNow}>
+                  {autopilotRunning ? 'Running…' : '✨ Run now'}
+                </Button>
+              </div>
+            </div>
+
+            {enabled && (
+              <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
+                <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 10 }}>
+                  <div className="muted text-xs" style={{ marginBottom: 4 }}>Posts per day</div>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    {[1, 2, 3, 5].map((n) => (
+                      <button key={n} onClick={() => updateAutopilot({ postsPerDay: n })} style={{ flex: 1, padding: '6px 10px', borderRadius: 6, border: '1px solid ' + (cfg.postsPerDay === n ? '#10D68A' : 'var(--border)'), background: cfg.postsPerDay === n ? 'rgba(16,214,138,0.12)' : 'transparent', color: cfg.postsPerDay === n ? '#10D68A' : 'var(--text)', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>{n}</button>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 10 }}>
+                  <div className="muted text-xs" style={{ marginBottom: 4 }}>Mix · {cfg.mixProductPct}% RevoAI / {100 - cfg.mixProductPct}% trends</div>
+                  <input type="range" min={0} max={100} step={10} value={cfg.mixProductPct} onChange={(e) => updateAutopilot({ mixProductPct: Number(e.target.value) })} style={{ width: '100%' }} />
+                </div>
+                <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 10 }}>
+                  <div className="muted text-xs" style={{ marginBottom: 4 }}>Platforms</div>
+                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                    {(['LINKEDIN', 'FACEBOOK', 'INSTAGRAM', 'YOUTUBE'] as Channel[]).map((p) => {
+                      const m = PLATFORM_META[p];
+                      const on = (cfg.platforms || []).includes(p);
+                      return (
+                        <button key={p} onClick={() => {
+                          const list = on ? cfg.platforms.filter((x: string) => x !== p) : [...(cfg.platforms || []), p];
+                          if (list.length > 0) updateAutopilot({ platforms: list });
+                        }} style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid ' + (on ? m.color : 'var(--border)'), background: on ? `${m.color}18` : 'transparent', color: on ? m.color : 'var(--muted)', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>{m.label}</button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={!!cfg.autoImage} onChange={(e) => updateAutopilot({ autoImage: e.target.checked })} />
+                    🎨 Auto-generate image per post
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={!!cfg.autoApprove} onChange={(e) => updateAutopilot({ autoApprove: e.target.checked })} />
+                    ⚡ Auto-publish (skip review)
+                  </label>
+                </div>
+              </div>
+            )}
+
+            {enabled && autopilot.nextPlatform && (
+              <div style={{ marginTop: 12, padding: '8px 12px', borderRadius: 8, background: 'rgba(16,214,138,0.06)', border: '1px solid rgba(16,214,138,0.2)', fontSize: 12 }}>
+                <span className="muted">Next post: </span>
+                <strong style={{ color: '#10D68A' }}>{autopilot.nextPlatform}</strong>
+                <span className="muted"> at </span>
+                <strong style={{ color: 'var(--text)' }}>{new Date(autopilot.nextWindowAtIso).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}</strong>
+                <span className="muted"> · today: {autopilot.todayCount}/{cfg.postsPerDay}</span>
+              </div>
+            )}
+          </section>
+        );
+      })()}
 
       {/* Pill tabs */}
       <div style={{ display: 'flex', gap: 6, padding: 6, background: 'rgba(13,17,23,0.7)', border: '1px solid var(--border)', borderRadius: 14, flexWrap: 'wrap' }}>

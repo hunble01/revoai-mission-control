@@ -7,5 +7,6 @@ import { SocialPostsService } from './social-posts.service';
 @Module({
   controllers: [SocialPostsController],
   providers: [SocialPostsService, PrismaService, EventsService],
+  exports: [SocialPostsService],
 })
 export class SocialPostsModule {}

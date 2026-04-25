@@ -37,8 +37,8 @@ export class TodayService {
       this.prisma.socialPost.findMany({
         where: { status: 'draft' },
         orderBy: { createdAt: 'desc' },
-        take: 5,
-        select: { id: true, channel: true, body: true, createdAt: true, groupId: true },
+        take: 8,
+        select: { id: true, channel: true, body: true, createdAt: true, groupId: true, mediaUrl: true, sourceType: true, engagementStats: true },
       }),
       // Scheduled social posts firing in the next 24h
       this.prisma.socialPost.findMany({

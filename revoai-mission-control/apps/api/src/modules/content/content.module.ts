@@ -6,5 +6,6 @@ import { ContentService } from './content.service';
 @Module({
   controllers: [ContentController],
   providers: [ContentService, PrismaService],
+  exports: [ContentService],
 })
 export class ContentModule {}

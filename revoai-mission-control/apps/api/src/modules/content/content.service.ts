@@ -46,6 +46,61 @@ Output JSON only.`;
 
 const HASHTAG_PROMPT = `Suggest 5-10 niche hashtags (no spam tags) for the post and niche given. Mix 2-3 broad (#smallbusiness), 3-5 niche (#medspamarketing), and 1-2 location/community where relevant. Return STRICTLY a JSON array of strings each starting with #. No prose, no fences.`;
 
+// RevoAI-specific product post generator. Used by the autopilot to produce
+// posts ABOUT RevoAI itself (vs. generic content strategy or trend-jacking).
+// Bakes in product facts so posts actually sell what we sell.
+const REVOAI_PRODUCT_PROMPT = `You are the founder of RevoAI writing a single short social post about your own product.
+
+PRODUCT FACTS (the only ones you may cite):
+- RevoAI is an AI receptionist for local service businesses (barbershops, med spas, clinics, gyms, agencies, salons, law firms, contractors)
+- 24/7 call answering with sub-second response, real human-sounding voice (no robotic IVR)
+- Books appointments straight into Google / Outlook / iCloud calendar in real time, no double-booking
+- Two-way SMS handles questions, confirmations, reminders
+- AI chatbox for the website captures leads 24/7
+- Live dashboard shows every call, text, and booking as they happen
+- Plans from $97/mo CAD (vs ~$2,500+/mo for a human receptionist), 7-day free trial, 10-minute setup, no contract
+- Currently early access, full launch 2026
+- Sign-up URL: https://revoai.ca/sign-up
+
+ABSOLUTE BRAND RULES (violating any breaks the brand):
+- NEVER say "revolutionize", "game-changer", "synergy", "seamless", "best-in-class", "in today's fast-paced world"
+- NEVER claim "no credit card required" — a card IS required (the trial just doesn't charge)
+- NEVER cite review counts, star ratings, or testimonials we don't have
+- NEVER mention competitors by name
+- NEVER promise specific ROI as a guarantee ("will make you $X")
+- Maximum ONE exclamation mark per post; zero is better
+- Never use em-dashes (—). Use periods or commas.
+- No "AI-powered" — describe what it actually does
+- Never invent specifics about businesses
+
+VOICE: warm, professional, calm, founder-tone. Botanical/organic — not aggressive SaaS. Confident, not pushy. Concrete numbers and outcomes where possible. Plain language.
+
+REQUESTED ANGLE — write the post strictly through this lens:
+{ANGLE_INSTRUCTION}
+
+PLATFORM: {PLATFORM} — target length:
+- LINKEDIN: 250-350 chars body
+- FACEBOOK: 200-300 chars body
+- INSTAGRAM: 150-250 chars body, image is the hero
+- YOUTUBE: 60-100 char hook (used as Short title/caption)
+
+OUTPUT — return STRICT JSON only, no preamble, no fences:
+{
+  "headline": "<6-12 word internal title for the post>",
+  "body": "<the post body, length appropriate for platform>",
+  "hashtags": ["#tag1", "#tag2", "#tag3", "#tag4", "#tag5"],
+  "imagePromptHint": "<one sentence visual direction for a hero image — subject, mood, composition, color, no people's faces, no text in image>"
+}`;
+
+const ANGLE_INSTRUCTIONS: Record<string, string> = {
+  feature: 'Highlight ONE specific RevoAI feature (24/7 call answering, SMS booking, calendar integration, AI chatbox, live dashboard) and the concrete problem it solves for a local-service business. Stay on one feature.',
+  pain: 'Open with a sharp, specific pain point a local-service business owner feels (missed calls during a haircut, no-shows wrecking the schedule, after-hours leads going to competitors, voicemail-tag death spiral). Pivot to how RevoAI fixes that pain. Concrete, not abstract.',
+  value: 'Compare $97/mo CAD RevoAI to alternatives: $2,500+/mo human receptionist, $0/mo doing nothing and losing the lead. Show the math plainly — not a sales pitch, just the numbers and what they mean.',
+  bts: 'Founder voice. Building-in-public energy. A specific decision, lesson, or moment from running RevoAI — what we changed, what we learned, what we observed about local-service buyers. No fake humility, no hustle-porn. Real and small.',
+  educational: 'Teach something useful about how AI receptionists work, what they actually handle vs. don\'t, common myths (e.g. "people will hate talking to a bot" — modern voice models are good now), or how a small business should think about call automation. Useful even if the reader never buys.',
+  caseStudy: 'Hypothetical scenario only — never invent a real customer testimonial. Frame as "imagine a 6-chair barbershop that misses 12 calls a week. With RevoAI those 12 calls get answered, X% book on the spot..." — keep numbers conservative and grounded. End with the soft CTA.',
+};
+
 @Injectable()
 export class ContentService {
   private readonly log = new Logger('ContentService');
@@ -292,6 +347,71 @@ export class ContentService {
     } catch (err: any) {
       this.log.warn(`suggestHashtags failed: ${err?.message || err}`);
       return { ok: false, error: `Hashtag suggestion failed: ${err?.message || err}`, hashtags: [] };
+    }
+  }
+
+  /**
+   * Generate ONE RevoAI-product-focused social post for a specific platform
+   * and angle. Used by the autopilot. Pulls REVOAI_PRODUCT_PROMPT, fills in
+   * the platform + angle slots, returns parsed { headline, body, hashtags,
+   * imagePromptHint } for the caller to persist as a SocialPost.
+   *
+   * If avoidTopics is supplied (last N autopilot headlines), they're
+   * appended to the user message so Claude rotates angles instead of
+   * repeating itself.
+   */
+  async generateRevoAIPost(opts: { platform: 'LINKEDIN' | 'FACEBOOK' | 'INSTAGRAM' | 'YOUTUBE'; angle: keyof typeof ANGLE_INSTRUCTIONS; avoidTopics?: string[] }): Promise<{ ok: boolean; headline: string; body: string; hashtags: string[]; imagePromptHint: string; angle: string; error?: string }> {
+    const apiKey = (process.env.ANTHROPIC_API_KEY || '').trim();
+    if (!apiKey) return { ok: false, headline: '', body: '', hashtags: [], imagePromptHint: '', angle: opts.angle, error: 'ANTHROPIC_API_KEY not configured' };
+
+    const angleInstruction = ANGLE_INSTRUCTIONS[opts.angle] || ANGLE_INSTRUCTIONS.feature;
+    const ctx = await this.buildContext();
+    const model = (process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001').trim();
+
+    const systemPrompt = REVOAI_PRODUCT_PROMPT
+      .replace('{ANGLE_INSTRUCTION}', angleInstruction)
+      .replace('{PLATFORM}', opts.platform);
+
+    const userMsgParts: string[] = [
+      `Brand: ${ctx.companyName}, authored by ${ctx.yourName}.`,
+      ctx.niche ? `Active campaign niche we can lean into: ${ctx.niche}${ctx.subNiche ? ` (specifically ${ctx.subNiche})` : ''}.` : null,
+      ctx.painPoint ? `Customer pain we know works: ${ctx.painPoint}` : null,
+    ];
+    if (opts.avoidTopics && opts.avoidTopics.length) {
+      userMsgParts.push(`\nRecent post headlines to avoid repeating (write something distinctly different):\n- ${opts.avoidTopics.slice(0, 8).join('\n- ')}`);
+    }
+    userMsgParts.push('', 'Return the JSON now.');
+    const userMsg = userMsgParts.filter(Boolean).join('\n');
+
+    try {
+      const client = new Anthropic({ apiKey });
+      const resp = await client.messages.create({
+        model,
+        max_tokens: 800,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userMsg }],
+      });
+      const raw = (resp.content || [])
+        .map((b: any) => (b.type === 'text' ? b.text : ''))
+        .join('')
+        .trim()
+        .replace(/^```json\s*/, '')
+        .replace(/```\s*$/, '')
+        .trim();
+      const parsed = JSON.parse(raw);
+      return {
+        ok: true,
+        angle: opts.angle,
+        headline: String(parsed?.headline || '').slice(0, 200).trim(),
+        body: String(parsed?.body || '').trim(),
+        hashtags: Array.isArray(parsed?.hashtags)
+          ? parsed.hashtags.map((h: any) => String(h || '').trim()).filter((h: string) => h.startsWith('#') && h.length > 1).slice(0, 10)
+          : [],
+        imagePromptHint: String(parsed?.imagePromptHint || '').trim(),
+      };
+    } catch (err: any) {
+      this.log.warn(`generateRevoAIPost failed: ${err?.message || err}`);
+      return { ok: false, angle: opts.angle, headline: '', body: '', hashtags: [], imagePromptHint: '', error: String(err?.message || err) };
     }
   }
 }
