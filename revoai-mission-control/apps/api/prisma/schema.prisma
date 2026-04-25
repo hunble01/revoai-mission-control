@@ -429,7 +429,11 @@ model EmailSuppression {
 
 model ReplyAnalysis {
   id                 String   @id @default(uuid())
-  leadId             String   @map("lead_id")
+  // Polymorphic subject: subject_type ∈ {lead, social_post, linkedin_message, meta_message}
+  subjectType        String   @map("subject_type")
+  subjectId          String   @map("subject_id")
+  // leadId kept for back-compat reads on lead-type rows; nullable for non-lead subjects
+  leadId             String?  @map("lead_id")
   replyText          String   @map("reply_text")
   intent             String
   confidence         Float    @default(0)
@@ -442,6 +446,7 @@ model ReplyAnalysis {
   createdAt          DateTime @default(now()) @map("created_at")
 
   @@index([leadId, createdAt])
+  @@index([subjectType, subjectId, createdAt])
   @@map("reply_analyses")
 }
 
@@ -566,6 +571,25 @@ model LinkedinMessage {
   @@index([status])
   @@index([sentAt])
   @@map("linkedin_messages")
+}
+
+model MetaMessage {
+  id               String   @id @default(uuid())
+  channel          String   // 'FACEBOOK' | 'INSTAGRAM'
+  leadId           String?  @map("lead_id")
+  recipientHandle  String?  @map("recipient_handle")
+  messageBody      String   @map("message_body")
+  status           String   @default("queued")
+  sentAt           DateTime? @map("sent_at")
+  replyReceivedAt  DateTime? @map("reply_received_at")
+  externalThreadId String?  @map("external_thread_id")
+  rejectReason     String?  @map("reject_reason")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@index([channel, status])
+  @@index([sentAt])
+  @@map("meta_messages")
 }
 
 model ContentIdea {

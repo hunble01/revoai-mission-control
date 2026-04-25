@@ -211,6 +211,141 @@ export class SocialPostsService {
     });
   }
 
+  /**
+   * Aggregated cross-platform funnel for the /social Analytics tab.
+   * Counts last 30 days of SocialPost rows by status × channel, plus
+   * LinkedIn DM totals + Meta DM totals + replies (ReplyAnalysis rows
+   * pointing at social_post / linkedin_message / meta_message).
+   */
+  async analyticsSummary() {
+    const since = new Date(Date.now() - 30 * 24 * 3600 * 1000);
+    const [posts, liDms, metaDms, socialReplies] = await Promise.all([
+      this.prisma.socialPost.findMany({
+        where: { createdAt: { gte: since } },
+        select: { channel: true, status: true, engagementStats: true },
+      }),
+      this.prisma.linkedinMessage.count({ where: { createdAt: { gte: since } } }),
+      (this.prisma as any).metaMessage.count({ where: { createdAt: { gte: since } } }),
+      (this.prisma as any).replyAnalysis.count({
+        where: { createdAt: { gte: since }, subjectType: { in: ['social_post', 'linkedin_message', 'meta_message'] } },
+      }),
+    ]);
+
+    const byChannel: Record<string, { drafts: number; approved: number; scheduled: number; posted: number }> = {};
+    for (const p of posts as any[]) {
+      const ch = String(p.channel);
+      if (!byChannel[ch]) byChannel[ch] = { drafts: 0, approved: 0, scheduled: 0, posted: 0 };
+      const status = String(p.status);
+      if (status === 'draft') byChannel[ch].drafts++;
+      else if (status === 'approved') byChannel[ch].approved++;
+      else if (status === 'scheduled') byChannel[ch].scheduled++;
+      else if (status === 'posted') byChannel[ch].posted++;
+    }
+
+    const totals = {
+      posts: (posts as any[]).length,
+      posted: (posts as any[]).filter((p: any) => p.status === 'posted').length,
+      scheduled: (posts as any[]).filter((p: any) => p.status === 'scheduled').length,
+      drafts: (posts as any[]).filter((p: any) => p.status === 'draft').length,
+      linkedinDms: liDms,
+      metaDms,
+      socialReplies,
+    };
+
+    return { since, totals, byChannel };
+  }
+
+  /**
+   * Generate 3 A/B variants of the same post body, in the brand voice.
+   * Used by /social Compose "Generate alternates" button.
+   */
+  async generateVariants(body: string, channel?: string): Promise<{ ok: boolean; variants: string[] }> {
+    const apiKey = (process.env.ANTHROPIC_API_KEY || '').trim();
+    if (!apiKey) return { ok: false, variants: [] };
+
+    const Anthropic = (await import('@anthropic-ai/sdk')).default;
+    const model = (process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001').trim();
+
+    const systemPrompt = `Rewrite the social post 3 different ways. Keep the same core message and constraints but vary the angle, opening line, and rhythm. Each variant should feel different.
+
+Voice rules:
+- No buzzwords (revolutionize / synergy / seamless / game-changer).
+- No em-dashes.
+- Maximum 1 exclamation point per variant.
+- ${channel ? `Target channel: ${channel}.` : ''}
+
+Return STRICT JSON: {"variants":["<variant 1>","<variant 2>","<variant 3>"]}. No prose, no fences.`;
+
+    try {
+      const client = new Anthropic({ apiKey });
+      const resp = await client.messages.create({
+        model,
+        max_tokens: 1500,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: `Original post:\n---\n${String(body || '').slice(0, 2000)}\n---\n\nReturn the JSON now.` }],
+      });
+      const raw = (resp.content || [])
+        .map((b: any) => (b.type === 'text' ? b.text : ''))
+        .join('')
+        .trim()
+        .replace(/^```json\s*/, '')
+        .replace(/```\s*$/, '')
+        .trim();
+      const parsed = JSON.parse(raw);
+      const variants: string[] = Array.isArray(parsed?.variants) ? parsed.variants.map((v: any) => String(v || '').trim()).filter(Boolean) : [];
+      return { ok: true, variants: variants.slice(0, 3) };
+    } catch {
+      return { ok: false, variants: [] };
+    }
+  }
+
+  /**
+   * Rule-based "best time to post" hint per platform. v1 — fixed windows
+   * pulled from common B2B engagement studies. v2 (deferred) learns from
+   * the user's own posted/engagement history.
+   */
+  bestTimeHint(channel: string): { suggestion: string; nextWindowAtIso: string } {
+    const ch = String(channel || '').toUpperCase();
+    const now = new Date();
+    const day = now.getDay(); // 0=Sun .. 6=Sat
+    const hour = now.getHours();
+
+    // Default: LinkedIn Tue/Wed/Thu 9-11am, IG 6-8pm any weekday, FB 1-3pm weekdays, YT evenings
+    let target = new Date(now);
+    let suggestion = '';
+    if (ch === 'LINKEDIN') {
+      // pick next Tue/Wed/Thu 9am
+      let dayOffset = 0;
+      while (true) {
+        const candidate = new Date(now); candidate.setDate(now.getDate() + dayOffset); candidate.setHours(9, 30, 0, 0);
+        const cd = candidate.getDay();
+        if ([2, 3, 4].includes(cd) && candidate.getTime() > now.getTime()) { target = candidate; break; }
+        dayOffset++;
+        if (dayOffset > 7) break;
+      }
+      suggestion = 'LinkedIn engages best Tue/Wed/Thu 9–11 am.';
+    } else if (ch === 'INSTAGRAM') {
+      target = new Date(now); target.setHours(19, 0, 0, 0);
+      if (hour >= 19) target.setDate(target.getDate() + 1);
+      suggestion = 'Instagram peaks at 6–8 pm in your audience\'s time zone.';
+    } else if (ch === 'FACEBOOK') {
+      target = new Date(now); target.setHours(13, 30, 0, 0);
+      if (hour >= 14 || day === 0 || day === 6) {
+        do { target.setDate(target.getDate() + 1); } while (target.getDay() === 0 || target.getDay() === 6);
+      }
+      suggestion = 'Facebook is most active 1–3 pm on weekdays.';
+    } else if (ch === 'YOUTUBE') {
+      target = new Date(now); target.setHours(20, 0, 0, 0);
+      if (hour >= 20) target.setDate(target.getDate() + 1);
+      suggestion = 'YouTube viewership peaks 7–10 pm.';
+    } else {
+      target = new Date(now.getTime() + 4 * 3600 * 1000);
+      suggestion = 'Pick a time when your audience is most active.';
+    }
+
+    return { suggestion, nextWindowAtIso: target.toISOString() };
+  }
+
   async captureFeedback(id: string, notes: string) {
     const existing = await this.prisma.socialPost.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Social post not found');

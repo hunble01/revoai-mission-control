@@ -600,6 +600,8 @@ Voice rules for suggestedResponse:
 
       const saved = await (this.prisma as any).replyAnalysis.create({
         data: {
+          subjectType: 'lead',
+          subjectId: leadId,
           leadId,
           replyText: trimmed.slice(0, 8000),
           intent,
@@ -690,6 +692,115 @@ Voice rules for suggestedResponse:
     });
 
     return { ok: true, analysis: updated };
+  }
+
+  /**
+   * Draft + enqueue a LinkedIn DM for a lead. Reuses the cold-email
+   * personalization stack but outputs a 2-3 sentence intro under
+   * LinkedIn's ~300-char cold-DM limit. Honors EmailSuppression as
+   * cross-channel suppression — if a lead unsubscribed via email, we
+   * never DM them on LinkedIn either.
+   */
+  async draftLinkedinDmForLead(leadId: string, actorId?: string) {
+    const lead = await this.prisma.lead.findUnique({ where: { id: leadId } });
+    if (!lead) throw new NotFoundException('Lead not found');
+    if (!lead.linkedinUrl) throw new BadRequestException('Lead has no linkedinUrl');
+
+    if (lead.email) {
+      const suppressed = await this.unsubscribe.isSuppressed(lead.email);
+      if (suppressed) throw new BadRequestException('Lead is on the email suppression list — skipping cross-channel');
+    }
+
+    const apiKey = (process.env.ANTHROPIC_API_KEY || '').trim();
+    const brand = await this.prisma.brandSettings.findUnique({ where: { id: 'default' } });
+    const senderName = (brand?.yourName || 'Michael').trim();
+    const senderFirst = senderName.split(/\s+/)[0] || 'Michael';
+    const companyName = brand?.companyName || 'RevoAI';
+
+    let body = '';
+    if (apiKey) {
+      const model = (process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001').trim();
+      const stripTitle = (s: string) => {
+        const parts = String(s || '').trim().split(/\s+/).filter(Boolean);
+        if (!parts.length) return '';
+        if (/^(Dr|Mr|Mrs|Ms|Mx|Prof|Rev|Sir|Dame|Madam)\.?$/i.test(parts[0])) return parts[1] || parts[0];
+        return parts[0];
+      };
+      const contactFirst = stripTitle(lead.contactName || '');
+
+      const systemPrompt = `You are ${senderFirst}, founder of ${companyName} — an AI receptionist for local service businesses (24/7 call answering, calendar booking, two-way SMS). You write short, warm, founder-voice LinkedIn cold DMs.
+
+ABSOLUTE RULES:
+- Max 280 characters total (LinkedIn cold DM limit ~300, leave headroom).
+- 2-3 sentences. No more.
+- Open with their first name (or "Hi there," if unknown).
+- Mention something specific about their business or niche in the first sentence.
+- Pivot to one concrete value prop (calls answered after-hours, fewer no-shows, automated booking — pick one).
+- Soft CTA: "Worth a 10-min look?" or "Open to a quick chat?". NEVER a hard ask.
+- NO emojis. NO em-dashes. NO "revolutionize", "synergy", "seamless".
+- No links (LinkedIn flags them as spam in cold DMs).
+- Sign with "— ${senderFirst}".
+
+Return STRICT JSON: {"messageBody": "<the DM, 2-3 sentences, signed>"}`;
+
+      const userMsg = [
+        `Lead: ${lead.businessName}${lead.niche ? ` (${lead.niche})` : ''}${lead.region ? ` in ${lead.region}` : ''}`,
+        contactFirst ? `Contact first name: ${contactFirst}` : 'Contact first name: unknown — open with "Hi there,"',
+        lead.contactRole ? `Contact role: ${lead.contactRole}` : null,
+        lead.website ? `Their website: ${lead.website}` : null,
+        '',
+        'Return the JSON now.',
+      ].filter(Boolean).join('\n');
+
+      try {
+        const client = new Anthropic({ apiKey });
+        const resp = await client.messages.create({
+          model,
+          max_tokens: 350,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userMsg }],
+        });
+        const raw = (resp.content || [])
+          .map((b: any) => (b.type === 'text' ? b.text : ''))
+          .join('')
+          .trim()
+          .replace(/^```json\s*/, '')
+          .replace(/```\s*$/, '')
+          .trim();
+        const parsed = JSON.parse(raw);
+        body = String(parsed?.messageBody || '').trim();
+      } catch {
+        // fall through to template
+      }
+    }
+
+    if (!body) {
+      // Template fallback when no API key or LLM fails
+      const contactFirst = (lead.contactName || '').trim().split(/\s+/)[0] || 'there';
+      body = `Hi ${contactFirst}, saw ${lead.businessName}${lead.niche ? ` and the ${lead.niche.toLowerCase()} space you're in` : ''}. We help local businesses answer calls and book appointments 24/7 with an AI receptionist. Worth a 10-min look?\n— ${senderFirst}`;
+      body = body.slice(0, 280);
+    }
+
+    const created = await this.prisma.linkedinMessage.create({
+      data: {
+        leadId,
+        messageBody: body,
+        status: 'queued',
+      },
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorType: 'user',
+        actorId: actorId || null,
+        action: 'lead.linkedin_dm.drafted',
+        resourceType: 'lead',
+        resourceId: leadId,
+        metadata: { messageId: created.id, source: apiKey ? 'llm' : 'template' } as any,
+      },
+    });
+
+    return { ok: true, message: created };
   }
 
   async generateDraftForLead(id: string, body: any, actorId?: string) {

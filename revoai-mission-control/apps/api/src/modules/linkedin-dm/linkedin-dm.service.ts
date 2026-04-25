@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventsService } from '../events/events.service';
 import { SettingsService } from '../settings/settings.service';
+import { UnsubscribeService } from '../unsubscribe/unsubscribe.service';
 
 @Injectable()
 export class LinkedinDmService {
@@ -9,6 +10,7 @@ export class LinkedinDmService {
     private readonly prisma: PrismaService,
     private readonly events: EventsService,
     private readonly settings: SettingsService,
+    private readonly unsubscribe: UnsubscribeService,
   ) {}
 
   queue() {
@@ -36,6 +38,18 @@ export class LinkedinDmService {
     const msg = await this.prisma.linkedinMessage.findUnique({ where: { id } });
     if (!msg) throw new NotFoundException('LinkedIn message not found');
     if (!['approved'].includes(String(msg.status))) throw new BadRequestException('Message must be approved before send');
+
+    // Cross-channel suppression: if the lead was unsubscribed via email, never DM them on LinkedIn.
+    if (msg.leadId) {
+      const lead = await this.prisma.lead.findUnique({ where: { id: msg.leadId } });
+      if (lead?.email) {
+        const suppressed = await this.unsubscribe.isSuppressed(lead.email);
+        if (suppressed) {
+          await this.prisma.linkedinMessage.update({ where: { id }, data: { status: 'rejected' } });
+          throw new BadRequestException('Lead is on the suppression list — DM auto-rejected');
+        }
+      }
+    }
 
     const today = new Date();
     const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());

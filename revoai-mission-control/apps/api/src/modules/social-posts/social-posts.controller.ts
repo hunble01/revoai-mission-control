@@ -31,6 +31,24 @@ export class SocialPostsController {
     return { ok: true, issues };
   }
 
+  @Get('analytics-summary')
+  analyticsSummary(@Req() req: any) {
+    assertAdminToken(req);
+    return this.social.analyticsSummary();
+  }
+
+  @Post('variants')
+  variants(@Req() req: any, @Body() body: any) {
+    assertAdminToken(req);
+    return this.social.generateVariants(String(body?.body || ''), body?.channel);
+  }
+
+  @Get('best-time')
+  bestTime(@Req() req: any, @Query('channel') channel?: string) {
+    assertAdminToken(req);
+    return this.social.bestTimeHint(String(channel || 'LINKEDIN'));
+  }
+
   @Patch(':id')
   update(@Req() req: any, @Param('id') id: string, @Body() body: any) {
     assertAdminToken(req);

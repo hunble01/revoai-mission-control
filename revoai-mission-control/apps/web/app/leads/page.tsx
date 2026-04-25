@@ -488,6 +488,25 @@ export default function LeadsPage() {
           <div style={{ padding: 16, borderTop: '1px solid #1C2333', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <Button variant="primary" onClick={() => selectedLead?.id && createDraftForLead(selectedLead)}>Draft Outreach</Button>
             <Button variant="secondary" onClick={() => selectedLead?.id && enrichLead(selectedLead.id)}>Enrich</Button>
+            {selectedLead?.linkedinUrl && (
+              <Button
+                variant="secondary"
+                style={{ border: '1px solid rgba(0,119,181,0.4)', color: '#0A7ABF' }}
+                onClick={async () => {
+                  if (!selectedLead?.id) return;
+                  try {
+                    const res = await fetch(`${API_BASE}/api/leads/${selectedLead.id}/draft-linkedin-dm`, {
+                      method: 'POST', credentials: 'include', headers: apiHeaders,
+                    });
+                    const j = await res.json();
+                    if (!res.ok) throw new Error(j?.error?.message || 'DM draft failed');
+                    toast('success', 'LinkedIn DM drafted and queued — review at /linkedin');
+                  } catch (e: any) {
+                    toast('error', e?.message || 'Failed to draft DM');
+                  }
+                }}
+              >💼 Draft LinkedIn DM</Button>
+            )}
             <Button
               variant="secondary"
               style={{ border: '1px solid rgba(155,114,255,0.4)', color: '#9B72FF' }}

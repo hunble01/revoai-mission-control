@@ -94,4 +94,12 @@ export class LeadsController {
     const actorId = req?.headers?.['x-actor-id'] ? String(req.headers['x-actor-id']) : undefined;
     return this.leads.generateDraftForLead(id, body || {}, actorId);
   }
+
+  @Post(':id/draft-linkedin-dm')
+  draftLinkedinDm(@Req() req: any, @Param('id') id: string) {
+    assertAdminToken(req);
+    assertAdminRole(getActorRole(req), 'lead linkedin dm draft');
+    const actorId = req?.headers?.['x-actor-id'] ? String(req.headers['x-actor-id']) : undefined;
+    return this.leads.draftLinkedinDmForLead(id, actorId);
+  }
 }

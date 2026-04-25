@@ -22,6 +22,9 @@ import { LinkedinModule } from './modules/linkedin/linkedin.module';
 import { LinkedinDmModule } from './modules/linkedin-dm/linkedin-dm.module';
 import { FacebookModule } from './modules/facebook/facebook.module';
 import { InstagramModule } from './modules/instagram/instagram.module';
+import { MetaDmModule } from './modules/meta-dm/meta-dm.module';
+import { SocialReplyModule } from './modules/social-reply/social-reply.module';
+import { YoutubeModule } from './modules/youtube/youtube.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { ContentModule } from './modules/content/content.module';
 import { UnsubscribeModule } from './modules/unsubscribe/unsubscribe.module';
@@ -53,6 +56,9 @@ import { PrismaService } from './prisma/prisma.service';
     LinkedinDmModule,
     FacebookModule,
     InstagramModule,
+    MetaDmModule,
+    SocialReplyModule,
+    YoutubeModule,
     AnalyticsModule,
     ContentModule,
     UnsubscribeModule,
