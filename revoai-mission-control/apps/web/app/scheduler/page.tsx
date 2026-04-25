@@ -37,6 +37,7 @@ export default function SchedulerPage() {
     { name: '⏰ Scheduled Autorun', schedule: 'Every 15 minutes', purpose: 'Fires campaigns whose scheduledAutorunAt has passed', status: 'Active' },
     { name: '📮 Queue Drain', schedule: 'Every 60 seconds', purpose: 'Processes approved drafts in the outbound queue and sends via Resend', status: 'Active' },
     { name: '📊 Delivery Tracker', schedule: 'Every 30 minutes', purpose: 'Polls Resend API for delivered/opened/clicked/bounced events', status: 'Active' },
+    { name: '📣 Social Publish Cron', schedule: 'Every 60 seconds', purpose: 'Publishes scheduled social posts (LinkedIn / Facebook / Instagram) when their scheduledAt passes', status: 'Active' },
   ];
 
   return <div className="dash-stack fade-in">

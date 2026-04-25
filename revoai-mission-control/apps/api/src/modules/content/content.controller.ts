@@ -1,4 +1,4 @@
-import { Controller, Delete, Get, Param, Post, Req } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Req } from '@nestjs/common';
 import { assertAdminToken } from '../../common/auth.util';
 import { ContentService } from './content.service';
 
@@ -22,5 +22,17 @@ export class ContentController {
   dismiss(@Req() req: any, @Param('id') id: string) {
     assertAdminToken(req);
     return this.content.dismissIdea(id);
+  }
+
+  @Post('idea/:id/render-all')
+  renderAll(@Req() req: any, @Param('id') id: string) {
+    assertAdminToken(req);
+    return this.content.renderAcrossPlatforms(id);
+  }
+
+  @Post('suggest-hashtags')
+  suggestHashtags(@Req() req: any, @Body() body: any) {
+    assertAdminToken(req);
+    return this.content.suggestHashtags(String(body?.body || ''), body?.niche ? String(body.niche) : undefined);
   }
 }

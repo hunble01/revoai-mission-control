@@ -353,6 +353,13 @@ export class SchedulerService {
             body: JSON.stringify({ socialPostId: post.id, mode: 'socialPost' }),
           });
           if (!res.ok) throw new Error(`Facebook publish failed (${res.status})`);
+        } else if (String(post.channel) === 'INSTAGRAM') {
+          const res = await fetch(`${process.env.PUBLIC_API_BASE || 'http://localhost:3001'}/api/instagram/publish`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', 'x-admin-token': process.env.ADMIN_TOKEN || 'change-me' },
+            body: JSON.stringify({ socialPostId: post.id }),
+          });
+          if (!res.ok) throw new Error(`Instagram publish failed (${res.status})`);
         } else {
           throw new Error(`Unsupported social channel: ${post.channel}`);
         }

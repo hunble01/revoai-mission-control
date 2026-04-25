@@ -524,12 +524,14 @@ model SocialPost {
   externalPostId String?
   engagementStats Json    @default("{}")
   sourceType     String?  @default("manual")
+  groupId        String?  @map("group_id")
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   @@index([status])
   @@index([channel])
   @@index([scheduledAt])
+  @@index([groupId])
   @@map("social_posts")
 }
 

@@ -21,6 +21,7 @@ import { SocialPostsModule } from './modules/social-posts/social-posts.module';
 import { LinkedinModule } from './modules/linkedin/linkedin.module';
 import { LinkedinDmModule } from './modules/linkedin-dm/linkedin-dm.module';
 import { FacebookModule } from './modules/facebook/facebook.module';
+import { InstagramModule } from './modules/instagram/instagram.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { ContentModule } from './modules/content/content.module';
 import { UnsubscribeModule } from './modules/unsubscribe/unsubscribe.module';
@@ -51,6 +52,7 @@ import { PrismaService } from './prisma/prisma.service';
     LinkedinModule,
     LinkedinDmModule,
     FacebookModule,
+    InstagramModule,
     AnalyticsModule,
     ContentModule,
     UnsubscribeModule,

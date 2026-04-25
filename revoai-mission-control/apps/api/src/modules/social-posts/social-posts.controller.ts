@@ -18,6 +18,19 @@ export class SocialPostsController {
     return this.social.create(body);
   }
 
+  @Post('bulk')
+  bulkCreate(@Req() req: any, @Body() body: any) {
+    assertAdminToken(req);
+    return this.social.bulkCreate(body);
+  }
+
+  @Post('validate-brand-voice')
+  validateBrandVoice(@Req() req: any, @Body() body: any) {
+    assertAdminToken(req);
+    const issues = this.social.validateBrandVoice(String(body?.body || ''));
+    return { ok: true, issues };
+  }
+
   @Patch(':id')
   update(@Req() req: any, @Param('id') id: string, @Body() body: any) {
     assertAdminToken(req);
