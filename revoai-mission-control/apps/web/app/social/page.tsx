@@ -43,6 +43,8 @@ export default function SocialHubPage() {
   const [hashtags, setHashtags] = useState<string[]>([]);
   const [posting, setPosting] = useState(false);
   const [issues, setIssues] = useState<Array<{ rule: string; severity: string; message: string }>>([]);
+  const [aiIssues, setAiIssues] = useState<Array<{ rule: string; severity: string; message: string }>>([]);
+  const [aiReviewing, setAiReviewing] = useState(false);
   const [suggestingTags, setSuggestingTags] = useState(false);
 
   // Analytics
@@ -61,6 +63,34 @@ export default function SocialHubPage() {
 
   const toast = (type: 'success' | 'error' | 'info' | 'warning', text: string) => {
     if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('app-toast', { detail: { type, text } }));
+  };
+
+  const downloadCsv = (filename: string, headers: string[], rows: any[][]) => {
+    const escape = (cell: any) => {
+      const s = String(cell ?? '');
+      return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const csv = [headers.map(escape).join(','), ...rows.map((r) => r.map(escape).join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportPostsCsv = () => {
+    const headers = ['id', 'channel', 'status', 'scheduledAt', 'postedAt', 'externalPostId', 'groupId', 'body', 'mediaUrl', 'createdAt'];
+    const rows = posts.map((p) => [p.id, p.channel, p.status, p.scheduledAt || '', p.postedAt || '', p.externalPostId || '', p.groupId || '', p.body || '', p.mediaUrl || '', p.createdAt]);
+    downloadCsv(`social-posts-${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
+    toast('success', `${rows.length} rows exported`);
+  };
+
+  const exportDmsCsv = () => {
+    const headers = ['id', 'channel', 'status', 'sentAt', 'recipient', 'body', 'createdAt'];
+    const liRows = liDms.map((m) => [m.id, 'LINKEDIN', m.status, m.sentAt || '', '', m.messageBody || '', m.createdAt]);
+    const metaRows = metaDms.map((m) => [m.id, m.channel, m.status, m.sentAt || '', m.recipientHandle || '', m.messageBody || '', m.createdAt]);
+    downloadCsv(`social-dms-${new Date().toISOString().slice(0, 10)}.csv`, headers, [...liRows, ...metaRows]);
+    toast('success', `${liRows.length + metaRows.length} DMs exported`);
   };
 
   const loadPosts = async () => {
@@ -381,6 +411,15 @@ export default function SocialHubPage() {
               </div>
             )}
 
+            {aiIssues.length > 0 && (
+              <div style={{ background: 'rgba(155,114,255,.06)', border: '1px solid rgba(155,114,255,.28)', borderRadius: 8, padding: '10px 12px' }}>
+                <div className="page-eyebrow" style={{ marginBottom: 6, color: '#9B72FF' }}>🧐 AI REVIEW</div>
+                <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, lineHeight: 1.6 }}>
+                  {aiIssues.map((i, idx) => <li key={idx}><strong style={{ color: '#9B72FF' }}>{i.rule.replace(/^ai_/, '').replace(/_/g, ' ')}:</strong> {i.message}</li>)}
+                </ul>
+              </div>
+            )}
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div>
                 <label className="page-eyebrow" style={{ display: 'block', marginBottom: 4 }}>MEDIA URL (optional, required for IG)</label>
@@ -408,6 +447,31 @@ export default function SocialHubPage() {
               </Button>
               <Button variant="ghost" onClick={generateVariants} disabled={generatingVariants || !body.trim()}>
                 {generatingVariants ? 'Generating…' : '🎲 Generate 3 alternates'}
+              </Button>
+              <Button variant="ghost" onClick={async () => {
+                if (!body.trim()) { toast('warning', 'Write something first'); return; }
+                setAiReviewing(true);
+                setAiIssues([]);
+                try {
+                  const ch = selectedChannels[0] || 'LINKEDIN';
+                  const res = await fetch(`${API_BASE}/api/social-posts/ai-review`, {
+                    method: 'POST', credentials: 'include', headers: apiHeaders,
+                    body: JSON.stringify({ body, channel: ch }),
+                  });
+                  const j = await res.json();
+                  if (j?.ok) {
+                    setAiIssues(Array.isArray(j.issues) ? j.issues : []);
+                    if (!j.issues || j.issues.length === 0) toast('success', 'Looks clean — no flags from AI review');
+                  } else {
+                    toast('error', 'AI review unavailable (no API key?)');
+                  }
+                } catch (e: any) {
+                  toast('error', e?.message || 'AI review failed');
+                } finally {
+                  setAiReviewing(false);
+                }
+              }} disabled={aiReviewing || !body.trim()}>
+                {aiReviewing ? 'Reviewing…' : '🧐 AI review'}
               </Button>
               {selectedChannels[0] && bestTimes[selectedChannels[0]] && (
                 <span className="muted text-xs" title={bestTimes[selectedChannels[0]].suggestion} style={{ padding: '4px 8px', borderRadius: 6, background: 'rgba(20,200,150,0.06)', border: '1px solid rgba(20,200,150,0.22)', color: '#14C896' }}>
@@ -452,6 +516,9 @@ export default function SocialHubPage() {
 
       {tab === 'Queue' && (
         <Card title="Queue" subtitle={`${posts.length} total · ${posts.filter((p) => p.status === 'scheduled').length} scheduled · ${posts.filter((p) => p.status === 'posted').length} posted`}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+            <Button variant="ghost" onClick={exportPostsCsv} disabled={posts.length === 0}>⬇ Export CSV</Button>
+          </div>
           {loading ? <div className="muted">Loading…</div> : posts.length === 0 ? (
             <div className="muted" style={{ padding: 24, textAlign: 'center', border: '1px dashed var(--border)', borderRadius: 8 }}>No social posts yet. Use Compose above.</div>
           ) : (
@@ -511,6 +578,9 @@ export default function SocialHubPage() {
       {tab === 'DMs' && (
         <div className="dash-stack">
           <Card title="LinkedIn DM Queue" subtitle="20/day cap enforced. Suppression-list aware. Drafted DMs from /leads land here.">
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+              <Button variant="ghost" onClick={exportDmsCsv} disabled={liDms.length === 0 && metaDms.length === 0}>⬇ Export all DMs CSV</Button>
+            </div>
             {liDms.length === 0 ? (
               <div className="muted" style={{ padding: 16, textAlign: 'center', border: '1px dashed var(--border)', borderRadius: 8 }}>No queued LinkedIn DMs. Draft one from /leads (must have linkedinUrl).</div>
             ) : (

@@ -212,6 +212,79 @@ export class SocialPostsService {
   }
 
   /**
+   * AI pre-publish review. Claude reads the draft and surfaces semantic
+   * issues the rule-based lint can't catch: tone mismatches, weak hooks,
+   * factual claims not in the product context, spammy structure, missing
+   * CTA, off-brand framing.
+   *
+   * Returns the same shape as validateBrandVoice so the UI can merge them.
+   * Non-blocking — these are warnings, not errors.
+   */
+  async aiReview(body: string, channel?: string): Promise<{ ok: boolean; issues: Array<{ rule: string; severity: 'warn' | 'info'; message: string }> }> {
+    const text = String(body || '').trim();
+    if (!text) return { ok: true, issues: [] };
+
+    const apiKey = (process.env.ANTHROPIC_API_KEY || '').trim();
+    if (!apiKey) return { ok: false, issues: [] };
+
+    const Anthropic = (await import('@anthropic-ai/sdk')).default;
+    const model = (process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001').trim();
+
+    const systemPrompt = `You are a copy editor reviewing a social post draft for RevoAI (AI receptionist for local service businesses, $97/mo CAD, 10-min setup, 7-day trial). Focus only on what would hurt the post.
+
+PRODUCT FACTS (do not flag these as inaccurate):
+- AI receptionist that answers calls 24/7 and books appointments
+- Two-way SMS, calendar integration (Google/Outlook/iCloud)
+- $97/month CAD, 10-min setup, 7-day free trial, no contract
+- Sub-second response, unlimited simultaneous calls
+- A credit card IS required at signup (the trial just doesn't charge).
+
+Return STRICT JSON: {"issues": [{"rule": "<one_short_snake_id>", "severity": "warn"|"info", "message": "<one short actionable sentence>"}]}
+
+Categories to check (only flag real issues):
+- weak_hook: opening line is generic or buried
+- missing_cta: no clear next step for the reader
+- inaccurate_claim: states something not in product facts above
+- tone_mismatch: too sales-y, too academic, off-brand
+- spammy_structure: too many emojis, ALL CAPS chunks, fake urgency
+- length_off: drastically too long/short for ${channel || 'this platform'}
+- buzzword_bingo: "best-in-class", "next-gen", "AI-powered" without explaining
+- platform_misfit: not native to ${channel || 'the platform'}
+
+Empty array {"issues":[]} if the post is clean. Don't invent problems.`;
+
+    try {
+      const client = new Anthropic({ apiKey });
+      const resp = await client.messages.create({
+        model,
+        max_tokens: 800,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: `Platform: ${channel || 'unknown'}\n\nDraft:\n---\n${text.slice(0, 3000)}\n---\n\nReturn the JSON now.` }],
+      });
+      const raw = (resp.content || [])
+        .map((b: any) => (b.type === 'text' ? b.text : ''))
+        .join('')
+        .trim()
+        .replace(/^```json\s*/, '')
+        .replace(/```\s*$/, '')
+        .trim();
+      const parsed = JSON.parse(raw);
+      const issues: Array<{ rule: string; severity: 'warn' | 'info'; message: string }> = Array.isArray(parsed?.issues)
+        ? parsed.issues
+            .map((i: any) => ({
+              rule: `ai_${String(i?.rule || 'review').slice(0, 60)}`,
+              severity: (i?.severity === 'info' ? 'info' : 'warn') as 'warn' | 'info',
+              message: String(i?.message || '').slice(0, 200),
+            }))
+            .filter((i: any) => i.message)
+        : [];
+      return { ok: true, issues };
+    } catch {
+      return { ok: false, issues: [] };
+    }
+  }
+
+  /**
    * Aggregated cross-platform funnel for the /social Analytics tab.
    * Counts last 30 days of SocialPost rows by status × channel, plus
    * LinkedIn DM totals + Meta DM totals + replies (ReplyAnalysis rows

@@ -25,6 +25,8 @@ import { InstagramModule } from './modules/instagram/instagram.module';
 import { MetaDmModule } from './modules/meta-dm/meta-dm.module';
 import { SocialReplyModule } from './modules/social-reply/social-reply.module';
 import { YoutubeModule } from './modules/youtube/youtube.module';
+import { TodayModule } from './modules/today/today.module';
+import { TrendsModule } from './modules/trends/trends.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { ContentModule } from './modules/content/content.module';
 import { UnsubscribeModule } from './modules/unsubscribe/unsubscribe.module';
@@ -59,6 +61,8 @@ import { PrismaService } from './prisma/prisma.service';
     MetaDmModule,
     SocialReplyModule,
     YoutubeModule,
+    TodayModule,
+    TrendsModule,
     AnalyticsModule,
     ContentModule,
     UnsubscribeModule,

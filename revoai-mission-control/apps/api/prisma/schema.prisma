@@ -592,6 +592,24 @@ model MetaMessage {
   @@map("meta_messages")
 }
 
+model TrendingItem {
+  id           String   @id @default(uuid())
+  source       String   // 'hacker_news' | 'reddit' | 'google_news' | 'manual'
+  title        String
+  url          String
+  summary      String?
+  score        Int?     // upvotes / engagement signal
+  publishedAt  DateTime? @map("published_at")
+  fetchedAt    DateTime  @default(now()) @map("fetched_at")
+  dismissed    Boolean   @default(false)
+  draftedAt    DateTime? @map("drafted_at")  // when user clicked "draft a post"
+
+  @@unique([source, url])
+  @@index([source, fetchedAt])
+  @@index([dismissed])
+  @@map("trending_items")
+}
+
 model ContentIdea {
   id          String   @id @default(uuid())
   platform    String

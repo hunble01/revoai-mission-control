@@ -8,7 +8,11 @@ import { Card } from '../../components/ui/Card';
 const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 export default function ContentCalendarPage() {
-  const [tab, setTab] = useState<'calendar'|'ideas'|'intel'>('calendar');
+  const [tab, setTab] = useState<'calendar'|'ideas'|'intel'|'trends'>('calendar');
+  const [trends, setTrends] = useState<any[]>([]);
+  const [trendsLoading, setTrendsLoading] = useState(false);
+  const [draftingTrendId, setDraftingTrendId] = useState<string | null>(null);
+  const [trendChannel, setTrendChannel] = useState('LINKEDIN');
   const [posts, setPosts] = useState<any[]>([]);
   const [ideas, setIdeas] = useState<any[]>([]);
   const [settings, setSettings] = useState<any>({});
@@ -37,7 +41,7 @@ export default function ContentCalendarPage() {
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
     const t = sp.get('tab');
-    if (t === 'ideas' || t === 'intel' || t === 'calendar') setTab(t);
+    if (t === 'ideas' || t === 'intel' || t === 'calendar' || t === 'trends') setTab(t);
     const c = sp.get('competitorId');
     if (c) setCompetitorId(c);
   }, []);
@@ -97,8 +101,89 @@ export default function ContentCalendarPage() {
       <div className="table-toolbar">
         <Button variant={tab==='calendar'?'primary':'secondary'} onClick={()=>setTab('calendar')}>Calendar</Button>
         <Button variant={tab==='ideas'?'primary':'secondary'} onClick={()=>setTab('ideas')}>Content Ideas</Button>
+        <Button variant={tab==='trends'?'primary':'secondary'} onClick={async ()=>{
+          setTab('trends');
+          if (trends.length === 0) {
+            setTrendsLoading(true);
+            try {
+              const r = await fetch(`${base}/api/trends?limit=30`, { credentials: 'include' });
+              const j = r.ok ? await r.json() : [];
+              setTrends(Array.isArray(j) ? j : []);
+            } finally { setTrendsLoading(false); }
+          }
+        }}>🔥 Trends</Button>
         <Button variant={tab==='intel'?'primary':'secondary'} onClick={()=>setTab('intel')}>Competitor Intel</Button>
       </div>
+
+      {tab === 'trends' && (
+        <Card title="Trending — Hacker News, r/smallbusiness, Google News" subtitle="One click drafts a brand-voice post commenting on the story.">
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
+            <Button variant="primary" onClick={async () => {
+              setTrendsLoading(true);
+              try {
+                const niche = settings?.brand?.niche || '';
+                await fetch(`${base}/api/trends/refresh`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ niche }) });
+                const r = await fetch(`${base}/api/trends?limit=30`, { credentials: 'include' });
+                const j = r.ok ? await r.json() : [];
+                setTrends(Array.isArray(j) ? j : []);
+              } finally { setTrendsLoading(false); }
+            }} disabled={trendsLoading}>
+              {trendsLoading ? 'Refreshing…' : '🔄 Refresh trends'}
+            </Button>
+            <span className="muted text-xs">Draft for:</span>
+            <select value={trendChannel} onChange={(e) => setTrendChannel(e.target.value)} style={{ background: 'rgba(17,24,39,.65)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 8px', fontSize: 12 }}>
+              <option value="LINKEDIN">LinkedIn</option>
+              <option value="FACEBOOK">Facebook</option>
+              <option value="INSTAGRAM">Instagram</option>
+              <option value="YOUTUBE">YouTube short</option>
+            </select>
+          </div>
+          {trends.length === 0 ? (
+            <div className="muted" style={{ padding: 16, textAlign: 'center', border: '1px dashed var(--border)', borderRadius: 8 }}>
+              No trends yet. Click Refresh to pull from Hacker News + Reddit + Google News.
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gap: 8 }}>
+              {trends.map((t: any) => (
+                <div key={t.id} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 10 }}>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 4 }}>
+                    <Badge tone={t.source === 'hacker_news' ? 'warning' : t.source === 'reddit' ? 'info' : 'default' as any}>
+                      {t.source === 'hacker_news' ? '🟧 HN' : t.source === 'reddit' ? '🟦 Reddit' : '📰 News'}
+                    </Badge>
+                    {typeof t.score === 'number' && <span className="muted text-xs mono">↑ {t.score}</span>}
+                    {t.draftedAt && <Badge tone="success">drafted</Badge>}
+                    <span className="muted text-xs">{t.publishedAt ? new Date(t.publishedAt).toLocaleString() : ''}</span>
+                  </div>
+                  <a href={t.url} target="_blank" rel="noreferrer" style={{ fontWeight: 600, color: 'var(--text)', textDecoration: 'none' }}>{t.title}</a>
+                  {t.summary && <div className="muted" style={{ fontSize: 12, marginTop: 4, lineHeight: 1.5 }}>{String(t.summary).slice(0, 280)}{t.summary.length > 280 ? '…' : ''}</div>}
+                  <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                    <Button variant="primary" disabled={draftingTrendId === t.id} onClick={async () => {
+                      setDraftingTrendId(t.id);
+                      try {
+                        const r = await fetch(`${base}/api/trends/${t.id}/draft-post`, {
+                          method: 'POST', credentials: 'include',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ channel: trendChannel }),
+                        });
+                        const j = await r.json();
+                        if (!r.ok) throw new Error(j?.error?.message || 'Draft failed');
+                        setTrends((prev) => prev.map((x: any) => x.id === t.id ? { ...x, draftedAt: new Date().toISOString() } : x));
+                        if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('app-toast', { detail: { type: 'success', text: `${trendChannel} draft saved — review at /social Queue` } }));
+                      } catch (e: any) {
+                        if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('app-toast', { detail: { type: 'error', text: e?.message || 'Draft failed' } }));
+                      } finally { setDraftingTrendId(null); }
+                    }}>{draftingTrendId === t.id ? 'Drafting…' : '✍️ Draft a post about this'}</Button>
+                    <Button variant="ghost" onClick={async () => {
+                      await fetch(`${base}/api/trends/${t.id}`, { method: 'DELETE', credentials: 'include' });
+                      setTrends((prev) => prev.filter((x: any) => x.id !== t.id));
+                    }}>Dismiss</Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
 
       {tab === 'calendar' && (
         <Card title="Calendar" subtitle="Existing scheduled/posted social content">

@@ -31,6 +31,12 @@ export class SocialPostsController {
     return { ok: true, issues };
   }
 
+  @Post('ai-review')
+  aiReview(@Req() req: any, @Body() body: any) {
+    assertAdminToken(req);
+    return this.social.aiReview(String(body?.body || ''), body?.channel ? String(body.channel) : undefined);
+  }
+
   @Get('analytics-summary')
   analyticsSummary(@Req() req: any) {
     assertAdminToken(req);

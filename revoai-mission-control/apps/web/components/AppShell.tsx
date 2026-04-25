@@ -9,8 +9,9 @@ const NAV_GROUPS = [
   {
     title: 'MAIN',
     items: [
+      { href: '/today', label: 'Today', isNew: true },
       { href: '/', label: 'Overview' },
-      { href: '/research', label: 'Research Hub', isNew: true },
+      { href: '/research', label: 'Research Hub' },
       { href: '/leads', label: 'Leads', countKey: 'leads' },
       { href: '/campaigns', label: 'Campaigns' },
       { href: '/drafts', label: 'Drafts' },
