@@ -90,33 +90,60 @@ export default function TodayPage() {
 
   return (
     <div className="dash-stack fade-in">
-      <section className="page-header">
-        <div className="page-eyebrow">DAILY DRIVER</div>
-        <h2 className="page-title" style={{ margin: 0 }}>{greeting} — here's what to act on today</h2>
-        <p className="muted" style={{ marginTop: 4, fontSize: 13 }}>{totalAttention} item{totalAttention === 1 ? '' : 's'} need your attention. Auto-refreshes every 30s.</p>
-      </section>
-
       {error && <div className="error-banner">{error}</div>}
 
       {data && (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8 }}>
+          {/* Hero — single focal point */}
+          <section style={{
+            position: 'relative', overflow: 'hidden',
+            padding: '32px 28px', borderRadius: 18,
+            background: totalAttention > 0
+              ? 'radial-gradient(120% 140% at 0% 0%, rgba(155,114,255,0.18), transparent 55%), radial-gradient(120% 140% at 100% 100%, rgba(0,201,255,0.10), transparent 55%), linear-gradient(180deg, #0F1320 0%, #0B0F1B 100%)'
+              : 'radial-gradient(120% 140% at 0% 0%, rgba(16,214,138,0.14), transparent 55%), linear-gradient(180deg, #0F1320 0%, #0B0F1B 100%)',
+            border: `1px solid ${totalAttention > 0 ? 'rgba(155,114,255,0.22)' : 'rgba(16,214,138,0.22)'}`,
+            boxShadow: '0 16px 48px rgba(0,0,0,0.4)',
+          }}>
+            <div style={{ fontSize: 11, color: '#9B72FF', fontFamily: '"JetBrains Mono", monospace', letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 8 }}>
+              {greeting}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, flexWrap: 'wrap' }}>
+              <span style={{
+                fontSize: 64, fontWeight: 800, lineHeight: 1, letterSpacing: '-0.04em',
+                background: totalAttention > 0
+                  ? 'linear-gradient(135deg, #9B72FF 0%, #00C9FF 100%)'
+                  : 'linear-gradient(135deg, #10D68A 0%, #14C896 100%)',
+                WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+              }}>{totalAttention}</span>
+              <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: 'var(--text)' }}>
+                {totalAttention === 0 ? 'Inbox zero. Nothing waits on you.' : `thing${totalAttention === 1 ? '' : 's'} need${totalAttention === 1 ? 's' : ''} you today`}
+              </h1>
+            </div>
+            <p className="muted" style={{ margin: '8px 0 0', fontSize: 13 }}>
+              {data.counts.sentLast24} email{data.counts.sentLast24 === 1 ? '' : 's'} sent · {data.counts.socialPostedLast24} post{data.counts.socialPostedLast24 === 1 ? '' : 's'} live · {data.counts.newLeadsLast24} new lead{data.counts.newLeadsLast24 === 1 ? '' : 's'} today · auto-refresh every 30s
+            </p>
+          </section>
+
+          {/* Compact metrics — 4 only, only when relevant */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8 }}>
             {[
-              { k: 'Drafts pending', v: data.counts.draftsPending, href: '/approvals', accent: '#FFB628' },
-              { k: 'Social drafts', v: data.counts.socialDraftsPending, href: '/social', accent: '#9B72FF' },
-              { k: 'Scheduled next 24h', v: data.counts.socialScheduledNext24, href: '/social', accent: '#00C9FF' },
-              { k: 'Replies open', v: data.counts.pendingReplies, href: '/leads', accent: '#FF5B7A' },
-              { k: 'Leads to work', v: data.counts.leadsNeedingDraft, href: '/leads', accent: '#14C896' },
-              { k: 'Sent 24h', v: data.counts.sentLast24, href: '/drafts', accent: '#10D68A' },
-              { k: 'Posted 24h', v: data.counts.socialPostedLast24, href: '/social', accent: '#10D68A' },
-              { k: 'New leads today', v: data.counts.newLeadsLast24, href: '/leads', accent: '#9CAF88' },
-            ].map((s) => (
+              { k: 'Drafts', v: data.counts.draftsPending, href: '/approvals', accent: '#FFB628', show: data.counts.draftsPending > 0 },
+              { k: 'Social drafts', v: data.counts.socialDraftsPending, href: '/social', accent: '#9B72FF', show: data.counts.socialDraftsPending > 0 },
+              { k: 'Replies', v: data.counts.pendingReplies, href: '/leads', accent: '#FF5B7A', show: data.counts.pendingReplies > 0 },
+              { k: 'Leads to work', v: data.counts.leadsNeedingDraft, href: '/leads', accent: '#14C896', show: data.counts.leadsNeedingDraft > 0 },
+              { k: 'Scheduled', v: data.counts.socialScheduledNext24, href: '/social', accent: '#00C9FF', show: data.counts.socialScheduledNext24 > 0 },
+            ].filter((s) => s.show).map((s) => (
               <Link key={s.k} href={s.href} style={{ textDecoration: 'none', color: 'inherit' }}>
-                <div style={{ border: `1px solid ${s.accent}33`, borderRadius: 10, padding: 14, background: `${s.accent}08`, transition: 'transform .15s', cursor: 'pointer' }}
-                  onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-1px)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}>
-                  <div style={{ fontSize: 28, fontWeight: 700, color: s.accent }}>{s.v}</div>
-                  <div className="muted text-xs">{s.k}</div>
+                <div style={{
+                  border: `1px solid ${s.accent}40`, borderLeft: `3px solid ${s.accent}`,
+                  borderRadius: 8, padding: '10px 14px', background: `${s.accent}08`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+                  cursor: 'pointer', transition: 'transform .15s',
+                }}
+                  onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateX(2px)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateX(0)')}>
+                  <div className="muted text-xs" style={{ fontWeight: 600 }}>{s.k}</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: s.accent }}>{s.v}</div>
                 </div>
               </Link>
             ))}
@@ -269,13 +296,6 @@ export default function TodayPage() {
             </Card>
           )}
 
-          {totalAttention === 0 && (
-            <Card title="🌙 Inbox zero">
-              <div className="muted" style={{ padding: 16, textAlign: 'center' }}>
-                Nothing waits on you right now. {data.counts.sentLast24} email{data.counts.sentLast24 === 1 ? '' : 's'} sent and {data.counts.socialPostedLast24} post{data.counts.socialPostedLast24 === 1 ? '' : 's'} published in the last 24 hours.
-              </div>
-            </Card>
-          )}
         </>
       )}
 

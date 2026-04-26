@@ -225,6 +225,7 @@ export default function SocialHubPage() {
   // Autopilot
   const [autopilot, setAutopilot] = useState<any | null>(null);
   const [autopilotRunning, setAutopilotRunning] = useState(false);
+  const [autopilotExpanded, setAutopilotExpanded] = useState(false);
   const loadAutopilot = async () => {
     try {
       const r = await fetch(`${API_BASE}/api/social-autopilot/status`, { credentials: 'include', headers: apiHeaders });
@@ -454,132 +455,75 @@ export default function SocialHubPage() {
 
   return (
     <div className="dash-stack fade-in">
-      {/* Aurora hero */}
+      {/* Slim hero */}
       <section style={{
-        position: 'relative', overflow: 'hidden',
-        borderRadius: 18, padding: '28px 28px 24px',
-        background: 'radial-gradient(120% 140% at 0% 0%, rgba(225,48,108,0.18), transparent 50%), radial-gradient(120% 140% at 100% 100%, rgba(10,122,191,0.22), transparent 55%), linear-gradient(180deg, #0F1320 0%, #0B0F1B 100%)',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap',
+        padding: '16px 20px', borderRadius: 14,
+        background: 'radial-gradient(120% 140% at 0% 0%, rgba(155,114,255,0.10), transparent 55%), linear-gradient(180deg, #0F1320 0%, #0B0F1B 100%)',
         border: '1px solid rgba(155,114,255,0.18)',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.04)',
       }}>
-        {/* Floating platform ribbon */}
-        <div aria-hidden style={{ position: 'absolute', top: 22, right: 28, display: 'flex', gap: 6, opacity: 0.6 }}>
-          {(['LINKEDIN', 'FACEBOOK', 'INSTAGRAM', 'YOUTUBE'] as Channel[]).map((c, i) => {
-            const m = PLATFORM_META[c];
-            return (
-              <span key={c} style={{
-                width: 28, height: 28, borderRadius: 8,
-                background: m.gradient,
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                color: '#fff', fontWeight: 700, fontSize: 11, fontFamily: '"JetBrains Mono", monospace',
-                textTransform: 'lowercase', letterSpacing: '-0.04em',
-                transform: `translateY(${i % 2 === 0 ? -2 : 2}px)`,
-                boxShadow: `0 4px 12px ${m.glow}`,
-              }}>{m.letter}</span>
-            );
-          })}
+        <div>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, letterSpacing: '-0.01em', background: 'linear-gradient(90deg, #E8EDF5 0%, #9B72FF 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            Social Hub
+          </h1>
+          <p className="muted" style={{ margin: '2px 0 0', fontSize: 12.5 }}>
+            {autopilot?.config?.enabled ? `Autopilot is ON · next post ${new Date(autopilot.nextWindowAtIso).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}` : 'Write, schedule, autopilot it.'}
+          </p>
         </div>
-
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '4px 10px', borderRadius: 999, background: 'rgba(155,114,255,0.12)', border: '1px solid rgba(155,114,255,0.3)', marginBottom: 12 }}>
-          <span style={{ width: 6, height: 6, borderRadius: 999, background: '#9B72FF', boxShadow: '0 0 10px #9B72FF' }} />
-          <span style={{ fontSize: 11, color: '#9B72FF', fontFamily: '"JetBrains Mono", monospace', letterSpacing: '0.12em', textTransform: 'uppercase' }}>SOCIAL COMMAND CENTER</span>
-        </div>
-
-        <h1 style={{ margin: 0, fontSize: 32, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.1, background: 'linear-gradient(90deg, #E8EDF5 0%, #9B72FF 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-          One place. Every platform.
-        </h1>
-        <p style={{ margin: '10px 0 0', maxWidth: 720, color: '#A8B2C5', fontSize: 14, lineHeight: 1.6 }}>
-          Write a post once and send it to LinkedIn, Facebook, Instagram, and YouTube. Schedule it for the right time. Catch trending stories. Get Claude to draft replies for every comment and DM. All from here.
-        </p>
-
-        {/* Quick action strip */}
-        <div style={{ display: 'flex', gap: 8, marginTop: 18, flexWrap: 'wrap' }}>
-          <button onClick={() => setTab('Compose')} style={{
-            padding: '10px 18px', borderRadius: 10, border: 'none', cursor: 'pointer',
-            background: 'linear-gradient(135deg, #9B72FF 0%, #6B4FE8 100%)',
-            color: '#fff', fontWeight: 700, fontSize: 13,
-            boxShadow: '0 8px 24px rgba(155,114,255,0.35)',
-          }}>✍️ New post</button>
-          <button onClick={() => { setTab('Calendar'); }} style={{ padding: '10px 18px', borderRadius: 10, border: '1px solid var(--border)', cursor: 'pointer', background: 'rgba(255,255,255,0.02)', color: 'var(--text)', fontWeight: 600, fontSize: 13 }}>📅 See calendar</button>
-          <button onClick={() => setTab('DMs')} style={{ padding: '10px 18px', borderRadius: 10, border: '1px solid var(--border)', cursor: 'pointer', background: 'rgba(255,255,255,0.02)', color: 'var(--text)', fontWeight: 600, fontSize: 13 }}>💬 Messages {tabCounts.DMs > 0 ? `(${tabCounts.DMs})` : ''}</button>
-        </div>
+        <button onClick={() => setTab('Compose')} style={{
+          padding: '10px 18px', borderRadius: 10, border: 'none', cursor: 'pointer',
+          background: 'linear-gradient(135deg, #9B72FF 0%, #6B4FE8 100%)',
+          color: '#fff', fontWeight: 700, fontSize: 13,
+          boxShadow: '0 6px 20px rgba(155,114,255,0.35)',
+        }}>✍️ New post</button>
       </section>
 
-      {/* Plain-English feature strip */}
-      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
-        {[
-          { icon: '✍️', accent: '#9B72FF', title: 'Write once, post everywhere', body: 'Pick the platforms, write your post, click Cast. Every platform gets its own version automatically.' },
-          { icon: '⏰', accent: '#00C9FF', title: 'Schedule it for later', body: 'Set a date and time. Posts auto-publish when the moment hits — no extra clicks.' },
-          { icon: '🧠', accent: '#10D68A', title: 'Claude proofreads everything', body: 'Brand-voice lint catches off-tone words. The AI review button flags weak hooks and missing CTAs.' },
-          { icon: '🔥', accent: '#F5A623', title: 'Catch trending stories', body: 'Pulls Hacker News, Reddit, Google News. One click drafts your take on a hot story.' },
-          { icon: '💬', accent: '#FF5B7A', title: 'Reply faster', body: 'Paste any comment or DM. Claude tells you the intent and drafts your response.' },
-          { icon: '📊', accent: '#0A7ABF', title: 'Track it all', body: 'Live funnel of posts, DMs, and replies across every platform.' },
-        ].map((f) => (
-          <div key={f.title} style={{
-            border: '1px solid var(--border)', borderRadius: 12, padding: 14,
-            background: `radial-gradient(120% 140% at 0% 0%, ${f.accent}10, transparent 55%), linear-gradient(180deg, #0F1320 0%, #0B0F1B 100%)`,
-            transition: 'transform .18s, border-color .18s',
-          }}
-            onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = f.accent + '55'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
-          >
-            <div style={{ width: 36, height: 36, borderRadius: 10, background: `${f.accent}18`, border: `1px solid ${f.accent}40`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, marginBottom: 10 }}>{f.icon}</div>
-            <div style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--text)', marginBottom: 4 }}>{f.title}</div>
-            <div className="muted" style={{ fontSize: 12, lineHeight: 1.5 }}>{f.body}</div>
-          </div>
-        ))}
-      </section>
-
-      {/* Autopilot panel */}
+      {/* Autopilot status bar — single row by default, expand for controls */}
       {autopilot && (() => {
         const cfg = autopilot.config || {};
         const enabled = !!cfg.enabled;
+        const accent = enabled ? '#10D68A' : '#F5A623';
         return (
           <section style={{
-            position: 'relative', overflow: 'hidden',
-            border: `1px solid ${enabled ? 'rgba(16,214,138,0.4)' : 'rgba(245,166,35,0.3)'}`,
-            borderRadius: 14, padding: 18,
-            background: enabled
-              ? 'radial-gradient(120% 140% at 0% 0%, rgba(16,214,138,0.10), transparent 55%), linear-gradient(180deg, #0F1320 0%, #0B0F1B 100%)'
-              : 'radial-gradient(120% 140% at 0% 0%, rgba(245,166,35,0.06), transparent 55%), linear-gradient(180deg, #0F1320 0%, #0B0F1B 100%)',
+            border: `1px solid ${accent}33`, borderRadius: 12, overflow: 'hidden',
+            background: `linear-gradient(90deg, ${accent}10, transparent 70%), rgba(13,17,23,0.5)`,
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
-              <div>
-                <div className="page-eyebrow" style={{ color: enabled ? '#10D68A' : '#F5A623', marginBottom: 4 }}>⚡ AUTOPILOT</div>
-                <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>
-                  {enabled ? 'Running on autopilot' : 'Autopilot is paused'}
-                </h3>
-                <p className="muted" style={{ margin: '4px 0 0', fontSize: 12.5 }}>
-                  {enabled
-                    ? `Auto-generates ${cfg.postsPerDay} post/day · ${cfg.mixProductPct}% RevoAI / ${100 - cfg.mixProductPct}% trends · ${cfg.autoImage ? 'with images' : 'text only'} · drafts ${cfg.autoApprove ? 'auto-publish' : 'wait for your approval'}`
-                    : 'Turn on to auto-generate daily product-focused posts.'}
-                </p>
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <Button variant={enabled ? 'ghost' : 'primary'} onClick={() => updateAutopilot({ enabled: !enabled })}>
-                  {enabled ? 'Pause' : '▶ Turn on'}
-                </Button>
-                <Button variant="primary" disabled={autopilotRunning} onClick={runAutopilotNow}>
-                  {autopilotRunning ? 'Running…' : '✨ Run now'}
-                </Button>
-              </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', flexWrap: 'wrap' }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: accent }}>
+                <span style={{ width: 8, height: 8, borderRadius: 999, background: accent, boxShadow: enabled ? `0 0 12px ${accent}` : 'none', animation: enabled ? 'pulse 2s infinite' : 'none' }} />
+                Autopilot {enabled ? 'ON' : 'OFF'}
+              </span>
+              <span className="muted" style={{ fontSize: 12, flex: 1 }}>
+                {enabled
+                  ? `${cfg.postsPerDay}/day · ${cfg.mixProductPct}% RevoAI · today ${autopilot.todayCount}/${cfg.postsPerDay}`
+                  : 'Turn on to auto-generate daily posts about RevoAI.'}
+              </span>
+              <Button variant={enabled ? 'ghost' : 'primary'} onClick={() => updateAutopilot({ enabled: !enabled })}>
+                {enabled ? 'Pause' : '▶ Turn on'}
+              </Button>
+              <Button variant={enabled ? 'primary' : 'ghost'} disabled={autopilotRunning} onClick={runAutopilotNow}>
+                {autopilotRunning ? '…' : '✨ Run now'}
+              </Button>
+              <button onClick={() => setAutopilotExpanded((v) => !v)} style={{ background: 'transparent', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--muted)', padding: '6px 10px', cursor: 'pointer', fontSize: 12 }}>
+                {autopilotExpanded ? '▴ Less' : '▾ Settings'}
+              </button>
             </div>
 
-            {enabled && (
-              <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
-                <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 10 }}>
-                  <div className="muted text-xs" style={{ marginBottom: 4 }}>Posts per day</div>
-                  <div style={{ display: 'flex', gap: 6 }}>
+            {autopilotExpanded && (
+              <div style={{ padding: '0 16px 14px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10, borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+                <div>
+                  <div className="muted text-xs" style={{ marginBottom: 4 }}>Posts/day</div>
+                  <div style={{ display: 'flex', gap: 4 }}>
                     {[1, 2, 3, 5].map((n) => (
-                      <button key={n} onClick={() => updateAutopilot({ postsPerDay: n })} style={{ flex: 1, padding: '6px 10px', borderRadius: 6, border: '1px solid ' + (cfg.postsPerDay === n ? '#10D68A' : 'var(--border)'), background: cfg.postsPerDay === n ? 'rgba(16,214,138,0.12)' : 'transparent', color: cfg.postsPerDay === n ? '#10D68A' : 'var(--text)', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>{n}</button>
+                      <button key={n} onClick={() => updateAutopilot({ postsPerDay: n })} style={{ flex: 1, padding: '6px 10px', borderRadius: 6, border: '1px solid ' + (cfg.postsPerDay === n ? accent : 'var(--border)'), background: cfg.postsPerDay === n ? `${accent}18` : 'transparent', color: cfg.postsPerDay === n ? accent : 'var(--text)', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>{n}</button>
                     ))}
                   </div>
                 </div>
-                <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 10 }}>
-                  <div className="muted text-xs" style={{ marginBottom: 4 }}>Mix · {cfg.mixProductPct}% RevoAI / {100 - cfg.mixProductPct}% trends</div>
+                <div>
+                  <div className="muted text-xs" style={{ marginBottom: 4 }}>Mix · {cfg.mixProductPct}% RevoAI</div>
                   <input type="range" min={0} max={100} step={10} value={cfg.mixProductPct} onChange={(e) => updateAutopilot({ mixProductPct: Number(e.target.value) })} style={{ width: '100%' }} />
                 </div>
-                <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 10 }}>
+                <div>
                   <div className="muted text-xs" style={{ marginBottom: 4 }}>Platforms</div>
                   <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                     {(['LINKEDIN', 'FACEBOOK', 'INSTAGRAM', 'YOUTUBE'] as Channel[]).map((p) => {
@@ -589,31 +533,21 @@ export default function SocialHubPage() {
                         <button key={p} onClick={() => {
                           const list = on ? cfg.platforms.filter((x: string) => x !== p) : [...(cfg.platforms || []), p];
                           if (list.length > 0) updateAutopilot({ platforms: list });
-                        }} style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid ' + (on ? m.color : 'var(--border)'), background: on ? `${m.color}18` : 'transparent', color: on ? m.color : 'var(--muted)', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>{m.label}</button>
+                        }} style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid ' + (on ? m.color : 'var(--border)'), background: on ? `${m.color}18` : 'transparent', color: on ? m.color : 'var(--muted)', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>{m.label}</button>
                       );
                     })}
                   </div>
                 </div>
-                <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11.5 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
                     <input type="checkbox" checked={!!cfg.autoImage} onChange={(e) => updateAutopilot({ autoImage: e.target.checked })} />
-                    🎨 Auto-generate image per post
+                    🎨 Auto-image
                   </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
                     <input type="checkbox" checked={!!cfg.autoApprove} onChange={(e) => updateAutopilot({ autoApprove: e.target.checked })} />
-                    ⚡ Auto-publish (skip review)
+                    ⚡ Auto-publish
                   </label>
                 </div>
-              </div>
-            )}
-
-            {enabled && autopilot.nextPlatform && (
-              <div style={{ marginTop: 12, padding: '8px 12px', borderRadius: 8, background: 'rgba(16,214,138,0.06)', border: '1px solid rgba(16,214,138,0.2)', fontSize: 12 }}>
-                <span className="muted">Next post: </span>
-                <strong style={{ color: '#10D68A' }}>{autopilot.nextPlatform}</strong>
-                <span className="muted"> at </span>
-                <strong style={{ color: 'var(--text)' }}>{new Date(autopilot.nextWindowAtIso).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}</strong>
-                <span className="muted"> · today: {autopilot.todayCount}/{cfg.postsPerDay}</span>
               </div>
             )}
           </section>
