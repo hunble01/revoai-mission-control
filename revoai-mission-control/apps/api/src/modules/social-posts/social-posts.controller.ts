@@ -91,6 +91,12 @@ export class SocialPostsController {
     return this.social.history(Number(limit) || 100);
   }
 
+  @Post(':id/regenerate-image')
+  regenerateImage(@Req() req: any, @Param('id') id: string) {
+    assertAdminToken(req);
+    return this.social.regenerateImage(id);
+  }
+
   @Post(':id/mark-posted')
   markPosted(@Req() req: any, @Param('id') id: string, @Body() body: any) {
     assertAdminToken(req);

@@ -245,9 +245,13 @@ export class SocialAutopilotService {
     let imageAssetId: string | null = null;
     if (config.autoImage) {
       try {
-        const promptForImage = imagePromptHint || (await this.images.refinePromptForPost(body, platform));
+        const visualHint = imagePromptHint || (await this.images.refinePromptForPost(body, platform));
+        // Stub mode does keyword-based stock photo lookup. Combining the
+        // post body with the visual hint gives the keyword extractor more
+        // domain context to pick relevant tags from.
+        const combinedPrompt = `${visualHint}\n\nPost context:\n${body}`;
         const size = platform === 'INSTAGRAM' ? '1024x1792' : platform === 'YOUTUBE' ? '1024x1792' : '1792x1024';
-        const img = await this.images.generate({ prompt: promptForImage, size: size as any, platform, actorId: actor });
+        const img = await this.images.generate({ prompt: combinedPrompt, size: size as any, platform, actorId: actor });
         if (img?.ok && img.asset?.url) {
           mediaUrl = img.asset.url;
           imageAssetId = img.asset.id;

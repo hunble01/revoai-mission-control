@@ -1,10 +1,15 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventsService } from '../events/events.service';
+import { ImagesService } from '../images/images.service';
 
 @Injectable()
 export class SocialPostsService {
-  constructor(private readonly prisma: PrismaService, private readonly events: EventsService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly events: EventsService,
+    private readonly images: ImagesService,
+  ) {}
 
   list(status?: string) {
     return this.prisma.socialPost.findMany({
@@ -417,6 +422,42 @@ Return STRICT JSON: {"variants":["<variant 1>","<variant 2>","<variant 3>"]}. No
     }
 
     return { suggestion, nextWindowAtIso: target.toISOString() };
+  }
+
+  /**
+   * Regenerate the hero image for a post. Called from the /today autopilot
+   * card "🔄 Replace image" button. Uses the post body as image prompt
+   * context so the new image actually relates to the post.
+   */
+  async regenerateImage(id: string) {
+    const post = await this.prisma.socialPost.findUnique({ where: { id } });
+    if (!post) throw new NotFoundException('Social post not found');
+
+    const visualHint = await this.images.refinePromptForPost(post.body, String(post.channel));
+    const combinedPrompt = `${visualHint}\n\nPost context:\n${post.body}`;
+    const size = String(post.channel) === 'INSTAGRAM' ? '1024x1792' : String(post.channel) === 'YOUTUBE' ? '1024x1792' : '1792x1024';
+
+    const img = await this.images.generate({ prompt: combinedPrompt, size: size as any, platform: post.channel });
+    if (!img?.ok || !img.asset?.url) {
+      throw new BadRequestException('Image regeneration failed');
+    }
+
+    const updated = await this.prisma.socialPost.update({
+      where: { id },
+      data: { mediaUrl: img.asset.url },
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorType: 'user',
+        action: 'social.regenerate_image',
+        resourceType: 'social_post',
+        resourceId: id,
+        metadata: { newImageAssetId: img.asset.id, source: img.asset.source } as any,
+      },
+    });
+
+    return { ok: true, mediaUrl: img.asset.url, source: img.asset.source };
   }
 
   async captureFeedback(id: string, notes: string) {

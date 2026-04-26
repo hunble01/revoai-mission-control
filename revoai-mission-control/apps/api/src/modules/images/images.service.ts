@@ -2,6 +2,13 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import Anthropic from '@anthropic-ai/sdk';
 
+// Tiny stable string hash for deterministic image lock per prompt.
+function hashString(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  return h;
+}
+
 // AI image generation for social posts.
 //
 // Default provider: OpenAI DALL-E 3 (cleanest API, ~$0.04/1024×1024 standard)
@@ -78,9 +85,13 @@ export class ImagesService {
 
     if (stub) {
       source = 'stub';
-      const seed = encodeURIComponent(prompt.slice(0, 60));
-      // picsum.photos returns a free seeded placeholder image, no key needed
-      url = `https://picsum.photos/seed/${seed}/${width}/${height}`;
+      // Pull 3-5 topical keywords from the prompt and ask LoremFlickr for a
+      // real Flickr photo tagged with those words. Falls back to picsum if
+      // LoremFlickr is unreachable. Better than a random photo even if it
+      // doesn't render the exact scene — at least the subject is in the
+      // ballpark (spa, calendar, phone, etc).
+      const keywords = this.extractKeywords(prompt);
+      url = `https://loremflickr.com/${width}/${height}/${encodeURIComponent(keywords.join(','))}?lock=${Math.abs(hashString(prompt))}`;
     } else {
       source = 'dalle3';
       const apiKey = process.env.OPENAI_API_KEY || '';
@@ -122,6 +133,44 @@ export class ImagesService {
     });
 
     return { ok: true, asset: saved };
+  }
+
+  /**
+   * Extract 3-5 topical keywords from a prompt for keyword-based stub
+   * image search (LoremFlickr). Bias toward concrete nouns. Falls back to
+   * a generic visual word so we always have at least one tag.
+   */
+  private extractKeywords(prompt: string): string[] {
+    const text = String(prompt || '').toLowerCase();
+    // Domain-specific bias: business/spa/calling visual cues that read well as photos
+    const lex: Array<[RegExp, string]> = [
+      [/\bspa|salon|barber|barbershop|hair\b/, 'spa'],
+      [/\bclinic|medical|doctor|dental\b/, 'clinic'],
+      [/\bgym|fitness|trainer\b/, 'gym'],
+      [/\battorney|legal|law\b/, 'office'],
+      [/\bcontractor|plumber|electric|hvac\b/, 'workshop'],
+      [/\breception|receptionist|front desk\b/, 'reception'],
+      [/\bcalendar|booking|appointment|schedule\b/, 'calendar'],
+      [/\bphone|call|voicemail|ring/, 'telephone'],
+      [/\btext|sms|message/, 'mobile-phone'],
+      [/\bdashboard|analytics|chart/, 'dashboard'],
+      [/\bvoice|ai|assistant|chatbot/, 'technology'],
+      [/\bmoney|cost|revenue|price|\$/, 'business'],
+      [/\bplant|botanical|leaf|organic/, 'plant'],
+      [/\boffice|workspace|desk/, 'office'],
+      [/\bmorning|sunrise|dawn/, 'morning'],
+      [/\bevening|night|dusk/, 'evening'],
+      [/\blaptop|computer|screen/, 'laptop'],
+      [/\bcoffee|cafe/, 'coffee'],
+    ];
+    const found = new Set<string>();
+    for (const [re, kw] of lex) {
+      if (re.test(text)) found.add(kw);
+      if (found.size >= 5) break;
+    }
+    if (!found.size) found.add('business');
+    found.add('warm-light'); // bias toward warm/calm lighting per brand voice
+    return Array.from(found).slice(0, 5);
   }
 
   async list(limit = 30) {

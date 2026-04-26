@@ -201,7 +201,21 @@ export default function TodayPage() {
                               {stats.mix && <span className="muted text-xs">{stats.mix}</span>}
                             </div>
                             {(p as any).mediaUrl && (
-                              <img src={(p as any).mediaUrl} alt="" style={{ width: '100%', maxHeight: 220, objectFit: 'cover', borderRadius: 8, marginBottom: 8 }} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+                              <div style={{ position: 'relative', marginBottom: 8 }}>
+                                <img src={(p as any).mediaUrl} alt="" style={{ width: '100%', maxHeight: 220, objectFit: 'cover', borderRadius: 8, display: 'block' }} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+                                <button onClick={async (e) => {
+                                  e.preventDefault();
+                                  const btn = e.currentTarget;
+                                  btn.disabled = true; btn.textContent = '✨ Replacing…';
+                                  try {
+                                    const r = await fetch(`${API_BASE}/api/social-posts/${p.id}/regenerate-image`, { method: 'POST', credentials: 'include', headers: apiHeaders });
+                                    const j = await r.json();
+                                    if (!r.ok) throw new Error(j?.error?.message || 'Replace failed');
+                                    toast('success', 'New image generated');
+                                    load();
+                                  } catch (e: any) { toast('error', e?.message || 'Replace failed'); }
+                                }} style={{ position: 'absolute', top: 8, right: 8, padding: '4px 10px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)', color: '#fff', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>🔄 Replace image</button>
+                              </div>
                             )}
                             <div style={{ fontSize: 13, lineHeight: 1.55, marginBottom: 8, whiteSpace: 'pre-wrap' }}>{String(p.body || '').slice(0, 320)}{(p.body || '').length > 320 ? '…' : ''}</div>
                             <Button variant="primary" onClick={() => approveSocial(p.id)}>✓ Approve & Schedule</Button>
