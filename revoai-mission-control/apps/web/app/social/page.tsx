@@ -553,6 +553,23 @@ export default function SocialHubPage() {
                 </div>
               </div>
             )}
+
+            {autopilotExpanded && (
+              <div style={{ padding: '0 16px 14px', borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+                <div className="muted text-xs" style={{ marginBottom: 6 }}>📋 Topic queue · upcoming runs use these in order, then fall back to random angles</div>
+                <textarea
+                  value={(cfg.topicQueue || []).join('\n')}
+                  onChange={(e) => updateAutopilot({ topicQueue: e.target.value.split('\n') })}
+                  placeholder="One topic per line. e.g.&#10;Why missed calls cost local clinics more than they think&#10;We just shipped voice cloning&#10;Customer story: how a 4-chair barbershop saved 8 hrs/week"
+                  style={{ width: '100%', minHeight: 80, background: 'rgba(17,24,39,.65)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 8, padding: 10, fontSize: 12.5, fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.5 }}
+                />
+                {cfg.topicQueue && cfg.topicQueue.length > 0 && (
+                  <div className="muted text-xs" style={{ marginTop: 6 }}>
+                    {cfg.topicQueue.length} topic{cfg.topicQueue.length === 1 ? '' : 's'} queued · next run will cover: <strong style={{ color: accent }}>"{String(cfg.topicQueue[0] || '').slice(0, 80)}{String(cfg.topicQueue[0] || '').length > 80 ? '…' : ''}"</strong>
+                  </div>
+                )}
+              </div>
+            )}
           </section>
         );
       })()}

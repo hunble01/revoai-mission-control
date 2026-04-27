@@ -27,6 +27,7 @@ type AutopilotConfig = {
   autoApprove: boolean;
   autoImage: boolean;
   platforms: Platform[];
+  topicQueue: string[]; // user-supplied topics to use before random angles
   lastPlatform: Platform | null;
   lastRunAt: string | null;
   lastTopics: string[];
@@ -39,6 +40,7 @@ const DEFAULT_CONFIG: AutopilotConfig = {
   autoApprove: false,
   autoImage: true,
   platforms: ['LINKEDIN', 'FACEBOOK', 'INSTAGRAM'],
+  topicQueue: [],
   lastPlatform: null,
   lastRunAt: null,
   lastTopics: [],
@@ -77,6 +79,9 @@ export class SocialAutopilotService {
     merged.platforms = Array.isArray(merged.platforms) && merged.platforms.length
       ? merged.platforms.filter((p) => ['LINKEDIN', 'FACEBOOK', 'INSTAGRAM', 'YOUTUBE'].includes(p))
       : ['LINKEDIN'];
+    merged.topicQueue = Array.isArray(merged.topicQueue)
+      ? merged.topicQueue.map((t) => String(t || '').trim()).filter(Boolean).slice(0, 30)
+      : [];
 
     await this.prisma.setting.upsert({
       where: { key: SETTING_KEY },
@@ -164,14 +169,19 @@ export class SocialAutopilotService {
     }
 
     const platform = this.pickNextPlatform(config);
-    const useTrend = Math.random() * 100 >= config.mixProductPct;
+
+    // If user has queued specific topics, consume the first one — overrides
+    // the random mix logic. Pop it from the queue so each topic only runs
+    // once. Falls through to normal mix once the queue is empty.
+    const queuedTopic: string | null = (config.topicQueue && config.topicQueue.length) ? String(config.topicQueue[0] || '').trim() : null;
+    const useTrend = !queuedTopic && Math.random() * 100 >= config.mixProductPct;
 
     let body = '';
     let headline = '';
     let hashtags: string[] = [];
     let imagePromptHint = '';
     let angle: string = '';
-    let mix: 'product' | 'trend' = useTrend ? 'trend' : 'product';
+    let mix: 'product' | 'trend' | 'topic' = queuedTopic ? 'topic' : (useTrend ? 'trend' : 'product');
     let trendId: string | null = null;
 
     if (mix === 'trend') {
@@ -196,6 +206,21 @@ export class SocialAutopilotService {
           mix = 'product';
         }
       } else {
+        mix = 'product';
+      }
+    }
+
+    if (mix === 'topic' && queuedTopic) {
+      const result = await this.content.generateRevoAIPost({
+        platform: platform as any,
+        angle: 'feature' as any,
+        topic: queuedTopic,
+        avoidTopics: config.lastTopics || [],
+      });
+      if (result.ok) {
+        headline = result.headline; body = result.body; hashtags = result.hashtags; imagePromptHint = result.imagePromptHint; angle = `topic:${queuedTopic.slice(0, 60)}`;
+      } else {
+        // Topic generation failed — fall back to random angle
         mix = 'product';
       }
     }
@@ -291,12 +316,17 @@ export class SocialAutopilotService {
       } as any,
     });
 
-    // Update config state
+    // Update config state. If we used a queued topic, pop it from the queue
+    // so it doesn't fire again on the next run.
     const newLastTopics = [headline, ...(config.lastTopics || [])].filter(Boolean).slice(0, 30);
+    const newTopicQueue = (mix === 'topic' && queuedTopic)
+      ? (config.topicQueue || []).slice(1)
+      : (config.topicQueue || []);
     await this.setConfig({
       lastPlatform: platform as any,
       lastRunAt: new Date().toISOString(),
       lastTopics: newLastTopics,
+      topicQueue: newTopicQueue,
     });
 
     await this.prisma.auditLog.create({
