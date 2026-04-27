@@ -315,6 +315,84 @@ export class SocialAutopilotService {
   }
 
   /**
+   * One-shot draft generator. User says "write a post about X for LinkedIn" —
+   * we generate one polished post on that topic, attach an auto-image,
+   * save as a draft. Skips the daily cap, the platform rotation, and the
+   * 70/30 mix logic — this is a directed manual ask, not autopilot.
+   */
+  async quickDraft(opts: { topic: string; platform: 'LINKEDIN' | 'FACEBOOK' | 'INSTAGRAM' | 'YOUTUBE'; autoImage?: boolean; actor?: string }) {
+    const topic = String(opts.topic || '').trim();
+    if (!topic) {
+      return { ok: false, error: 'topic required' };
+    }
+    const platform = opts.platform || 'LINKEDIN';
+
+    const result = await this.content.generateRevoAIPost({
+      platform: platform as any,
+      angle: 'feature' as any,
+      topic,
+    });
+    if (!result.ok) {
+      return { ok: false, error: result.error || 'generation failed' };
+    }
+
+    const { headline, body, hashtags, imagePromptHint } = result;
+    if (!body.trim()) return { ok: false, error: 'empty body after generation' };
+
+    // Auto-image
+    let mediaUrl: string | null = null;
+    let imageAssetId: string | null = null;
+    if (opts.autoImage !== false) {
+      try {
+        const visualHint = imagePromptHint || (await this.images.refinePromptForPost(body, platform));
+        const combinedPrompt = `${visualHint}\n\nPost context:\n${body}`;
+        const size = platform === 'INSTAGRAM' ? '1024x1792' : platform === 'YOUTUBE' ? '1024x1792' : '1792x1024';
+        const img = await this.images.generate({ prompt: combinedPrompt, size: size as any, platform, actorId: opts.actor });
+        if (img?.ok && img.asset?.url) {
+          mediaUrl = img.asset.url;
+          imageAssetId = img.asset.id;
+        }
+      } catch (err: any) {
+        this.log.warn(`quickDraft autoImage failed: ${err?.message || err}`);
+      }
+    }
+
+    const finalBody = hashtags.length ? `${body}\n\n${hashtags.join(' ')}` : body;
+
+    const post = await this.prisma.socialPost.create({
+      data: {
+        channel: platform as any,
+        body: finalBody,
+        mediaUrl,
+        status: 'draft',
+        sourceType: 'manual_topic',
+        engagementStats: {
+          autopilot: false,
+          mix: 'topic',
+          angle: 'topic',
+          headline,
+          topic,
+          imageAssetId,
+        } as any,
+      } as any,
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorType: 'user',
+        action: 'social.quick_draft',
+        resourceType: 'social_post',
+        resourceId: post.id,
+        metadata: { platform, topic, mediaUrl: !!mediaUrl } as any,
+      },
+    });
+
+    await this.events.publish({ eventType: 'AUTOPILOT_POST_DRAFTED', payload: { id: post.id, platform, mix: 'topic' } });
+
+    return { ok: true, post: { id: post.id, channel: post.channel, body: finalBody, mediaUrl, status: post.status }, headline };
+  }
+
+  /**
    * Recent autopilot runs from AuditLog for the UI.
    */
   async recentRuns(limit = 10) {

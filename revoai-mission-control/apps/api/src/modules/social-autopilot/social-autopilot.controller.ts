@@ -27,6 +27,19 @@ export class SocialAutopilotController {
     return this.svc.runOnce(actorId);
   }
 
+  @Post('quick-draft')
+  quickDraft(@Req() req: any, @Body() body: any) {
+    assertAdminToken(req);
+    assertAdminRole(getActorRole(req), 'autopilot quick-draft');
+    const actorId = req?.headers?.['x-actor-id'] ? String(req.headers['x-actor-id']) : 'manual';
+    return this.svc.quickDraft({
+      topic: String(body?.topic || ''),
+      platform: String(body?.platform || 'LINKEDIN').toUpperCase() as any,
+      autoImage: body?.autoImage !== false,
+      actor: actorId,
+    });
+  }
+
   @Get('recent')
   recent(@Req() req: any, @Query('limit') limit?: string) {
     assertAdminToken(req);

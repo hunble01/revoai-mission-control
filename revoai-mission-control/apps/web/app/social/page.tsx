@@ -120,6 +120,11 @@ export default function SocialHubPage() {
   const [variants, setVariants] = useState<string[]>([]);
   const [generatingVariants, setGeneratingVariants] = useState(false);
 
+  // Topic-to-post quick draft
+  const [topicInput, setTopicInput] = useState('');
+  const [topicPlatform, setTopicPlatform] = useState<Channel>('LINKEDIN');
+  const [topicGenerating, setTopicGenerating] = useState(false);
+
   // Image generation
   const [imageOpen, setImageOpen] = useState(false);
   const [imagePrompt, setImagePrompt] = useState('');
@@ -703,7 +708,59 @@ export default function SocialHubPage() {
       )}
 
       {tab === 'Write' && (
-        <Card title="✍️ Compose" subtitle="Pick the platforms, write the post, schedule or save as draft. Each platform gets its own version, linked together.">
+        <div className="dash-stack">
+
+        {/* Topic → finished post */}
+        <Card title="✨ Tell AI what to post about" subtitle="Type a topic. Claude writes the post, generates a matching image, drops it in your queue.">
+          <div style={{ display: 'grid', gap: 10 }}>
+            <textarea
+              value={topicInput}
+              onChange={(e) => setTopicInput(e.target.value)}
+              placeholder="e.g. Why missed calls cost local clinics more than they think · Or: We just shipped voice cloning, talk about it."
+              style={{ width: '100%', minHeight: 70, background: 'rgba(17,24,39,.65)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px', fontSize: 13.5, fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.5 }}
+            />
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <span className="muted text-xs">For:</span>
+              <div style={{ display: 'flex', gap: 4 }}>
+                {(['LINKEDIN', 'FACEBOOK', 'INSTAGRAM', 'YOUTUBE'] as Channel[]).map((p) => {
+                  const m = PLATFORM_META[p];
+                  const sel = topicPlatform === p;
+                  return (
+                    <button key={p} onClick={() => setTopicPlatform(p)} style={{
+                      padding: '6px 10px', borderRadius: 6,
+                      border: '1px solid ' + (sel ? m.color : 'var(--border)'),
+                      background: sel ? `${m.color}18` : 'transparent',
+                      color: sel ? m.color : 'var(--muted)',
+                      cursor: 'pointer', fontSize: 11.5, fontWeight: 600,
+                    }}>{m.label}</button>
+                  );
+                })}
+              </div>
+              <Button variant="primary" disabled={!topicInput.trim() || topicGenerating} onClick={async () => {
+                if (!topicInput.trim()) return;
+                setTopicGenerating(true);
+                try {
+                  const res = await fetch(`${API_BASE}/api/social-autopilot/quick-draft`, {
+                    method: 'POST', credentials: 'include', headers: apiHeaders,
+                    body: JSON.stringify({ topic: topicInput.trim(), platform: topicPlatform, autoImage: true }),
+                  });
+                  const j = await res.json();
+                  if (!res.ok || !j?.ok) throw new Error(j?.error || 'Generation failed');
+                  toast('success', `Drafted ${topicPlatform} post — review in Overview or /today`);
+                  setTopicInput('');
+                  await loadPosts();
+                } catch (e: any) {
+                  toast('error', e?.message || 'Generation failed');
+                } finally {
+                  setTopicGenerating(false);
+                }
+              }}>{topicGenerating ? '✨ Writing…' : '✨ Generate post'}</Button>
+              <span className="muted text-xs" style={{ marginLeft: 'auto' }}>or scroll down to write manually ↓</span>
+            </div>
+          </div>
+        </Card>
+
+        <Card title="✍️ Or write it yourself" subtitle="Pick platforms, write a post, schedule or save as draft. Each platform gets its own version.">
           <div style={{ display: 'grid', gap: 14 }}>
             <div>
               <div className="page-eyebrow" style={{ marginBottom: 8 }}>WHERE TO POST</div>
@@ -901,6 +958,7 @@ export default function SocialHubPage() {
             </div>
           </div>
         </Card>
+        </div>
       )}
 
 

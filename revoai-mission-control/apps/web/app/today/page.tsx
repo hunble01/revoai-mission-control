@@ -72,6 +72,27 @@ export default function TodayPage() {
     } catch (e: any) { toast('error', e?.message || 'Approve+queue failed'); }
   };
 
+  const [editing, setEditing] = useState<string | null>(null);
+  const [editBody, setEditBody] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const startEdit = (p: any) => { setEditing(p.id); setEditBody(p.body || ''); };
+  const cancelEdit = () => { setEditing(null); setEditBody(''); };
+  const saveEdit = async (id: string) => {
+    setSavingEdit(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/social-posts/${id}`, {
+        method: 'PATCH', credentials: 'include', headers: apiHeaders,
+        body: JSON.stringify({ body: editBody }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      toast('success', 'Saved');
+      setEditing(null);
+      load();
+    } catch (e: any) { toast('error', e?.message || 'Save failed'); }
+    finally { setSavingEdit(false); }
+  };
+
   const approveSocial = async (id: string) => {
     try {
       await fetch(`${API_BASE}/api/social-posts/${id}/approve`, { method: 'POST', credentials: 'include', headers: apiHeaders });
@@ -217,8 +238,23 @@ export default function TodayPage() {
                                 }} style={{ position: 'absolute', top: 8, right: 8, padding: '4px 10px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)', color: '#fff', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>🔄 Replace image</button>
                               </div>
                             )}
-                            <div style={{ fontSize: 13, lineHeight: 1.55, marginBottom: 8, whiteSpace: 'pre-wrap' }}>{String(p.body || '').slice(0, 320)}{(p.body || '').length > 320 ? '…' : ''}</div>
-                            <Button variant="primary" onClick={() => approveSocial(p.id)}>✓ Approve & Schedule</Button>
+                            {editing === p.id ? (
+                              <>
+                                <textarea value={editBody} onChange={(e) => setEditBody(e.target.value)} style={{ width: '100%', minHeight: 140, background: 'rgba(17,24,39,.65)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 8, padding: 10, fontSize: 13, fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.55, marginBottom: 8 }} />
+                                <div style={{ display: 'flex', gap: 6 }}>
+                                  <Button variant="primary" disabled={savingEdit} onClick={() => saveEdit(p.id)}>{savingEdit ? 'Saving…' : '💾 Save'}</Button>
+                                  <Button variant="ghost" onClick={cancelEdit}>Cancel</Button>
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <div style={{ fontSize: 13, lineHeight: 1.55, marginBottom: 8, whiteSpace: 'pre-wrap' }}>{String(p.body || '').slice(0, 320)}{(p.body || '').length > 320 ? '…' : ''}</div>
+                                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                  <Button variant="primary" onClick={() => approveSocial(p.id)}>✓ Approve & Schedule</Button>
+                                  <Button variant="ghost" onClick={() => startEdit(p)}>✏️ Edit</Button>
+                                </div>
+                              </>
+                            )}
                           </div>
                         );
                       })}

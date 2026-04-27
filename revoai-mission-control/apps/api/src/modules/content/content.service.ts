@@ -360,11 +360,17 @@ export class ContentService {
    * appended to the user message so Claude rotates angles instead of
    * repeating itself.
    */
-  async generateRevoAIPost(opts: { platform: 'LINKEDIN' | 'FACEBOOK' | 'INSTAGRAM' | 'YOUTUBE'; angle: keyof typeof ANGLE_INSTRUCTIONS; avoidTopics?: string[] }): Promise<{ ok: boolean; headline: string; body: string; hashtags: string[]; imagePromptHint: string; angle: string; error?: string }> {
+  async generateRevoAIPost(opts: { platform: 'LINKEDIN' | 'FACEBOOK' | 'INSTAGRAM' | 'YOUTUBE'; angle: keyof typeof ANGLE_INSTRUCTIONS; avoidTopics?: string[]; topic?: string }): Promise<{ ok: boolean; headline: string; body: string; hashtags: string[]; imagePromptHint: string; angle: string; error?: string }> {
     const apiKey = (process.env.ANTHROPIC_API_KEY || '').trim();
     if (!apiKey) return { ok: false, headline: '', body: '', hashtags: [], imagePromptHint: '', angle: opts.angle, error: 'ANTHROPIC_API_KEY not configured' };
 
-    const angleInstruction = ANGLE_INSTRUCTIONS[opts.angle] || ANGLE_INSTRUCTIONS.feature;
+    // If user supplied a specific topic, override the angle instruction with
+    // a topic-driven brief. Else use one of the 6 default angles.
+    const topic = String(opts.topic || '').trim();
+    const angleInstruction = topic
+      ? `The user wants this specific post written. The TOPIC is: "${topic}". Write a post centered on that topic. Find the most natural way to connect it to RevoAI (AI receptionist for local service businesses) — but only if there's a real connection. If the topic is about RevoAI itself, focus on it directly. Do NOT force the product mention if the topic is unrelated; instead, give a thoughtful take that fits the founder's perspective. Keep all brand voice rules.`
+      : (ANGLE_INSTRUCTIONS[opts.angle] || ANGLE_INSTRUCTIONS.feature);
+
     const ctx = await this.buildContext();
     const model = (process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001').trim();
 
@@ -377,6 +383,7 @@ export class ContentService {
       ctx.niche ? `Active campaign niche we can lean into: ${ctx.niche}${ctx.subNiche ? ` (specifically ${ctx.subNiche})` : ''}.` : null,
       ctx.painPoint ? `Customer pain we know works: ${ctx.painPoint}` : null,
     ];
+    if (topic) userMsgParts.push(`\nTOPIC TO WRITE ABOUT: ${topic}`);
     if (opts.avoidTopics && opts.avoidTopics.length) {
       userMsgParts.push(`\nRecent post headlines to avoid repeating (write something distinctly different):\n- ${opts.avoidTopics.slice(0, 8).join('\n- ')}`);
     }
