@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# Example post-rollback hook
+# Add notifications and incident logs here.

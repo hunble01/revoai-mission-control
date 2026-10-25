@@ -1,0 +1,15 @@
+ALTER TABLE "Campaign"
+  ADD COLUMN IF NOT EXISTS "sub_niche" TEXT,
+  ADD COLUMN IF NOT EXISTS "geography_city" TEXT,
+  ADD COLUMN IF NOT EXISTS "geography_radius" TEXT,
+  ADD COLUMN IF NOT EXISTS "geography_region" TEXT,
+  ADD COLUMN IF NOT EXISTS "company_size" JSONB NOT NULL DEFAULT '[]'::jsonb,
+  ADD COLUMN IF NOT EXISTS "revenue_range" TEXT,
+  ADD COLUMN IF NOT EXISTS "contact_type" JSONB NOT NULL DEFAULT '[]'::jsonb,
+  ADD COLUMN IF NOT EXISTS "has_contact_info" JSONB NOT NULL DEFAULT '[]'::jsonb,
+  ADD COLUMN IF NOT EXISTS "default_channel" TEXT,
+  ADD COLUMN IF NOT EXISTS "daily_send_limit" INTEGER NOT NULL DEFAULT 20,
+  ADD COLUMN IF NOT EXISTS "data_sources" JSONB NOT NULL DEFAULT '{}'::jsonb,
+  ADD COLUMN IF NOT EXISTS "spreadsheet_data" JSONB,
+  ADD COLUMN IF NOT EXISTS "notes" TEXT,
+  ADD COLUMN IF NOT EXISTS "status" TEXT NOT NULL DEFAULT 'active';

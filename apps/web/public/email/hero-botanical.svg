@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="320" viewBox="0 0 600 320">
+  <defs>
+    <linearGradient id="canvas" x1="0" y1="0" x2="0.7" y2="1">
+      <stop offset="0%" stop-color="#FDF9F3"/>
+      <stop offset="100%" stop-color="#F1E9DA"/>
+    </linearGradient>
+    <radialGradient id="warmGlow" cx="0.85" cy="0.25" r="0.6">
+      <stop offset="0%" stop-color="#F4D798" stop-opacity="0.85"/>
+      <stop offset="55%" stop-color="#F4D798" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#F4D798" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="peony" cx="0.5" cy="0.45" r="0.55">
+      <stop offset="0%" stop-color="#FADDE0"/>
+      <stop offset="55%" stop-color="#E8A8AF"/>
+      <stop offset="100%" stop-color="#B67580"/>
+    </radialGradient>
+    <radialGradient id="peonySmall" cx="0.5" cy="0.5" r="0.6">
+      <stop offset="0%" stop-color="#F9D0D5"/>
+      <stop offset="100%" stop-color="#D9909A"/>
+    </radialGradient>
+    <linearGradient id="leafLight" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#C8D6B1"/>
+      <stop offset="100%" stop-color="#93AE7C"/>
+    </linearGradient>
+    <linearGradient id="leafDark" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#94AA7A"/>
+      <stop offset="100%" stop-color="#546B44"/>
+    </linearGradient>
+    <linearGradient id="goldBar" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#E8B4B8"/>
+      <stop offset="50%" stop-color="#D4AF37"/>
+      <stop offset="100%" stop-color="#9CAF88"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="600" height="320" fill="url(#canvas)"/>
+
+  <circle cx="510" cy="80" r="180" fill="url(#warmGlow)"/>
+  <circle cx="510" cy="80" r="44" fill="#F4D798" fill-opacity="0.45"/>
+
+  <g opacity="0.12" stroke="#2A2824" stroke-width="0.8" fill="none">
+    <circle cx="50" cy="40" r="3"/>
+    <circle cx="550" cy="300" r="3"/>
+    <path d="M 20 60 Q 60 40 100 60" stroke-dasharray="2,4"/>
+  </g>
+
+  <g transform="translate(72, 265)" opacity="0.9">
+    <path d="M 0 0 Q -42 -55 -14 -88 Q 0 -70 0 -34 Z" fill="url(#leafDark)"/>
+    <path d="M 0 0 Q 42 -55 14 -88 Q 0 -70 0 -34 Z" fill="url(#leafLight)"/>
+    <path d="M -1 -4 L -1 -80" stroke="#546B44" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+  </g>
+
+  <g transform="translate(110, 280)" opacity="0.78">
+    <path d="M 0 0 Q -22 -28 -8 -52 Q 0 -40 0 -20 Z" fill="url(#leafLight)"/>
+    <path d="M 0 0 Q 22 -28 8 -52 Q 0 -40 0 -20 Z" fill="url(#leafDark)"/>
+  </g>
+
+  <g transform="translate(38, 288)" opacity="0.7">
+    <path d="M 0 0 Q -14 -18 -4 -34 Q 0 -26 0 -12 Z" fill="url(#leafDark)"/>
+  </g>
+
+  <g transform="translate(520, 252)" opacity="0.94">
+    <ellipse cx="0" cy="0" rx="46" ry="20" fill="url(#peony)" transform="rotate(-18)"/>
+    <ellipse cx="0" cy="0" rx="38" ry="16" fill="url(#peony)" transform="rotate(22)"/>
+    <ellipse cx="0" cy="0" rx="30" ry="13" fill="url(#peonySmall)" transform="rotate(-58)"/>
+    <ellipse cx="0" cy="0" rx="22" ry="9" fill="url(#peonySmall)" transform="rotate(70)"/>
+    <circle cx="0" cy="0" r="8" fill="#D4AF37"/>
+    <circle cx="-1" cy="-1" r="3" fill="#A8821C"/>
+  </g>
+
+  <g transform="translate(455, 278)" opacity="0.85">
+    <ellipse cx="0" cy="0" rx="20" ry="9" fill="url(#peonySmall)" transform="rotate(-25)"/>
+    <ellipse cx="0" cy="0" rx="14" ry="6" fill="url(#peonySmall)" transform="rotate(40)"/>
+    <circle cx="0" cy="0" r="3.5" fill="#D4AF37"/>
+  </g>
+
+  <g transform="translate(40, 260)" opacity="0.55">
+    <circle cx="0" cy="0" r="2.5" fill="#E8B4B8"/>
+    <circle cx="14" cy="-4" r="2" fill="#D4AF37"/>
+    <circle cx="26" cy="2" r="2.6" fill="#9CAF88"/>
+    <circle cx="40" cy="-6" r="1.8" fill="#E8B4B8"/>
+    <circle cx="54" cy="0" r="2.3" fill="#D4AF37"/>
+  </g>
+
+  <text x="46" y="38" font-family="-apple-system,BlinkMacSystemFont,Helvetica,Arial,sans-serif" font-size="10" font-weight="700" fill="#B89A6A" letter-spacing="3.2">THE QUIET KIND OF GROWTH</text>
+  <line x1="46" y1="48" x2="82" y2="48" stroke="#D4AF37" stroke-width="1.4"/>
+
+  <text x="46" y="118" font-family="Georgia,'Times New Roman',serif" font-size="54" font-weight="700" fill="#2A2824" letter-spacing="-1.5">Every call,</text>
+  <text x="46" y="172" font-family="Georgia,'Times New Roman',serif" font-size="54" font-weight="400" font-style="italic" fill="#6B6159" letter-spacing="-0.8">answered.</text>
+
+  <line x1="46" y1="196" x2="86" y2="196" stroke="#D4AF37" stroke-width="1.4"/>
+  <text x="46" y="224" font-family="Georgia,'Times New Roman',serif" font-size="17" font-style="italic" fill="#6B6159">With care. Day or night.</text>
+
+  <rect x="0" y="315" width="600" height="5" fill="url(#goldBar)"/>
+</svg>

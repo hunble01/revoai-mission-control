@@ -1,0 +1,678 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  OPERATOR
+  CLOSER
+  VIEWER
+}
+
+enum AgentStatus {
+  IDLE
+  RUNNING
+  PAUSED
+  BLOCKED
+}
+
+
+enum TaskColumn {
+  BACKLOG
+  DOING
+  NEEDS_APPROVAL
+  DONE
+}
+
+enum LeadScore {
+  A
+  B
+  C
+}
+
+enum LeadStatus {
+  NEW
+  ENRICHED
+  RESEARCHED
+  DRAFTED
+  APPROVED
+  CONTACTED
+  REPLIED
+  BOOKED
+  LOST
+}
+
+enum DraftStatus {
+  DRAFT
+  NEEDS_APPROVAL
+  APPROVED
+  REJECTED
+  SENT
+}
+
+enum ApprovalAction {
+  APPROVE
+  REJECT
+  REQUEST_CHANGES
+  EDIT_INLINE_APPROVE
+  APPROVE_WITH_NOTES
+}
+
+enum Channel {
+  EMAIL
+  FACEBOOK
+  INSTAGRAM
+  LINKEDIN
+}
+
+enum ConnectionStatus {
+  NOT_CONNECTED
+  CONNECTING
+  CONNECTED
+  DEGRADED
+  ERROR
+}
+
+enum ConnectionHealth {
+  HEALTHY
+  DEGRADED
+  FAILED
+}
+
+enum QueueStatus {
+  DRAFT
+  APPROVED
+  QUEUED
+  SENDING
+  SENT
+  FAILED
+  CANCELED
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  role         Role      @default(ADMIN)
+  passwordHash String?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  sessions Session[]
+}
+
+model Campaign {
+  id                String    @id @default(uuid())
+  name              String
+  niche             String
+  subNiche          String?   @map("sub_niche")
+  geography         String
+  geographyCity     String?   @map("geography_city")
+  geographyRadius   String?   @map("geography_radius")
+  geographyRegion   String?   @map("geography_region")
+  minScore          LeadScore @default(B)
+  outreachTemplates Json
+  contentThemes     Json
+  metrics           Json
+  companySize       Json      @default("[]") @map("company_size")
+  revenueRange      String?   @map("revenue_range")
+  contactType       Json      @default("[]") @map("contact_type")
+  hasContactInfo    Json      @default("[]") @map("has_contact_info")
+  defaultChannel    String?   @map("default_channel")
+  dailySendLimit    Int       @default(20) @map("daily_send_limit")
+  dataSources       Json      @default("{}") @map("data_sources")
+  spreadsheetData   Json?     @map("spreadsheet_data")
+  notes             String?
+  painPoint         String?   @map("pain_point")
+  yourOffer         String?   @map("your_offer")
+  yourProof         String?   @map("your_proof")
+  emailSubjectTemplate String? @map("email_subject_template")
+  emailBodyTemplate String?   @map("email_body_template")
+  emailAiGenerate   Boolean   @default(true) @map("email_ai_generate")
+  dmBodyTemplate    String?   @map("dm_body_template")
+  dmAiGenerate      Boolean   @default(true) @map("dm_ai_generate")
+  followupEnabled   Boolean   @default(false) @map("followup_enabled")
+  followupSequence  Json      @default("[]") @map("followup_sequence")
+  sendWindowFrom    String?   @map("send_window_from")
+  sendWindowTo      String?   @map("send_window_to")
+  sendDays          Json      @default("[]") @map("send_days")
+  scheduledAutorunAt DateTime? @map("scheduled_autorun_at")
+  status            String    @default("active")
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  leads         Lead[]
+  drafts        Draft[]
+  tasks         Task[]
+  schedulerJobs SchedulerJob[]
+  researchRuns ResearchRun[]
+}
+
+model Lead {
+  id                  String      @id @default(uuid())
+  campaignId          String
+  campaign            Campaign    @relation(fields: [campaignId], references: [id])
+  businessName        String
+  niche               String?
+  region              String?
+  website             String?
+  contactName         String?
+  contactRole         String?
+  email               String?
+  phone               String?
+  linkedinUrl         String?
+  source              String?
+  sourceDetail        String?     @map("source_detail")
+  fitScore            String?     @map("fit_score")
+  preferredChannel    Channel?
+  leadScore           LeadScore?
+  scoreOverride       LeadScore?
+  scoreOverrideReason String?
+  status              LeadStatus  @default(NEW)
+  lastActionAt        DateTime?
+  nextStep            String?
+  notes               Json        @default("[]")
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  // Follow-up sequence state
+  followUpStage        Int       @default(0)       // 0=no outbound yet, 1-3=follow-up steps, 99=stopped
+  lastOutboundAt       DateTime?
+  lastEngagementAt     DateTime?                   // any open/click/reply stops the sequence
+  sequencePausedReason String?                     // 'replied'|'opened'|'clicked'|'unsubscribed'|'manual'|'completed'
+
+  drafts    Draft[]
+  intelRows LeadIntel[]
+
+  @@index([followUpStage, lastOutboundAt])
+}
+
+model Draft {
+  id              String      @id @default(uuid())
+  campaignId      String
+  campaign        Campaign    @relation(fields: [campaignId], references: [id])
+  leadId          String?
+  lead            Lead?       @relation(fields: [leadId], references: [id])
+  channel         Channel
+  draftType       String
+  content         String?
+  subject         String?
+  status          DraftStatus @default(DRAFT)
+  currentVersion  Int         @default(1)
+  approverId      String?
+  scheduledSendAt DateTime?
+  createdBy       String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  versions  DraftVersion[]
+  approvals Approval[]
+}
+
+model DraftVersion {
+  id            String   @id @default(uuid())
+  draftId       String
+  draft         Draft    @relation(fields: [draftId], references: [id])
+  versionNumber Int
+  content       String
+  changeNote    String?
+  createdBy     String?
+  createdAt     DateTime @default(now())
+
+  @@unique([draftId, versionNumber])
+}
+
+model Task {
+  id            String     @id @default(uuid())
+  campaignId    String?
+  campaign      Campaign?  @relation(fields: [campaignId], references: [id])
+  title         String
+  description   String?
+  columnName    TaskColumn @default(BACKLOG)
+  priority      String     @default("med")
+  ownerType     String     @default("agent")
+  ownerId       String?
+  linkedLeadId  String?
+  linkedDraftId String?
+  createdBy     String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  doneAt        DateTime?
+}
+
+model Agent {
+  id            String      @id @default(uuid())
+  name          String      @unique
+  status        AgentStatus @default(IDLE)
+  currentTaskId String?
+  lastUpdateAt  DateTime?
+  metadata      Json        @default("{}")
+}
+
+model TaskEvent {
+  id         BigInt   @id @default(autoincrement())
+  taskId     String?
+  campaignId String?
+  agentId    String?
+  eventType  String
+  payload    Json     @default("{}")
+  createdBy  String?
+  createdAt  DateTime @default(now())
+}
+
+model Approval {
+  id            String         @id @default(uuid())
+  draftId       String
+  draft         Draft          @relation(fields: [draftId], references: [id])
+  action        ApprovalAction
+  notes         String?
+  editorContent String?
+  decidedBy     String?
+  decidedAt     DateTime       @default(now())
+}
+
+model OutboundQueue {
+  id              String      @id @default(uuid())
+  channel         Channel
+  leadId          String?
+  draftId         String?
+  campaignId      String?
+  priority        Int         @default(100)
+  status          QueueStatus @default(DRAFT)
+  scheduledAt     DateTime?
+  approvedAt      DateTime?
+  approvedBy      String?
+  sendAfter       DateTime?
+  failureReason   String?
+  workerLockId    String?
+  workerLockedAt  DateTime?
+  attemptCount    Int         @default(0)
+  maxAttempts     Int         @default(3)
+  payload         Json        @default("{}")
+  metadata        Json        @default("{}")
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([status, scheduledAt])
+  @@index([channel, status])
+  @@index([leadId])
+  @@index([draftId])
+  @@map("outbound_queue")
+}
+
+model OutboundSend {
+  id                String   @id @default(uuid())
+  provider          String
+  draftId           String?
+  leadId            String?
+  status            String
+  externalMessageId String?
+  error             String?
+  sentAt            DateTime @default(now())
+  createdAt         DateTime @default(now())
+
+  @@index([provider])
+  @@index([draftId])
+  @@index([leadId])
+}
+model SchedulerJob {
+  id         String    @id @default(uuid())
+  campaignId String?
+  campaign   Campaign? @relation(fields: [campaignId], references: [id])
+  name       String
+  jobType    String    @default("EMAIL_BATCH")
+  cronExpr   String
+  timezone   String    @default("America/Toronto")
+  enabled    Boolean   @default(true)
+  config     Json      @default("{}")
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  runs SchedulerRun[]
+}
+
+model SchedulerRun {
+  id         String       @id @default(uuid())
+  jobId      String
+  job        SchedulerJob @relation(fields: [jobId], references: [id])
+  startedAt  DateTime     @default(now())
+  finishedAt DateTime?
+  status     String
+  summary    Json         @default("{}")
+}
+
+model AuditLog {
+  id           BigInt   @id @default(autoincrement())
+  actorType    String
+  actorId      String?
+  action       String
+  resourceType String
+  resourceId   String
+  beforeState  Json?
+  afterState   Json?
+  metadata     Json     @default("{}")
+  createdAt    DateTime @default(now())
+}
+
+model Setting {
+  key       String   @id
+  value     Json
+  updatedBy String?
+  updatedAt DateTime @default(now())
+}
+
+model BrandSettings {
+  id             String   @id @default("default")
+  yourName       String?
+  yourTitle      String?
+  companyName    String?
+  phoneNumber    String?
+  websiteUrl     String?
+  logoData       String?
+  signatureStyle String   @default("Professional")
+  updatedAt      DateTime @updatedAt
+
+  @@map("brand_settings")
+}
+
+model Session {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role
+  issuedAt   DateTime @default(now())
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  userAgent  String?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Connection {
+  id             String           @id @default(uuid())
+  provider       Channel
+  status         ConnectionStatus @default(NOT_CONNECTED)
+  health         ConnectionHealth @default(DEGRADED)
+  accountId      String?
+  scopes         Json             @default("[]")
+  tokenRef       String?
+  tokenMeta      Json             @default("{}")
+  lastSyncAt     DateTime?
+  lastCheckedAt  DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@unique([provider])
+}
+
+model EmailSuppression {
+  id         String   @id @default(uuid())
+  email      String   @unique
+  reason     String   @default("UNSUBSCRIBE")
+  source     String?
+  campaignId String?  @map("campaign_id")
+  note       String?
+  createdAt  DateTime @default(now())
+
+  @@index([reason])
+  @@map("email_suppressions")
+}
+
+model ReplyAnalysis {
+  id                 String   @id @default(uuid())
+  // Polymorphic subject: subject_type ∈ {lead, social_post, linkedin_message, meta_message}
+  subjectType        String   @map("subject_type")
+  subjectId          String   @map("subject_id")
+  // leadId kept for back-compat reads on lead-type rows; nullable for non-lead subjects
+  leadId             String?  @map("lead_id")
+  replyText          String   @map("reply_text")
+  intent             String
+  confidence         Float    @default(0)
+  reasoning          String   @default("")
+  recommendedAction  String   @map("recommended_action")
+  suggestedResponse  String   @default("") @map("suggested_response")
+  appliedAction      String?  @map("applied_action")
+  appliedAt          DateTime? @map("applied_at")
+  appliedBy          String?  @map("applied_by")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  @@index([leadId, createdAt])
+  @@index([subjectType, subjectId, createdAt])
+  @@map("reply_analyses")
+}
+
+model ResearchRun {
+  id          String   @id @default(uuid())
+  campaignId  String?  @map("campaign_id")
+  campaign    Campaign? @relation(fields: [campaignId], references: [id])
+  status      String   @default("running")
+  startedAt   DateTime @default(now())
+  completedAt DateTime?
+  notes       String?
+  metadata    Json     @default("{}")
+  sourcesUsed Json     @default("[]") @map("sources_used")
+  searchParams Json    @default("{}") @map("search_params")
+  createdAt   DateTime @default(now())
+
+  leads   ResearchLead[]
+  content ResearchContent[]
+  intel   ResearchIntel[]
+
+  @@index([createdAt])
+  @@map("research_runs")
+}
+
+model ResearchLead {
+  id          String   @id @default(uuid())
+  runId       String
+  run         ResearchRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  companyName String
+  contactName String?
+  email       String?
+  phone       String?
+  linkedinUrl String?
+  website     String?
+  sourceUrl   String?
+  sourceType  String   @default("research_agent")
+  source      String?
+  fitScore    String?  @map("fit_score")
+  createdAt   DateTime @default(now())
+
+  @@index([runId])
+  @@map("research_leads")
+}
+
+model ResearchContent {
+  id          String   @id @default(uuid())
+  runId       String
+  run         ResearchRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  title       String
+  summary     String
+  videoAngle  String?
+  sourceUrl   String?
+  createdAt   DateTime @default(now())
+
+  @@index([runId])
+  @@map("research_content")
+}
+
+model ResearchIntel {
+  id            String   @id @default(uuid())
+  runId         String
+  run           ResearchRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  competitor    String
+  insight       String
+  sourceUrl     String?
+  createdAt     DateTime @default(now())
+
+  @@index([runId])
+  @@map("research_intel")
+}
+
+model SocialPost {
+  id             String   @id @default(uuid())
+  channel        Channel
+  body           String
+  mediaUrl       String?
+  scheduledAt    DateTime?
+  postedAt       DateTime?
+  status         String   @default("draft")
+  externalPostId String?
+  engagementStats Json    @default("{}")
+  sourceType     String?  @default("manual")
+  groupId        String?  @map("group_id")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([status])
+  @@index([channel])
+  @@index([scheduledAt])
+  @@index([groupId])
+  @@map("social_posts")
+}
+
+model ProviderToken {
+  id           String   @id @default(uuid())
+  provider     String
+  accountId    String?
+  accessToken  String
+  refreshToken String?
+  expiresAt    DateTime?
+  scope        String?
+  connectedAt  DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([provider])
+  @@index([expiresAt])
+  @@map("provider_tokens")
+}
+
+model LinkedinMessage {
+  id               String   @id @default(uuid())
+  leadId           String?
+  draftId          String?
+  messageBody      String
+  status           String   @default("queued")
+  sentAt           DateTime?
+  replyReceivedAt  DateTime?
+  externalThreadId String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([status])
+  @@index([sentAt])
+  @@map("linkedin_messages")
+}
+
+model MetaMessage {
+  id               String   @id @default(uuid())
+  channel          String   // 'FACEBOOK' | 'INSTAGRAM'
+  leadId           String?  @map("lead_id")
+  recipientHandle  String?  @map("recipient_handle")
+  messageBody      String   @map("message_body")
+  status           String   @default("queued")
+  sentAt           DateTime? @map("sent_at")
+  replyReceivedAt  DateTime? @map("reply_received_at")
+  externalThreadId String?  @map("external_thread_id")
+  rejectReason     String?  @map("reject_reason")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@index([channel, status])
+  @@index([sentAt])
+  @@map("meta_messages")
+}
+
+model MediaAsset {
+  id          String   @id @default(uuid())
+  kind        String   // 'image' | 'video' | 'audio'
+  source      String   // 'dalle3' | 'stable_diffusion' | 'upload' | 'stub'
+  prompt      String?
+  url         String
+  width       Int?
+  height      Int?
+  costCents   Int?     @map("cost_cents")
+  metadata    Json     @default("{}")
+  createdBy   String?  @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([kind, createdAt])
+  @@map("media_assets")
+}
+
+model TrendingItem {
+  id           String   @id @default(uuid())
+  source       String   // 'hacker_news' | 'reddit' | 'google_news' | 'manual'
+  title        String
+  url          String
+  summary      String?
+  score        Int?     // upvotes / engagement signal
+  publishedAt  DateTime? @map("published_at")
+  fetchedAt    DateTime  @default(now()) @map("fetched_at")
+  dismissed    Boolean   @default(false)
+  draftedAt    DateTime? @map("drafted_at")  // when user clicked "draft a post"
+
+  @@unique([source, url])
+  @@index([source, fetchedAt])
+  @@index([dismissed])
+  @@map("trending_items")
+}
+
+model ContentIdea {
+  id          String   @id @default(uuid())
+  platform    String
+  headline    String
+  source      String
+  sourceUrl   String?
+  contentType String
+  angle       String
+  aiDraft     String
+  dismissed   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([dismissed])
+  @@index([createdAt])
+  @@map("content_ideas")
+}
+
+model LeadIntel {
+  id         String   @id @default(uuid())
+  leadId      String   @map("lead_id")
+  lead        Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  intelType   String   @map("intel_type")
+  title       String?
+  summary     String
+  sourceUrl   String?  @map("source_url")
+  confidence  Int?
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([leadId])
+  @@index([intelType])
+  @@map("lead_intel")
+}
+
+model CompetitorIntel {
+  id               String   @id @default(uuid())
+  competitorName   String
+  linkedinUrl      String?
+  facebookUrl      String?
+  recentPosts      Json     @default("[]")
+  topTopics        Json     @default("[]")
+  contentGaps      Json     @default("[]")
+  postingFrequency String?
+  lastUpdated      DateTime @default(now())
+
+  @@index([competitorName])
+  @@index([lastUpdated])
+  @@map("competitor_intel")
+}

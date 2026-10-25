@@ -1,0 +1,27 @@
+# dependencies
+node_modules/
+apps/web/node_modules/
+
+# build output
+apps/api/dist/
+apps/web/.next/
+apps/web/.next-dev/
+apps/web/.next-build/
+
+# local env — keep only .env.example in git, never real secrets
+.env
+.env.*
+!.env.example
+apps/*/.env
+apps/*/.env.*
+!apps/*/.env.example
+
+# misc
+*.log
+
+# deploy runtime state/artifacts
+.deploy/
+artifacts/
+
+# backup artifacts
+backups/
