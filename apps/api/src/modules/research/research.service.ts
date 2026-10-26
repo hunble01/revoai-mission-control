@@ -60,31 +60,6 @@ export class ResearchService {
     return 'Low';
   }
 
-  private async discoverFromHunter(params: SearchParams) {
-    const key = String(process.env.HUNTER_API_KEY || '').trim();
-    if (!key) return { rows: [], warning: 'Hunter API key missing' };
-    const domain = `${String(params.geographyCity || 'example').toLowerCase().replace(/\s+/g, '')}.com`;
-    try {
-      const res = await fetch(`https://api.hunter.io/v2/domain-search?domain=${encodeURIComponent(domain)}&api_key=${encodeURIComponent(key)}`);
-      const json: any = await res.json().catch(() => ({}));
-      const emails = Array.isArray(json?.data?.emails) ? json.data.emails : [];
-      return {
-        rows: emails.slice(0, 10).map((e: any) => ({
-          companyName: json?.data?.organization || domain,
-          contactName: [e?.first_name, e?.last_name].filter(Boolean).join(' ') || null,
-          email: e?.value || null,
-          phone: null,
-          linkedinUrl: e?.linkedin || null,
-          sourceUrl: `https://${domain}`,
-          sourceType: 'research_agent',
-          source: 'Hunter',
-        })),
-      };
-    } catch {
-      return { rows: [], warning: 'Hunter request failed' };
-    }
-  }
-
   private async discoverGeneric(params: SearchParams, source = 'WebScraper') {
     const q = this.buildSearchQuery(params);
     return {
@@ -234,14 +209,10 @@ export class ResearchService {
 
     const trySource = async (key: string) => {
       if (!enabled.has(key)) return;
-      if (key === 'hunter') {
-        const r = await this.discoverFromHunter(params);
-        if (r.warning) warnings.push(r.warning);
-        if (r.rows.length) {
-          rows.push(...r.rows);
-          used.push('Hunter');
-        }
-      } else if (key === 'sheet') {
+      // Hunter is not a discovery source — it can't search by niche/city.
+      // It runs per-lead during enrichment (leads/hunter.ts) to find the
+      // owner's email from each business's website.
+      if (key === 'sheet') {
         const r = await this.processSpreadsheet(params, campaign);
         if (r.rows.length) {
           rows.push(...r.rows);
@@ -420,6 +391,8 @@ export class ResearchService {
     // the research-table columns in isolation.
     let promoted = 0;
     let enriched = 0;
+    let withEmailAfterEnrich = 0;
+    let ownerEmails = 0;
     let drafted = 0;
     let sent = 0;
     if (run.campaignId && leads.length) {
@@ -435,6 +408,10 @@ export class ResearchService {
       });
       promoted = promotedLeads.length;
       enriched = promotedLeads.filter((l: any) => String(l.sourceDetail || '').includes('enrichedAt')).length;
+      withEmailAfterEnrich = promotedLeads.filter((l: any) => !!l.email).length;
+      ownerEmails = promotedLeads.filter((l: any) => {
+        try { return ['owner', 'personal'].includes(JSON.parse(String(l.sourceDetail || '{}'))?.emailType); } catch { return false; }
+      }).length;
       const leadIds = promotedLeads.map((l: any) => l.id);
       if (leadIds.length) {
         const [draftCount, sendCount] = await Promise.all([
@@ -467,6 +444,8 @@ export class ResearchService {
         // Downstream funnel (the useful signal)
         promoted,
         enriched,
+        withEmailAfterEnrich,
+        ownerEmails, // emails that reach a named person, not info@
         drafted,
         sent,
       },

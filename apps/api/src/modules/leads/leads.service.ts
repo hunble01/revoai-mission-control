@@ -5,6 +5,7 @@ import { FollowUpService } from './followup.service';
 import { UnsubscribeService } from '../unsubscribe/unsubscribe.service';
 import { Channel } from '@prisma/client';
 import Anthropic from '@anthropic-ai/sdk';
+import { findOwnerEmailWithHunter, isGenericEmail } from './hunter';
 
 // ---- RevoAI brand context (mirrors REVOAI_PRODUCT_CONTEXT.md constraints) ----
 const REVOAI_SYSTEM_PROMPT = `You are the outbound copywriter for RevoAI, an AI receptionist for local service businesses.
@@ -450,34 +451,39 @@ export class LeadsService {
     const lead = await this.prisma.lead.findUnique({ where: { id } });
     if (!lead) throw new NotFoundException('Lead not found');
 
-    // 1. LLM-driven website enrichment (contact name, email, services, pain)
-    const webData = await enrichLeadFromWebsite(lead);
+    // 1. Hunter domain search — primary source for the owner's direct email
+    // 2. LLM website read — services / pain / trust for drafting, plus any
+    //    email or owner name printed on the page
+    const [hunter, webData] = await Promise.all([
+      findOwnerEmailWithHunter(lead.website),
+      enrichLeadFromWebsite(lead),
+    ]);
 
-    // 2. Hunter domain search (fallback / supplement when website didn't yield email)
-    const hunterApiKey = String(process.env.HUNTER_API_KEY || '').trim();
-    let hunterEmail: string | null = null;
-    let hunterLinkedin: string | undefined;
-    if (hunterApiKey && lead.website && !(webData?.email)) {
-      try {
-        const domain = lead.website.replace(/^https?:\/\//, '').split('/')[0];
-        const res = await fetch(
-          `https://api.hunter.io/v2/domain-search?domain=${encodeURIComponent(domain)}&api_key=${encodeURIComponent(hunterApiKey)}`,
-        );
-        const json: any = await res.json().catch(() => ({}));
-        const emailRow = Array.isArray(json?.data?.emails) ? json.data.emails[0] : null;
-        hunterEmail = emailRow?.value || null;
-        hunterLinkedin = emailRow?.linkedin || undefined;
-      } catch {
-        // graceful fallback
-      }
+    // Email priority: Hunter owner/personal > website email > Hunter generic.
+    // A person's inbox beats info@, so an existing generic email is upgraded
+    // when Hunter finds a real person.
+    let email: string | null = null;
+    let emailSource: string | null = null;
+    let emailType: string | null = null;
+    if (hunter && hunter.kind !== 'generic') {
+      email = hunter.email; emailSource = 'hunter'; emailType = hunter.kind;
+    } else if (webData?.email) {
+      email = webData.email; emailSource = 'website'; emailType = isGenericEmail(webData.email) ? 'generic' : 'personal';
+    } else if (hunter) {
+      email = hunter.email; emailSource = 'hunter'; emailType = 'generic';
     }
 
-    // Merge — prefer website-extracted data over Hunter
     const patch: any = {};
-    if (!lead.contactName && webData?.contactName) patch.contactName = webData.contactName;
-    if (!lead.contactRole && webData?.contactRole) patch.contactRole = webData.contactRole;
-    if (!lead.email && (webData?.email || hunterEmail)) patch.email = webData?.email || hunterEmail;
-    if (!lead.linkedinUrl && hunterLinkedin) patch.linkedinUrl = hunterLinkedin;
+    const canReplaceEmail = !lead.email || (isGenericEmail(lead.email) && emailType !== 'generic');
+    if (email && canReplaceEmail && email !== lead.email) patch.email = email;
+
+    // Owner name/role follow the email we chose when it came from Hunter.
+    const personFromHunter = emailSource === 'hunter' && emailType !== 'generic' && hunter?.contactName;
+    const contactName = personFromHunter ? hunter!.contactName : webData?.contactName;
+    const contactRole = personFromHunter ? hunter!.contactRole : webData?.contactRole;
+    if ((!lead.contactName || (patch.email && personFromHunter)) && contactName) patch.contactName = contactName;
+    if ((!lead.contactRole || (patch.email && personFromHunter)) && contactRole) patch.contactRole = contactRole;
+    if (!lead.linkedinUrl && hunter?.linkedinUrl) patch.linkedinUrl = hunter.linkedinUrl;
     if (!lead.linkedinUrl && !patch.linkedinUrl) {
       patch.linkedinUrl = `https://www.linkedin.com/search/results/all/?keywords=${encodeURIComponent(lead.businessName)}`;
     }
@@ -495,18 +501,23 @@ export class LeadsService {
     const rank = (s: string) => (s === 'High' ? 3 : s === 'Medium' ? 2 : 1);
     if (rank(nextScore) > rank(currentScore)) patch.fitScore = nextScore;
 
-    // Stash services + pain + trust marker in sourceDetail for the draft generator
-    if (webData?.services?.length || webData?.painHint || webData?.trustMarker) {
+    // Stash services + pain + trust marker (for the draft generator) and
+    // email provenance (for owner-hit-rate reporting) in sourceDetail
+    if (webData || hunter) {
       const existing = (() => {
         try { return JSON.parse(String(lead.sourceDetail || '{}')); } catch { return {}; }
       })();
       patch.sourceDetail = JSON.stringify({
         ...existing,
-        services: webData?.services || existing?.services || [],
+        services: webData?.services?.length ? webData.services : existing?.services || [],
         painHint: webData?.painHint || existing?.painHint || null,
         trustMarker: webData?.trustMarker || existing?.trustMarker || null,
+        emailSource: patch.email ? emailSource : existing?.emailSource || null,
+        emailType: patch.email ? emailType : existing?.emailType || null,
+        hunterConfidence: patch.email && emailSource === 'hunter' ? hunter?.confidence ?? null : existing?.hunterConfidence ?? null,
+        hunterVerification: patch.email && emailSource === 'hunter' ? hunter?.verification ?? null : existing?.hunterVerification ?? null,
         enrichedAt: new Date().toISOString(),
-        enrichedBy: webData ? 'llm+website' : 'hunter-only',
+        enrichedBy: [hunter ? 'hunter' : null, webData ? 'llm+website' : null].filter(Boolean).join('+'),
       });
     }
 
@@ -515,7 +526,7 @@ export class LeadsService {
     await this.events.publish({
       eventType: 'lead.enriched',
       campaignId: updated.campaignId,
-      payload: { leadId: updated.id, source: webData ? 'llm+website' : hunterEmail ? 'hunter' : 'none' },
+      payload: { leadId: updated.id, source: emailSource || 'none', emailType },
     });
     return { ok: true, lead: updated, enrichment: webData || null };
   }
