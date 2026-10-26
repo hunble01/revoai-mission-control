@@ -63,6 +63,12 @@ const BANNED_PHRASES: RegExp[] = [
   /\bai[- ]powered\b/i,
 ];
 
+// The prompt mandates a "Take a look: <url>" line; the model sometimes adds
+// its own lead-in right above it ("Worth a quick look:"), doubling the CTA.
+function dedupeCta(body: string): string {
+  return body.replace(/\n[^\n]{1,60}:[ \t]*\n(?:[ \t]*\n)*(?=Take a look:)/i, '\n');
+}
+
 function countExclamations(s: string): number {
   return (s.match(/!/g) || []).length;
 }
@@ -267,10 +273,10 @@ Return only the JSON object.`;
       if (!retryParsed?.subject || !retryParsed?.body) return null;
       const retryCheck = violatesBrandRules(`${retryParsed.subject}\n${retryParsed.body}`);
       if (retryCheck.violates) return null;
-      return { subject: clipAtWord(String(retryParsed.subject), 60), content: String(retryParsed.body).trim() };
+      return { subject: clipAtWord(String(retryParsed.subject), 60), content: dedupeCta(String(retryParsed.body).trim()) };
     }
 
-    return { subject: clipAtWord(String(parsed.subject), 60), content: String(parsed.body).trim() };
+    return { subject: clipAtWord(String(parsed.subject), 60), content: dedupeCta(String(parsed.body).trim()) };
   } catch (err: any) {
     console.warn('[generateOutreachCopyWithLLM] falling back to template:', err?.message || err);
     return null;
