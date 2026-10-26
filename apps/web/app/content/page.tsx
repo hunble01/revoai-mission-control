@@ -127,7 +127,7 @@ export default function ContentPage() {
         </Card>
       )}
 
-      {err && <p style={{ color: '#ff9b9b' }}>{err}</p>}
+      {err && <p className="error-text">{err}</p>}
       {msg && <p className="muted">{msg}</p>}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 12 }}>

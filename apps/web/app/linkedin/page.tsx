@@ -46,7 +46,7 @@ export default function LinkedinPage() {
         </div>
       </section>
       <ComingSoon feature="LinkedIn posts + DMs" needs="LinkedIn Developer app credentials (LINKEDIN_CLIENT_ID/SECRET) and flipping LINKEDIN_STUB_MODE=0 — DMs additionally need Unipile's UNIPILE_API_KEY" />
-      {err && <p style={{ color: '#ff9b9b' }}>{err}</p>}
+      {err && <p className="error-text">{err}</p>}
 
       <div className="kpi-grid mb-16">
         {[

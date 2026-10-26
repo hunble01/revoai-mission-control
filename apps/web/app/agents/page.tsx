@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
+import { Card } from '../../components/ui/Card';
 
 import { API_BASE, apiHeaders } from '../../lib/api';
 
@@ -54,13 +55,13 @@ export default function AgentsPage() {
     <div className="dash-stack fade-in">
       <section className="page-header"><div className="page-eyebrow">OPERATIONS / AGENTS</div><h2 className="page-title" style={{ margin: 0 }}>Agents</h2><p className="page-desc">AI agents that power your research and content pipeline</p></section>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-        <div style={{ background: '#0D1117', border: '1px solid #1C2333', borderLeft: '2px solid #00C9FF', borderRadius: 8, padding: 20 }}>
-          <div style={{ borderBottom: '1px solid #1C2333', paddingBottom: 12, marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}><strong>🤖 Research Agent</strong><Badge tone={researchStatus as any}>●</Badge></div>
+        <Card className="agent-card agent-card-cyan">
+          <div className="agent-card-top"><strong>🤖 Research Agent</strong><Badge tone={researchStatus as any}>●</Badge></div>
           <p className="muted">Finds and enriches leads based on your campaign filters using your configured data sources</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, background: '#080B12', borderRadius: 6, padding: 12 }}>
-            <div><div style={{ fontSize: 18, fontWeight: 700, color: 'var(--cyan)' }}>{runs.reduce((n, r: any) => n + Number(r?.metadata?.counts?.leads || 0), 0)}</div><div className="text-xs mono text-dim">Total Leads Found</div></div>
-            <div><div style={{ fontSize: 18, fontWeight: 700, color: 'var(--emerald)' }}>{lastResearchRun?.createdAt ? new Date(lastResearchRun.createdAt).toLocaleDateString() : '—'}</div><div className="text-xs mono text-dim">Last Run</div></div>
-            <div><div style={{ fontSize: 18, fontWeight: 700, color: 'var(--violet)' }}>{runs.length ? Math.round(runs.reduce((n, r: any) => n + Number(r?.metadata?.counts?.leads || 0), 0) / runs.length) : 0}</div><div className="text-xs mono text-dim">Avg per Run</div></div>
+          <div className="agent-stat-row">
+            <div><div className="agent-stat-value" style={{ color: 'var(--cyan)' }}>{runs.reduce((n, r: any) => n + Number(r?.metadata?.counts?.leads || 0), 0)}</div><div className="text-xs mono text-dim">Total Leads Found</div></div>
+            <div><div className="agent-stat-value" style={{ color: 'var(--emerald)' }}>{lastResearchRun?.createdAt ? new Date(lastResearchRun.createdAt).toLocaleDateString() : '—'}</div><div className="text-xs mono text-dim">Last Run</div></div>
+            <div><div className="agent-stat-value" style={{ color: 'var(--violet)' }}>{runs.length ? Math.round(runs.reduce((n, r: any) => n + Number(r?.metadata?.counts?.leads || 0), 0) / runs.length) : 0}</div><div className="text-xs mono text-dim">Avg per Run</div></div>
           </div>
           <div className="muted" style={{ marginTop: 10 }}>Last run details: {lastResearchRun?.createdAt ? new Date(lastResearchRun.createdAt).toLocaleString() : '—'} • {lastResearchRun?.campaignName || 'Generic'} • {(lastResearchRun?.sourcesUsed || []).join(', ') || '—'}</div>
           <div className="muted">Next Scheduled Run: {scheduler.find((j: any) => j.jobType === 'RESEARCH_RUN')?.nextRunHuman || '—'}</div>
@@ -70,15 +71,15 @@ export default function AgentsPage() {
             <Button variant="ghost" onClick={() => router.push('/research')}>View All Runs</Button>
             <Button variant="ghost" onClick={() => router.push('/settings')}>Configure</Button>
           </div>
-        </div>
+        </Card>
 
-        <div style={{ background: '#0D1117', border: '1px solid #1C2333', borderLeft: '2px solid #9B72FF', borderRadius: 8, padding: 20 }}>
-          <div style={{ borderBottom: '1px solid #1C2333', paddingBottom: 12, marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}><strong>✨ Content Agent</strong><Badge tone={contentStatus as any}>●</Badge></div>
+        <Card className="agent-card agent-card-violet">
+          <div className="agent-card-top"><strong>✨ Content Agent</strong><Badge tone={contentStatus as any}>●</Badge></div>
           <p className="muted">Monitors your content sources, generates post ideas, and drafts outreach messages using your campaign angle settings</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, background: '#080B12', borderRadius: 6, padding: 12 }}>
-            <div><div style={{ fontSize: 18, fontWeight: 700, color: 'var(--cyan)' }}>{ideas.length}</div><div className="text-xs mono text-dim">Posts Generated</div></div>
-            <div><div style={{ fontSize: 18, fontWeight: 700, color: 'var(--amber)' }}>{ideas.length}</div><div className="text-xs mono text-dim">Ideas Pending</div></div>
-            <div><div style={{ fontSize: 18, fontWeight: 700, color: 'var(--violet)' }}>{lastContentRun?.createdAt ? new Date(lastContentRun.createdAt).toLocaleDateString() : '—'}</div><div className="text-xs mono text-dim">Last Run</div></div>
+          <div className="agent-stat-row">
+            <div><div className="agent-stat-value" style={{ color: 'var(--cyan)' }}>{ideas.length}</div><div className="text-xs mono text-dim">Posts Generated</div></div>
+            <div><div className="agent-stat-value" style={{ color: 'var(--amber)' }}>{ideas.length}</div><div className="text-xs mono text-dim">Ideas Pending</div></div>
+            <div><div className="agent-stat-value" style={{ color: 'var(--violet)' }}>{lastContentRun?.createdAt ? new Date(lastContentRun.createdAt).toLocaleDateString() : '—'}</div><div className="text-xs mono text-dim">Last Run</div></div>
           </div>
           <div className="muted" style={{ marginTop: 10 }}>Next Scheduled Run: {scheduler.find((j: any) => String(j.jobType || '').includes('POST'))?.nextRunHuman || '—'}</div>
           <div className="muted">Configuration summary: {(settings?.content_intelligence?.contentTopics || []).length} topics • {(settings?.content_intelligence?.youtubeChannels || []).length} YouTube • {(settings?.competitors || []).length} competitors</div>
@@ -87,15 +88,15 @@ export default function AgentsPage() {
             <Button variant="ghost" onClick={() => router.push('/content-calendar?tab=ideas')}>View Ideas</Button>
             <Button variant="ghost" onClick={() => router.push('/settings')}>Configure</Button>
           </div>
-        </div>
+        </Card>
       </div>
 
-      <div className="ui-card" style={{ padding: 16 }}>
-        <h3 style={{ marginTop: 0 }}>Agent Run History</h3>
+      <Card title="Agent Run History">
         <div style={{ display: 'grid', gap: 8 }}>
-          {history.map((h, i) => <div key={i} className="ui-card" style={{ padding: 10, display: 'flex', justifyContent: 'space-between' }}><div><Badge tone={h.type === 'Research' ? 'info' : 'violet' as any}>{h.type}</Badge> <span className="muted">{h.summary}</span></div><div className="muted">{h.at ? new Date(h.at).toLocaleString() : '—'} • {h.count}</div></div>)}
+          {history.map((h, i) => <div key={i} className="agent-history-row"><div><Badge tone={h.type === 'Research' ? 'info' : 'violet' as any}>{h.type}</Badge> <span className="muted">{h.summary}</span></div><div className="muted">{h.at ? new Date(h.at).toLocaleString() : '—'} • {h.count}</div></div>)}
+          {!history.length && <div className="empty-state"><div className="empty-icon">🤖</div>No agent runs yet. Trigger a run above to populate this history.</div>}
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

@@ -382,8 +382,8 @@ export default function LeadsPage() {
 
       {showAddLead && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.7)', zIndex: 7000, display: 'flex', alignItems: 'stretch', justifyContent: 'center', padding: 16, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
-          <div style={{ width: '100%', maxWidth: 620, maxHeight: 'calc(100dvh - 32px)', margin: 'auto', display: 'flex', flexDirection: 'column', background: '#0D1117', border: '1px solid #1C2333', borderRadius: 8, overflow: 'hidden' }}>
-            <div style={{ flexShrink: 0, padding: '14px 16px', borderBottom: '1px solid #1C2333' }}><strong>Add Lead</strong></div>
+          <div style={{ width: '100%', maxWidth: 620, maxHeight: 'calc(100dvh - 32px)', margin: 'auto', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+            <div style={{ flexShrink: 0, padding: '14px 16px', borderBottom: '1px solid var(--border)' }}><strong>Add Lead</strong></div>
             <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: 16, display: 'grid', gap: 10 }}>
               <Input value={newLead.businessName} onChange={(e) => setNewLead((n) => ({ ...n, businessName: e.target.value }))} placeholder="Business Name *" />
               <Input value={newLead.contactName} onChange={(e) => setNewLead((n) => ({ ...n, contactName: e.target.value }))} placeholder="Contact Name" />
@@ -397,7 +397,7 @@ export default function LeadsPage() {
               </select>
               <textarea className="ui-input" rows={3} value={newLead.notes} onChange={(e) => setNewLead((n) => ({ ...n, notes: e.target.value }))} placeholder="Notes" />
             </div>
-            <div style={{ padding: '12px 16px', borderTop: '1px solid #1C2333', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               <Button variant="secondary" onClick={() => setShowAddLead(false)}>Cancel</Button>
               <Button variant="primary" onClick={createLead}>Create Lead</Button>
             </div>
@@ -407,8 +407,8 @@ export default function LeadsPage() {
 
       <>
         <div style={{ position: 'fixed', inset: 0, background: selectedLead ? 'rgba(0,0,0,0.4)' : 'transparent', zIndex: selectedLead ? 7999 : -1, pointerEvents: selectedLead ? 'auto' : 'none' }} onClick={() => setSelectedLead(null)} />
-        <aside style={{ position: 'fixed', right: 0, top: 0, height: '100dvh', width: 'min(420px, 100vw)', background: '#0D1117', borderLeft: '1px solid #1C2333', zIndex: 8000, display: 'flex', flexDirection: 'column', transform: selectedLead ? 'translateX(0)' : 'translateX(100%)', transition: 'transform 0.25s ease' }}>
-          <div style={{ padding: 16, borderBottom: '1px solid #1C2333', display: 'flex', justifyContent: 'space-between' }}>
+        <aside style={{ position: 'fixed', right: 0, top: 0, height: '100dvh', width: 'min(420px, 100vw)', background: 'var(--surface)', borderLeft: '1px solid var(--border)', zIndex: 8000, display: 'flex', flexDirection: 'column', transform: selectedLead ? 'translateX(0)' : 'translateX(100%)', transition: 'transform 0.25s ease' }}>
+          <div style={{ padding: 16, borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between' }}>
             <div><div style={{ fontWeight: 700 }}>{selectedLead?.businessName || 'Unknown'}</div><div className="muted">{selectedLead?.contactName || '—'}</div></div>
             <Button variant="secondary" onClick={() => setSelectedLead(null)}>✕</Button>
           </div>
@@ -500,7 +500,7 @@ export default function LeadsPage() {
               {String(selectedLead?.status || '').toUpperCase() !== 'NEW' && <div className="muted">Status changed • {selectedLead?.status}</div>}
             </div>
           </div>
-          <div style={{ padding: 16, borderTop: '1px solid #1C2333', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ padding: 16, borderTop: '1px solid var(--border)', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <Button variant="primary" onClick={() => selectedLead?.id && createDraftForLead(selectedLead)}>Draft Outreach</Button>
             <Button variant="secondary" onClick={() => selectedLead?.id && enrichLead(selectedLead.id)}>Enrich</Button>
             {selectedLead?.linkedinUrl && (
@@ -578,7 +578,7 @@ export default function LeadsPage() {
 
       {replyAssistOpen && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.6)', zIndex: 10000, padding: 16, display: 'flex', alignItems: 'stretch', justifyContent: 'center', overflowY: 'auto' }} onClick={() => setReplyAssistOpen(false)}>
-          <div style={{ width: 'min(640px, calc(100vw - 32px))', maxHeight: 'calc(100dvh - 32px)', margin: 'auto', display: 'flex', flexDirection: 'column', border: '1px solid #1C2333', background: '#0D1117', borderRadius: 12, boxShadow: '0 20px 60px rgba(0,0,0,.5)', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
+          <div style={{ width: 'min(640px, calc(100vw - 32px))', maxHeight: 'calc(100dvh - 32px)', margin: 'auto', display: 'flex', flexDirection: 'column', border: '1px solid var(--border)', background: 'var(--surface)', borderRadius: 12, boxShadow: '0 20px 60px rgba(0,0,0,.5)', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 18 }}>
               <div className="page-eyebrow">💬 Reply Intelligence</div>
               <h3 style={{ margin: '6px 0 4px' }}>{selectedLead?.businessName || 'Lead'}</h3>
@@ -711,7 +711,7 @@ export default function LeadsPage() {
                 </div>
               )}
             </div>
-            <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '12px 18px', borderTop: '1px solid #1C2333' }}>
+            <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '12px 18px', borderTop: '1px solid var(--border)' }}>
               <Button variant="ghost" onClick={() => setReplyAssistOpen(false)}>Close</Button>
               <Button variant="primary" disabled={!replyText.trim() || analyzing}
                 onClick={async () => {

@@ -1,9 +1,11 @@
 import React from 'react';
 import Link from 'next/link';
+import { NavIcon, type IconKey } from './NavIcon';
 
 export function SidebarNavItem({
   href,
   label,
+  icon,
   active = false,
   isNew = false,
   isBeta = false,
@@ -11,6 +13,7 @@ export function SidebarNavItem({
 }: {
   href: string;
   label: string;
+  icon?: IconKey;
   active?: boolean;
   isNew?: boolean;
   isBeta?: boolean;
@@ -18,7 +21,9 @@ export function SidebarNavItem({
 }) {
   return (
     <Link href={href} prefetch className={`sidebar-link ${active ? 'active' : ''} ${isBeta ? 'beta' : ''}`}>
-      <span aria-hidden className="sidebar-icon" />
+      <span aria-hidden className="sidebar-icon-wrap">
+        {icon ? <NavIcon name={icon} /> : <span className="sidebar-icon" />}
+      </span>
       <span className="sidebar-label">{label}</span>
       {typeof count === 'number' && count > 0 ? <span className="nav-badge">{count}</span> : null}
       {isNew && !(typeof count === 'number' && count > 0) ? <span className="nav-new">NEW</span> : null}

@@ -7,42 +7,61 @@ import { SidebarNavItem } from './ui/SidebarNavItem';
 
 const NAV_GROUPS = [
   {
-    title: 'MAIN',
+    title: 'DASHBOARD',
     items: [
-      { href: '/today', label: 'Today', isNew: true },
-      { href: '/', label: 'Overview' },
-      { href: '/research', label: 'Research Hub' },
-      { href: '/leads', label: 'Leads', countKey: 'leads' },
-      { href: '/campaigns', label: 'Campaigns' },
-      { href: '/drafts', label: 'Drafts' },
-      { href: '/approvals', label: 'Approvals', countKey: 'approvals' },
+      { href: '/today', label: 'Today', icon: 'pulse', isNew: true },
+      { href: '/', label: 'Overview', icon: 'dashboard' },
     ],
   },
   {
-    title: 'OPERATIONS',
+    title: 'PIPELINE',
     items: [
-      { href: '/connections', label: 'Connections' },
-      { href: '/scheduler', label: 'Scheduler' },
-      { href: '/feed', label: 'Live Feed' },
-      { href: '/analytics', label: 'Analytics' },
-      { href: '/audit', label: 'Audit' },
-      { href: '/content-calendar', label: 'Content Calendar' },
-      { href: '/social', label: 'Social Hub' },
+      { href: '/leads', label: 'Leads', icon: 'users', countKey: 'leads' },
+      { href: '/campaigns', label: 'Campaigns', icon: 'megaphone' },
+      { href: '/drafts', label: 'Drafts', icon: 'fileText' },
+      { href: '/approvals', label: 'Approvals', icon: 'checkCircle', countKey: 'approvals' },
+      { href: '/scheduler', label: 'Scheduler', icon: 'send' },
+      { href: '/email', label: 'Email', icon: 'mail' },
     ],
   },
   {
-    title: 'PROVIDERS',
+    title: 'CONTENT & SOCIAL',
     items: [
-      { href: '/linkedin', label: 'LinkedIn', isBeta: true },
-      { href: '/facebook', label: 'Facebook', isBeta: true },
+      { href: '/content', label: 'Content', icon: 'layout' },
+      { href: '/content-calendar', label: 'Content Calendar', icon: 'calendar' },
+      { href: '/social', label: 'Social Hub', icon: 'share' },
+      { href: '/board', label: 'Board', icon: 'columns' },
+      { href: '/research', label: 'Research Hub', icon: 'search' },
+    ],
+  },
+  {
+    title: 'CHANNELS',
+    items: [
+      { href: '/connections', label: 'Connections', icon: 'link' },
+      { href: '/linkedin', label: 'LinkedIn', icon: 'linkedin', isBeta: true },
+      { href: '/facebook', label: 'Facebook', icon: 'facebook', isBeta: true },
+    ],
+  },
+  {
+    title: 'INSIGHTS',
+    items: [
+      { href: '/analytics', label: 'Analytics', icon: 'barChart' },
+      { href: '/feed', label: 'Live Feed', icon: 'activity' },
+      { href: '/audit', label: 'Audit', icon: 'shield' },
+    ],
+  },
+  {
+    title: 'AUTOMATION',
+    items: [
+      { href: '/agents', label: 'Agents', icon: 'cpu' },
     ],
   },
   {
     title: 'SYSTEM',
     items: [
-      { href: '/health', label: 'Health' },
-      { href: '/settings', label: 'Settings' },
-      { href: '/help', label: 'Help' },
+      { href: '/health', label: 'Health', icon: 'heart' },
+      { href: '/settings', label: 'Settings', icon: 'sliders' },
+      { href: '/help', label: 'Help', icon: 'help' },
     ],
   },
 ] as const;
@@ -168,6 +187,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       key={item.href}
                       href={item.href}
                       label={item.label}
+                      icon={item.icon}
                       active={pathname === item.href}
                       isNew={!!item.isNew}
                       isBeta={!!item.isBeta}

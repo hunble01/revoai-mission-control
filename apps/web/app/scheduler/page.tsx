@@ -49,11 +49,11 @@ export default function SchedulerPage() {
         {systemCrons.map((c) => (
           <div key={c.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '10px 12px', background: 'rgba(16,214,138,.04)', border: '1px solid rgba(16,214,138,.18)', borderRadius: 8 }}>
             <div>
-              <div style={{ fontWeight: 700, color: '#E8EDF5' }}>{c.name}</div>
+              <div style={{ fontWeight: 700, color: 'var(--text)' }}>{c.name}</div>
               <div className="muted" style={{ fontSize: 12 }}>{c.purpose}</div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: '#10D68A', letterSpacing: '.06em' }}>● {c.status}</div>
+              <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: 'var(--emerald)', letterSpacing: '.06em' }}>● {c.status}</div>
               <div className="muted" style={{ fontSize: 11, fontFamily: 'JetBrains Mono, monospace' }}>{c.schedule}</div>
             </div>
           </div>

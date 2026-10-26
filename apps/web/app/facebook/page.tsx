@@ -45,7 +45,7 @@ export default function FacebookPage() {
         </div>
       </section>
       <ComingSoon feature="Facebook posts + insights" needs="Meta Developer app credentials (FACEBOOK_CLIENT_ID/SECRET, FACEBOOK_PAGE_ID) and flipping FACEBOOK_STUB_MODE=0" />
-      {err && <p style={{ color: '#ff9b9b' }}>{err}</p>}
+      {err && <p className="error-text">{err}</p>}
 
       <div className="kpi-grid mb-16">
         {[

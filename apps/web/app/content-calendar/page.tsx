@@ -199,7 +199,7 @@ export default function ContentCalendarPage() {
           </Card>
           <div style={{ display:'grid', gap:12 }}>
             {ideas.length === 0 && (
-              <div style={{ background: '#0D1117', border: '1px dashed #1C2333', borderRadius: 8, padding: 20, textAlign: 'center' }}>
+              <div style={{ background: 'var(--surface)', border: '1px dashed var(--border)', borderRadius: 8, padding: 20, textAlign: 'center' }}>
                 <div style={{ fontSize: 28, marginBottom: 8 }}>💡</div>
                 <div style={{ fontWeight: 600, marginBottom: 4 }}>No content ideas yet</div>
                 <div className="muted" style={{ fontSize: 13, marginBottom: 12 }}>
@@ -207,7 +207,7 @@ export default function ContentCalendarPage() {
                 </div>
               </div>
             )}
-            {ideas.map((i:any)=><div key={i.id} style={{ background:'#0D1117', border:'1px solid #1C2333', borderRadius:8, padding:16 }}>
+            {ideas.map((i:any)=><div key={i.id} style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:8, padding:16 }}>
               <div style={{display:'flex',justifyContent:'space-between'}}><Badge tone={i.platform==='LINKEDIN'?'violet':i.platform==='FACEBOOK'?'info':'default' as any}>{i.platform}</Badge><Badge tone={i.contentType==='Educational'?'info':i.contentType==='Social Proof'?'success':i.contentType==='Engagement'?'warning':'danger'}>{i.contentType}</Badge></div>
               <div style={{fontWeight:700, marginTop:8}}>{i.headline || i.angle}</div>
               <div style={{fontSize:10, fontFamily:'JetBrains Mono, monospace', color:'#7B8799'}}>From: {i.source}</div>
@@ -244,8 +244,8 @@ export default function ContentCalendarPage() {
 
       {composeIdea && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.7)', zIndex:7000, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
-          <div style={{ width:'100%', maxWidth:980, background:'#0D1117', border:'1px solid #1C2333', borderRadius:8, overflow:'hidden' }}>
-            <div style={{ padding:'14px 16px', borderBottom:'1px solid #1C2333' }}><strong>Post Composer</strong></div>
+          <div style={{ width:'100%', maxWidth:980, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:8, overflow:'hidden' }}>
+            <div style={{ padding:'14px 16px', borderBottom:'1px solid var(--border)' }}><strong>Post Composer</strong></div>
             <div style={{ padding:16, display:'grid', gridTemplateColumns:'1.3fr 1fr', gap:12 }}>
               <div style={{display:'grid',gap:8}}>
                 <div className="table-toolbar"><Button variant={compose.platform==='LINKEDIN'?'primary':'secondary'} onClick={()=>setCompose((c:any)=>({...c,platform:'LINKEDIN'}))}>LinkedIn</Button><Button variant={compose.platform==='FACEBOOK'?'primary':'secondary'} onClick={()=>setCompose((c:any)=>({...c,platform:'FACEBOOK'}))}>Facebook</Button><Button variant={compose.platform==='BOTH'?'primary':'secondary'} onClick={()=>setCompose((c:any)=>({...c,platform:'BOTH'}))}>Both</Button></div>
@@ -257,7 +257,7 @@ export default function ContentCalendarPage() {
               </div>
               <div className="ui-card" style={{padding:12}}><div className="muted">Preview</div><div style={{marginTop:8,whiteSpace:'pre-wrap'}}>{compose.content}</div></div>
             </div>
-            <div style={{ padding:'12px 16px', borderTop:'1px solid #1C2333', display:'flex', justifyContent:'flex-end', gap:8 }}><Button variant="secondary" onClick={()=>setComposeIdea(null)}>Cancel</Button><Button variant="primary" onClick={createPost}>Save to Calendar</Button></div>
+            <div style={{ padding:'12px 16px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'flex-end', gap:8 }}><Button variant="secondary" onClick={()=>setComposeIdea(null)}>Cancel</Button><Button variant="primary" onClick={createPost}>Save to Calendar</Button></div>
           </div>
         </div>
       )}

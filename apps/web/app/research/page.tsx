@@ -175,8 +175,8 @@ export default function ResearchPage() {
       </div>
 
       {selectedLead && (
-        <aside style={{ position: 'fixed', right: 0, top: 0, width: 'min(360px, 100vw)', height: '100dvh', background: '#0D1117', borderLeft: '1px solid #1C2333', zIndex: 9999, display: 'flex', flexDirection: 'column' }}>
-          <div style={{ flexShrink: 0, padding: 16, borderBottom: '1px solid #1C2333', display: 'flex', justifyContent: 'space-between' }}><strong>{selectedLead.companyName}</strong><Button variant="secondary" onClick={() => setSelectedLead(null)}>✕</Button></div>
+        <aside style={{ position: 'fixed', right: 0, top: 0, width: 'min(360px, 100vw)', height: '100dvh', background: 'var(--surface)', borderLeft: '1px solid var(--border)', zIndex: 9999, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ flexShrink: 0, padding: 16, borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between' }}><strong>{selectedLead.companyName}</strong><Button variant="secondary" onClick={() => setSelectedLead(null)}>✕</Button></div>
           <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: 16 }}>
             <div className="muted">Contact: {selectedLead.contactName || '—'}</div>
             <div className="muted">Email: {selectedLead.email || '—'}</div>

@@ -152,7 +152,7 @@ export default function ConnectionsPage() {
 
       <Card title="Provider Connections" subtitle="Account connection status and actions">
         {loading && <SkeletonRows rows={5} />}
-        {!!error && <p style={{ color: '#ff9b9b' }}>{error}</p>}
+        {!!error && <p className="error-text">{error}</p>}
         {!!infoMessage && <p className="muted">{infoMessage}</p>}
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>

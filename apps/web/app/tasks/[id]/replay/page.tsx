@@ -108,7 +108,7 @@ export default function TaskReplayPage({ params }: ReplayPageProps) {
       </Card>
 
       <Card title="Replay Timeline" subtitle={`Event count: ${timeline.length}`}>
-        {error && <p style={{ color: '#ff9b9b' }}>{error}</p>}
+        {error && <p className="error-text">{error}</p>}
 
         {!timeline.length ? (
           <p className="muted">No replay events found for this task yet.</p>

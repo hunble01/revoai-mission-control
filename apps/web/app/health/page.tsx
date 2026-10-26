@@ -35,7 +35,7 @@ export default function HealthPage() {
       {services.map((s: any) => {
         const st = String(s.status || 'Unknown');
         const tone: any = st.toLowerCase() === 'healthy' ? 'success' : st.toLowerCase() === 'degraded' ? 'warning' : st.toLowerCase() === 'down' ? 'danger' : 'default';
-        return <div key={s.name} style={{ background: '#0D1117', border: '1px solid #1C2333', borderLeft: `2px solid ${tone === 'success' ? '#10D68A' : tone === 'warning' ? '#F5A623' : tone === 'danger' ? '#FF5B7A' : '#7B8799'}`, borderRadius: 8, padding: 16 }}>
+        return <div key={s.name} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderLeft: `2px solid ${tone === 'success' ? '#10D68A' : tone === 'warning' ? '#F5A623' : tone === 'danger' ? '#FF5B7A' : '#7B8799'}`, borderRadius: 8, padding: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}><strong>{s.name}</strong><Badge tone={tone}>{st}</Badge></div>
           <div className="muted">{s.responseTime ? `${s.responseTime}ms` : '—'}</div>
           <div className="muted">Last checked: {s.lastChecked ? new Date(s.lastChecked).toLocaleString() : '—'}</div>

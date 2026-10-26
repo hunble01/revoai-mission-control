@@ -33,7 +33,7 @@ const sources: Array<{ key: SourceKey; name: string; description: string; needsK
 
 const inputStyle: React.CSSProperties = {
   background: '#0A0E17',
-  border: '1px solid #1C2333',
+  border: '1px solid var(--border)',
   borderRadius: 4,
   padding: '8px 12px',
   color: 'var(--text)',
@@ -95,7 +95,7 @@ function BtnAmber(props: any) {
 
 function Toggle({ on, onChange }: { on: boolean; onChange: () => void }) {
   return (
-    <button type="button" onClick={onChange} style={{ width: 40, height: 22, borderRadius: 11, border: '1px solid #243044', background: on ? '#00C9FF' : '#1C2333', position: 'relative', transition: 'all .2s ease' }}>
+    <button type="button" onClick={onChange} style={{ width: 40, height: 22, borderRadius: 11, border: '1px solid #243044', background: on ? '#00C9FF' : 'var(--border)', position: 'relative', transition: 'all .2s ease' }}>
       <span style={{ position: 'absolute', top: 1.5, left: on ? 20 : 2, width: 18, height: 18, borderRadius: 9, background: '#fff', transition: 'all .2s ease' }} />
     </button>
   );
@@ -109,7 +109,7 @@ function Section({ label, children }: any) {
   return (
     <div style={{ marginBottom: 8 }}>
       <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 9, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--text-dim)', marginBottom: 4 }}>{label}</div>
-      <div style={{ background: '#0A0E17', border: '1px solid #1C2333', borderRadius: 6, padding: 10 }}>{children}</div>
+      <div style={{ background: '#0A0E17', border: '1px solid var(--border)', borderRadius: 6, padding: 10 }}>{children}</div>
     </div>
   );
 }
@@ -539,8 +539,8 @@ export default function CampaignsPage() {
 
       {mounted && modalOpen && portalEl && createPortal(
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100dvh', background: 'rgba(0,0,0,0.8)', zIndex: 9999, display: 'flex', alignItems: 'stretch', justifyContent: 'center', padding: '16px', boxSizing: 'border-box', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', width: '100%', maxWidth: '760px', maxHeight: 'calc(100dvh - 32px)', margin: 'auto', background: '#0D1117', border: '1px solid #1C2333', borderRadius: '8px', overflow: 'hidden' }}>
-            <div style={{ flexShrink: 0, padding: '12px 16px 10px', borderBottom: '1px solid #1C2333' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', width: '100%', maxWidth: '760px', maxHeight: 'calc(100dvh - 32px)', margin: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', overflow: 'hidden' }}>
+            <div style={{ flexShrink: 0, padding: '12px 16px 10px', borderBottom: '1px solid var(--border)' }}>
               <div className="page-eyebrow">Campaign Setup</div>
               <div style={{ fontWeight: 600 }}>Step {currentStep} / 4</div>
             </div>
@@ -618,7 +618,7 @@ export default function CampaignsPage() {
                   {sources.map((s) => {
                     const wired = s.key === 'gmaps';
                     return (
-                      <div key={s.key} style={{ background: '#0A0E17', border: '1px solid #1C2333', borderRadius: 6, padding: 12, marginBottom: 10, opacity: wired ? 1 : 0.75 }}>
+                      <div key={s.key} style={{ background: '#0A0E17', border: '1px solid var(--border)', borderRadius: 6, padding: 12, marginBottom: 10, opacity: wired ? 1 : 0.75 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
                           <div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -726,7 +726,7 @@ export default function CampaignsPage() {
                   <Section label="FOLLOW-UP SEQUENCE">
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}><span>Enable follow-up sequence</span><Toggle on={form.messaging.followupEnabled} onChange={() => setForm((f: any) => ({ ...f, messaging: { ...f.messaging, followupEnabled: !f.messaging.followupEnabled } }))} /></div>
                     {form.messaging.followupEnabled && form.messaging.followups.map((fu: any, i: number) => (
-                      <div key={i} style={{ border: '1px solid #1C2333', borderLeft: i === 2 ? '3px solid #F5A623' : '1px solid #1C2333', borderRadius: 6, padding: 10, marginBottom: 8 }}>
+                      <div key={i} style={{ border: '1px solid var(--border)', borderLeft: i === 2 ? '3px solid #F5A623' : '1px solid var(--border)', borderRadius: 6, padding: 10, marginBottom: 8 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                           <strong>{i === 2 ? 'Breakup' : `Follow-up ${i + 1}`}</strong>
                           {i === 2 && <Badge tone="warning">Breakup message — final attempt</Badge>}
@@ -755,7 +755,7 @@ export default function CampaignsPage() {
               )}
             </div>
 
-            <div style={{ flexShrink: 0, padding: '10px 16px', borderTop: '1px solid #1C2333', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ flexShrink: 0, padding: '10px 16px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div className="muted">{currentStep} / 4</div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <BtnGhost onClick={() => setModalOpen(false)}>Cancel</BtnGhost>
@@ -770,8 +770,8 @@ export default function CampaignsPage() {
 
       {mounted && importModalOpen && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100dvh', background: 'rgba(0,0,0,0.8)', zIndex: 9999, display: 'flex', alignItems: 'stretch', justifyContent: 'center', padding: '16px', boxSizing: 'border-box', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', width: '100%', maxWidth: '680px', maxHeight: 'calc(100dvh - 32px)', margin: 'auto', background: '#0D1117', border: '1px solid #1C2333', borderRadius: '8px', overflow: 'hidden' }}>
-            <div style={{ flexShrink: 0, padding: '18px 24px 14px', borderBottom: '1px solid #1C2333' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', width: '100%', maxWidth: '680px', maxHeight: 'calc(100dvh - 32px)', margin: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', overflow: 'hidden' }}>
+            <div style={{ flexShrink: 0, padding: '18px 24px 14px', borderBottom: '1px solid var(--border)' }}>
               <div className="page-eyebrow">Import Leads</div>
               <div style={{ fontWeight: 600 }}>Step {importStep} / 3</div>
             </div>
@@ -810,7 +810,7 @@ export default function CampaignsPage() {
                 </div>
               )}
             </div>
-            <div style={{ flexShrink: 0, padding: '14px 24px', borderTop: '1px solid #1C2333', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ flexShrink: 0, padding: '14px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div className="muted">{importStep} / 3</div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <BtnGhost onClick={() => setImportModalOpen(false)}>Cancel</BtnGhost>
@@ -825,7 +825,7 @@ export default function CampaignsPage() {
 
       {schedulePopoverFor && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.6)', zIndex: 10000, padding: 16, display: 'flex', alignItems: 'stretch', justifyContent: 'center', overflowY: 'auto' }} onClick={() => setSchedulePopoverFor(null)}>
-          <div style={{ width: 'min(460px, calc(100vw - 32px))', maxHeight: 'calc(100dvh - 32px)', margin: 'auto', display: 'flex', flexDirection: 'column', border: '1px solid #1C2333', background: '#0D1117', borderRadius: 12, boxShadow: '0 20px 60px rgba(0,0,0,.5)', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
+          <div style={{ width: 'min(460px, calc(100vw - 32px))', maxHeight: 'calc(100dvh - 32px)', margin: 'auto', display: 'flex', flexDirection: 'column', border: '1px solid var(--border)', background: 'var(--surface)', borderRadius: 12, boxShadow: '0 20px 60px rgba(0,0,0,.5)', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 18 }}>
               <div className="page-eyebrow">⏰ Schedule Autorun</div>
               <h3 style={{ margin: '6px 0 4px' }}>{campaigns.find((c) => c.id === schedulePopoverFor)?.name || 'Campaign'}</h3>
@@ -856,7 +856,7 @@ export default function CampaignsPage() {
                 </div>
               )}
             </div>
-            <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'space-between', gap: 8, padding: '12px 18px', borderTop: '1px solid #1C2333', background: '#0D1117' }}>
+            <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'space-between', gap: 8, padding: '12px 18px', borderTop: '1px solid var(--border)', background: 'var(--surface)' }}>
               <BtnGhost
                 onClick={async () => {
                   const cid = schedulePopoverFor;
@@ -909,7 +909,7 @@ export default function CampaignsPage() {
 
       {confirmDelete && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.55)', display: 'grid', placeItems: 'center', zIndex: 10000 }}>
-          <div style={{ width: 'min(520px, calc(100vw - 32px))', padding: 14, border: '1px solid #1C2333', background: '#0D1117', borderRadius: 8 }}>
+          <div style={{ width: 'min(520px, calc(100vw - 32px))', padding: 14, border: '1px solid var(--border)', background: 'var(--surface)', borderRadius: 8 }}>
             <h4 style={{ margin: 0, marginBottom: 10 }}>Are you sure you want to delete this campaign? This cannot be undone.</h4>
             <div style={{ display: 'flex', justifyContent: 'end', gap: 8 }}>
               <BtnGhost onClick={() => setConfirmDelete(null)}>Cancel</BtnGhost>
@@ -921,7 +921,7 @@ export default function CampaignsPage() {
 
       {runPopoverFor && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.6)', zIndex: 10000, padding: 16, display: 'flex', alignItems: 'stretch', justifyContent: 'center', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }} onClick={() => setRunPopoverFor(null)}>
-          <div style={{ width: 'min(460px, calc(100vw - 32px))', maxHeight: 'calc(100dvh - 32px)', margin: 'auto', display: 'flex', flexDirection: 'column', border: '1px solid #1C2333', background: '#0D1117', borderRadius: 12, boxShadow: '0 20px 60px rgba(0,0,0,.5)', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
+          <div style={{ width: 'min(460px, calc(100vw - 32px))', maxHeight: 'calc(100dvh - 32px)', margin: 'auto', display: 'flex', flexDirection: 'column', border: '1px solid var(--border)', background: 'var(--surface)', borderRadius: 12, boxShadow: '0 20px 60px rgba(0,0,0,.5)', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
           <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: 18 }}>
             <div className="page-eyebrow">⚡ Run Campaign</div>
             <h3 style={{ margin: '6px 0 4px' }}>{campaigns.find((c) => c.id === runPopoverFor)?.name || 'Campaign'}</h3>
@@ -965,7 +965,7 @@ export default function CampaignsPage() {
             </div>
           </div>
 
-          <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '12px 18px', borderTop: '1px solid #1C2333', background: '#0D1117' }}>
+          <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '12px 18px', borderTop: '1px solid var(--border)', background: 'var(--surface)' }}>
             <BtnGhost onClick={() => setRunPopoverFor(null)}>Cancel</BtnGhost>
             <BtnPrimary onClick={() => {
               const cid = runPopoverFor;

@@ -240,7 +240,7 @@ export default function DraftsPage() {
               const preview = resolveContent(d);
 
               return (
-                <div key={d.id} className="ui-card" style={{ background: '#0D1117', border: '1px solid #1C2333', borderRadius: 8, padding: 16 }}>
+                <div key={d.id} className="ui-card" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: 16 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
                     <div>
                       <strong>{lead?.businessName || 'Unknown Business'} {lead?.contactName ? `• ${lead.contactName}` : ''}</strong>
@@ -309,8 +309,8 @@ export default function DraftsPage() {
 
       {showCompose && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.7)', zIndex: 7000, display: 'flex', alignItems: 'stretch', justifyContent: 'center', padding: 16, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
-          <div style={{ width: '100%', maxWidth: 680, maxHeight: 'calc(100dvh - 32px)', margin: 'auto', display: 'flex', flexDirection: 'column', background: '#0D1117', border: '1px solid #1C2333', borderRadius: 8, overflow: 'hidden' }}>
-            <div style={{ flexShrink: 0, padding: '14px 16px', borderBottom: '1px solid #1C2333' }}><strong>Compose Draft</strong></div>
+          <div style={{ width: '100%', maxWidth: 680, maxHeight: 'calc(100dvh - 32px)', margin: 'auto', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+            <div style={{ flexShrink: 0, padding: '14px 16px', borderBottom: '1px solid var(--border)' }}><strong>Compose Draft</strong></div>
             <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: 16, display: 'grid', gap: 10 }}>
               <select className="ui-input" value={compose.campaignId} onChange={(e) => setCompose((curr) => ({ ...curr, campaignId: e.target.value, leadId: '' }))}>
                 <option value="">Select Campaign</option>
@@ -328,7 +328,7 @@ export default function DraftsPage() {
               <textarea className="ui-input" rows={6} value={compose.content} onChange={(e) => setCompose((curr) => ({ ...curr, content: e.target.value }))} placeholder="Message body" />
               <p className="muted">This draft will be saved to Approvals (NEEDS_APPROVAL).</p>
             </div>
-            <div style={{ padding: '12px 16px', borderTop: '1px solid #1C2333', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               <Button variant="secondary" onClick={() => setShowCompose(false)}>Cancel</Button>
               <Button variant="primary" onClick={composeSave}>Save</Button>
             </div>

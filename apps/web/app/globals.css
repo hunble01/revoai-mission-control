@@ -1753,3 +1753,127 @@ body::before {
   outline-offset: 2px;
   border-radius: 8px;
 }
+
+/* ===== Nav v2 — icons + 7-group density (2026-10-25, revised) =====
+   The sidebar is a normal grid cell that scrolls WITH the page (no
+   independent overflow/sticky container) — that's what kept it in sync
+   with the main content and avoided a second, differently-styled
+   scrollbar. The brand header still visually anchors the top since the
+   page always loads scrolled to 0. */
+.nav-group { padding-top: 6px; }
+.nav-group + .nav-group {
+  margin-top: 4px;
+  border-top: 1px solid rgba(255,255,255,.05);
+}
+.nav-group-title { margin: 10px 16px 4px; }
+.sidebar-icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  color: #5B6B85;
+  flex-shrink: 0;
+  transition: color .15s ease;
+}
+.sidebar-link.active .sidebar-icon-wrap { color: var(--cyan); filter: drop-shadow(0 0 4px rgba(0,201,255,.5)); }
+.sidebar-link:hover .sidebar-icon-wrap { color: var(--text); }
+
+/* ===== Agents page — card accents + stat rows (2026-10-25) ===== */
+.agent-card { border-left: 2px solid transparent; }
+.agent-card-cyan { border-left-color: var(--cyan); }
+.agent-card-violet { border-left-color: var(--violet); }
+.agent-card-top {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.agent-stat-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  background: rgba(0,0,0,.18);
+  border-radius: 10px;
+  padding: 12px;
+  margin: 10px 0;
+}
+.agent-stat-value { font-size: 18px; font-weight: 700; }
+.agent-history-row {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255,255,255,.015);
+}
+
+/* ===== Board (kanban) — token-based columns + cards (2026-10-25) ===== */
+.board-cols { display: flex; flex-direction: row; gap: 12px; overflow-x: auto; }
+.board-col {
+  min-width: 260px;
+  max-width: 300px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  transition: border-color .15s ease, background .15s ease;
+}
+.board-col.drag-over { border-color: var(--cyan); background: rgba(0,201,255,.05); }
+.board-col-head {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.board-col-body { flex: 1; overflow-y: auto; padding: 8px; }
+.board-lead-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 8px;
+  cursor: grab;
+  transition: border-color .15s ease, opacity .15s ease, transform .15s ease;
+}
+.board-lead-card:hover { border-color: var(--border-hover); transform: translateY(-1px); }
+.board-lead-card.dragging { border-color: var(--cyan); opacity: .5; }
+
+/* ===== Help page — step cards + FAQ (2026-10-25) ===== */
+.help-steps { display: grid; gap: 10px; }
+.help-step-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 18px;
+  text-decoration: none;
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: 14px;
+  background:
+    radial-gradient(130% 110% at 0% 0%, rgba(0,201,255,.06), transparent 50%),
+    linear-gradient(180deg, #101724 0%, #0B111C 100%);
+  box-shadow: 0 10px 30px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.04);
+  transition: border-color .18s ease, transform .18s ease;
+}
+.help-step-card:hover { border-color: rgba(0,201,255,.22); transform: translateY(-1px); }
+.help-step-icon {
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  border-radius: 10px;
+  background: rgba(0,201,255,.1);
+  border: 1px solid rgba(0,201,255,.22);
+}
+.help-step-body { flex: 1; }
+.help-step-name { font-weight: 700; font-size: 14px; margin: 2px 0; }
+.help-step-arrow { color: var(--cyan); font-size: 18px; }

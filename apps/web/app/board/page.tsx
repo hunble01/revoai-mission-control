@@ -65,7 +65,7 @@ export default function BoardPage() {
         </select>
       </section>
 
-      <div style={{ display: 'flex', flexDirection: 'row', gap: 12, overflowX: 'auto', height: 'calc(100vh - 180px)' }}>
+      <div className="board-cols" style={{ height: 'calc(100vh - 180px)' }}>
         {COLUMNS.map((col) => {
           const rows = filtered.filter((l: any) => String(l.status || '').toUpperCase() === col.key);
           return (
@@ -74,13 +74,13 @@ export default function BoardPage() {
               onDragOver={(e) => { e.preventDefault(); setDragOver(col.key); }}
               onDragLeave={() => setDragOver(null)}
               onDrop={(e) => { e.preventDefault(); const id = e.dataTransfer.getData('text/plain'); setDragOver(null); setDragging(null); if (id) moveLead(id, col.key); }}
-              style={{ minWidth: 240, maxWidth: 280, background: dragOver === col.key ? 'rgba(0,201,255,0.04)' : '#0D1117', border: dragOver === col.key ? '1px solid #00C9FF' : '1px solid #1C2333', borderRadius: 8, display: 'flex', flexDirection: 'column' }}
+              className={`board-col${dragOver === col.key ? ' drag-over' : ''}`}
             >
-              <div style={{ padding: '12px 16px', borderBottom: '1px solid #1C2333', flexShrink: 0, display: 'flex', justifyContent: 'space-between' }}>
+              <div className="board-col-head">
                 <strong>{col.label}</strong>
                 <Badge tone={col.tone as any}>{rows.length}</Badge>
               </div>
-              <div style={{ flex: 1, overflowY: 'auto', padding: 8 }}>
+              <div className="board-col-body">
                 {rows.map((l: any) => {
                   const campaign = campaigns.find((c: any) => c.id === l.campaignId);
                   const days = Math.max(0, Math.floor((Date.now() - new Date(l.updatedAt || l.createdAt || Date.now()).getTime()) / 86400000));
@@ -90,7 +90,7 @@ export default function BoardPage() {
                       draggable
                       onDragStart={(e) => { setDragging(l.id); e.dataTransfer.setData('text/plain', l.id); }}
                       onDragEnd={() => setDragging(null)}
-                      style={{ background: '#111827', border: dragging === l.id ? '1px solid #00C9FF' : '1px solid #1C2333', opacity: dragging === l.id ? 0.5 : 1, borderRadius: 6, padding: 12, marginBottom: 8, cursor: 'grab' }}
+                      className={`board-lead-card${dragging === l.id ? ' dragging' : ''}`}
                     >
                       <div style={{ fontWeight: 700 }}>{l.businessName || 'Unknown'}</div>
                       <div className="muted">{l.contactName || '—'}</div>
@@ -104,6 +104,7 @@ export default function BoardPage() {
                     </div>
                   );
                 })}
+                {!rows.length && <div className="empty-state" style={{ padding: '24px 8px' }}><div className="empty-icon">📭</div>No leads here</div>}
               </div>
             </div>
           );

@@ -227,7 +227,7 @@ export default function ApprovalsPage() {
                 gap: 8,
                 padding: '8px 12px',
                 borderRadius: 8,
-                border: `1px solid ${active ? style.border : '#1C2333'}`,
+                border: `1px solid ${active ? style.border : 'var(--border)'}`,
                 background: active ? 'rgba(255,255,255,.02)' : 'transparent',
                 color: active ? style.color : '#9AA5B1',
                 cursor: 'pointer',
@@ -321,8 +321,8 @@ export default function ApprovalsPage() {
         <div
           className="ui-card"
           style={{
-            background: '#0D1117',
-            border: '1px solid #1C2333',
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
             borderRadius: 8,
             padding: '28px 16px',
             textAlign: 'center',
@@ -345,7 +345,7 @@ export default function ApprovalsPage() {
               .sort((a: any, b: any) => new Date(a?.createdAt || 0).getTime() - new Date(b?.createdAt || 0).getTime());
 
             return (
-              <div key={d.id} className="ui-card" style={{ background: '#0D1117', border: '1px solid #1C2333', borderRadius: 8, padding: 16 }}>
+              <div key={d.id} className="ui-card" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: 16 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
                   <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
                     <input
@@ -466,7 +466,7 @@ export default function ApprovalsPage() {
                 )}
 
                 {history.length > 0 && (
-                  <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px dashed #1C2333', display: 'grid', gap: 4 }}>
+                  <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px dashed var(--border)', display: 'grid', gap: 4 }}>
                     {history.map((h: any) => (
                       <div key={h.id || `${h.action}_${h.createdAt}`} style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: '#7B8799' }}>
                         ↩️ {String(h?.action || '').toUpperCase()} by admin — "{h?.notes || 'No note'}" — {h?.createdAt ? new Date(h.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown date'}

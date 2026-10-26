@@ -250,7 +250,7 @@ export default function SettingsPage() {
           {['email', 'facebook', 'instagram', 'linkedin'].map((k) => (
             <div key={k} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ textTransform: 'capitalize' }}>{k}</span>
-              <button onClick={() => setSafety((s: any) => ({ ...s, outboundKillSwitches: { ...(s.outboundKillSwitches || {}), [k]: !(s.outboundKillSwitches || {})[k] } }))} style={{ width: 40, height: 22, borderRadius: 999, border: '1px solid #1C2333', background: (safety.outboundKillSwitches || {})[k] ? 'rgba(255,91,122,.2)' : '#0D1117' }}>
+              <button onClick={() => setSafety((s: any) => ({ ...s, outboundKillSwitches: { ...(s.outboundKillSwitches || {}), [k]: !(s.outboundKillSwitches || {})[k] } }))} style={{ width: 40, height: 22, borderRadius: 999, border: '1px solid var(--border)', background: (safety.outboundKillSwitches || {})[k] ? 'rgba(255,91,122,.2)' : 'var(--surface)' }}>
                 <span style={{ display: 'block', width: 16, height: 16, borderRadius: 999, background: (safety.outboundKillSwitches || {})[k] ? '#FF5B7A' : '#7B8799', transform: `translateX(${(safety.outboundKillSwitches || {})[k] ? 16 : 0}px)`, transition: 'all .2s' }} />
               </button>
             </div>
@@ -270,7 +270,7 @@ export default function SettingsPage() {
           ].map(([k, label]) => (
             <div key={k} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span>{label}</span>
-              <button onClick={() => setCi((c: any) => ({ ...c, notifications: { ...(c.notifications || {}), [k]: !(c.notifications || {})[k] } }))} style={{ width: 40, height: 22, borderRadius: 999, border: '1px solid #1C2333', background: (ci.notifications || {})[k] ? 'rgba(0,201,255,.2)' : '#0D1117' }}>
+              <button onClick={() => setCi((c: any) => ({ ...c, notifications: { ...(c.notifications || {}), [k]: !(c.notifications || {})[k] } }))} style={{ width: 40, height: 22, borderRadius: 999, border: '1px solid var(--border)', background: (ci.notifications || {})[k] ? 'rgba(0,201,255,.2)' : 'var(--surface)' }}>
                 <span style={{ display: 'block', width: 16, height: 16, borderRadius: 999, background: (ci.notifications || {})[k] ? '#00C9FF' : '#7B8799', transform: `translateX(${(ci.notifications || {})[k] ? 16 : 0}px)`, transition: 'all .2s' }} />
               </button>
             </div>
