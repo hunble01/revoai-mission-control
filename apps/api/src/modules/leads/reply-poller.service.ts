@@ -199,8 +199,13 @@ export class ReplyPollerService implements OnModuleInit, OnModuleDestroy {
     const plain = body.match(/content-type:\s*text\/plain[^\n]*\n(?:[^\n]+\n)*?\r?\n([\s\S]*?)(?:\r?\n--[^\n]+|$)/i);
     if (plain) body = plain[1];
     if (/content-transfer-encoding:\s*quoted-printable/i.test(source)) {
-      body = body.replace(/=\r?\n/g, '').replace(/=([0-9A-F]{2})/gi, (_, h) => String.fromCharCode(parseInt(h, 16)));
+      // Decode =XX escapes as UTF-8 bytes, not one char per byte
+      body = Buffer.from(
+        body.replace(/=\r?\n/g, '').replace(/=([0-9A-F]{2})/gi, (_, h) => String.fromCharCode(parseInt(h, 16))),
+        'latin1',
+      ).toString('utf8');
     }
+    body = body.replace(/\r\n/g, '\n');
     const cut = body.search(/^(On .+wrote:|-{2,} ?Original Message|From: .+)$/im);
     if (cut > 0) body = body.slice(0, cut);
     return body
