@@ -5,6 +5,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { EventsService } from '../events/events.service';
 import { SettingsService } from '../settings/settings.service';
 import { UnsubscribeService } from '../unsubscribe/unsubscribe.service';
+import { coldFromAddress, coldMailerConfigured, newColdMessageId, sendColdEmail } from './cold-mailer';
 
 const allowedDraftTransitions: Record<string, string[]> = {
   DRAFT: [DraftStatus.NEEDS_APPROVAL],
@@ -56,6 +57,9 @@ function buildPlainText(body: string, b: BrandBlock): string {
     '----',
     `If you'd rather not hear from us: ${b.unsubscribeUrl}`,
   );
+  // CASL requires a valid mailing address in every commercial message.
+  const mailingAddress = String(process.env.COMPANY_MAILING_ADDRESS || '').trim();
+  if (mailingAddress) lines.push(`${b.senderCompany || 'RevoAI'} · ${mailingAddress}`);
   return lines.join('\n');
 }
 
@@ -346,6 +350,7 @@ function buildHtml(body: string, b: BrandBlock): string {
       <div style="letter-spacing:.24em;text-transform:uppercase;font-size:10px;color:#B89A6A;font-weight:600;margin-bottom:6px;font-family:-apple-system,BlinkMacSystemFont,Helvetica,sans-serif;">${escapeHtml(brandName)} · Launching 2026</div>
       <span style="font-style:italic;">You're hearing from us because we thought ${escapeHtml(brandName)} might be a fit for your business.</span>
       Prefer quiet? <a href="${unsubHref}" style="color:#5F7A4E;text-decoration:underline;">Unsubscribe here</a>.
+      ${String(process.env.COMPANY_MAILING_ADDRESS || '').trim() ? `<div style="margin-top:6px;">${escapeHtml(brandName)} · ${escapeHtml(String(process.env.COMPANY_MAILING_ADDRESS).trim())}</div>` : ''}
     </div>`;
 
   return `<!doctype html>
@@ -822,9 +827,49 @@ export class DraftsService {
     // API can't look up (404s).
     const useResendRest = smtpHost === 'smtp.resend.com' && smtpPass.startsWith('re_') && !!from;
 
+    // Cold mailbox path (preferred when configured). Follow-ups thread onto
+    // the earlier messages to this lead so they read as one conversation.
+    const useCold = coldMailerConfigured();
+    let coldMessageId: string | null = null;
+    let threadRefs: string[] = [];
+    if (useCold && draft.leadId) {
+      const prior = await this.prisma.outboundSend.findMany({
+        where: {
+          provider: 'EMAIL',
+          leadId: draft.leadId,
+          externalMessageId: { startsWith: '<' },
+          status: { notIn: ['transient_failure', 'permanent_failure', 'auth_error', 'provider_error', 'bounced'] },
+        },
+        orderBy: { sentAt: 'asc' },
+        select: { externalMessageId: true },
+      });
+      threadRefs = prior.map((p) => p.externalMessageId as string).filter(Boolean);
+    }
+
     while (attempts < maxAttempts) {
       attempts += 1;
       try {
+        if (useCold) {
+          coldMessageId = coldMessageId || newColdMessageId();
+          await sendColdEmail({
+            from: senderName ? `${senderName} <${coldFromAddress()}>` : coldFromAddress(),
+            to,
+            subject: subjectLine,
+            text: plainText,
+            messageId: coldMessageId,
+            inReplyTo: threadRefs[threadRefs.length - 1] || null,
+            references: threadRefs,
+            headers: {
+              'List-Unsubscribe': `<${unsubscribeUrl}>`,
+              'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+            },
+          });
+          messageId = coldMessageId;
+          sendStatus = 'sent';
+          sendError = null;
+          break;
+        }
+
         if (stubMode && !useSmtp && !useResendRest && (!providerSendUrl || !accessToken)) {
           messageId = `stub_email_${Date.now()}`;
           sendStatus = 'sent';

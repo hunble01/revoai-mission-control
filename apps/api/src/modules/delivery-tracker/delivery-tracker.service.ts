@@ -81,6 +81,9 @@ export class DeliveryTrackerService implements OnModuleInit, OnModuleDestroy {
       where: {
         provider: 'EMAIL',
         externalMessageId: { not: null },
+        // SMTP-style "<id@domain>" IDs (cold mailbox sends) aren't Resend
+        // emails — they're kept for threading + reply matching, never polled.
+        NOT: { externalMessageId: { startsWith: '<' } },
         sentAt: { gte: sevenDaysAgo },
         // terminal states — stop polling
         status: { notIn: ['bounced', 'complained', 'failed'] },
@@ -145,19 +148,13 @@ export class DeliveryTrackerService implements OnModuleInit, OnModuleDestroy {
             );
             summary.suppressed += 1;
           }
-        } else if (event === 'opened' || event === 'clicked') {
-          if (row.leadId) {
-            await this.prisma.lead.update({
-              where: { id: row.leadId },
-              data: { lastEngagementAt: new Date() },
-            });
-            // Clicked is strong intent — pause the sequence so we stop
-            // hammering them. Opened is soft signal; don't pause.
-            if (event === 'clicked') {
-              await this.followup.pauseSequence(row.leadId, 'clicked');
-              summary.paused += 1;
-            }
-          }
+        } else if (event === 'clicked' && row.leadId) {
+          // Clicked is strong intent — pause the sequence so we stop
+          // hammering them. Opens are ignored: Apple Mail privacy protection
+          // auto-"opens" most mail, and lastEngagementAt from an open would
+          // silently block every follow-up for that lead.
+          await this.followup.pauseSequence(row.leadId, 'clicked');
+          summary.paused += 1;
         }
 
         await this.events.publish({

@@ -16,6 +16,19 @@ export class UnsubscribeController {
     }
   }
 
+  // RFC 8058 one-click unsubscribe — what Gmail/Yahoo's "Unsubscribe" button
+  // POSTs to the List-Unsubscribe URL (we advertise this via the
+  // List-Unsubscribe-Post header on every send).
+  @Post('unsubscribe')
+  async unsubOneClick(@Query('e') email: string, @Query('t') token: string, @Res() res: any) {
+    try {
+      await this.svc.handleUnsubscribe(email, token);
+      res.status(200).json({ ok: true });
+    } catch (err: any) {
+      res.status(400).json({ ok: false, error: err?.message || 'Invalid link' });
+    }
+  }
+
   @Get('suppressions')
   async list(@Req() req: any, @Query('limit') limit?: string) {
     assertAdminToken(req);

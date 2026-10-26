@@ -185,7 +185,10 @@ export class SettingsService {
     const sentToday = await this.prisma.outboundSend.count({
       where: {
         provider: provider,
-        status: { equals: 'sent', mode: 'insensitive' },
+        // Count everything that actually went out today — the delivery
+        // tracker moves rows from 'sent' to delivered/opened/bounced within
+        // minutes, so counting only 'sent' let the cap leak.
+        status: { notIn: ['transient_failure', 'permanent_failure', 'auth_error', 'provider_error'] },
         sentAt: { gte: start, lt: end },
       } as any,
     });

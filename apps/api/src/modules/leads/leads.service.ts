@@ -6,6 +6,7 @@ import { UnsubscribeService } from '../unsubscribe/unsubscribe.service';
 import { Channel } from '@prisma/client';
 import Anthropic from '@anthropic-ai/sdk';
 import { findOwnerEmailWithHunter, isGenericEmail } from './hunter';
+import { clipAtWord, greetingNameFor, shortBusinessName } from './greeting';
 
 // ---- RevoAI brand context (mirrors REVOAI_PRODUCT_CONTEXT.md constraints) ----
 const REVOAI_SYSTEM_PROMPT = `You are the outbound copywriter for RevoAI, an AI receptionist for local service businesses.
@@ -201,12 +202,12 @@ async function generateOutreachCopyWithLLM(
     }
     return parts[0];
   };
-  const contactFirst = stripTitle(lead?.contactName || '');
+  const contactFirst = greetingNameFor(lead?.contactName) || stripTitle(lead?.contactName || '');
   // Pull enriched fields stashed by enrichLeadFromWebsite into sourceDetail JSON
   let enriched: any = {};
   try { enriched = JSON.parse(String(lead?.sourceDetail || '{}')); } catch { enriched = {}; }
   const leadBrief = [
-    `Business name: ${lead?.businessName || 'Unknown'}`,
+    `Business name: ${shortBusinessName(lead?.businessName) || 'Unknown'}`,
     lead?.niche ? `Industry/niche: ${lead.niche}` : null,
     lead?.region ? `Location: ${lead.region}` : null,
     contactFirst ? `Contact first name (use as greeting): ${contactFirst}` : `Contact first name: unknown — greet as "Hi there,"`,
@@ -266,10 +267,10 @@ Return only the JSON object.`;
       if (!retryParsed?.subject || !retryParsed?.body) return null;
       const retryCheck = violatesBrandRules(`${retryParsed.subject}\n${retryParsed.body}`);
       if (retryCheck.violates) return null;
-      return { subject: String(retryParsed.subject).slice(0, 60), content: String(retryParsed.body).trim() };
+      return { subject: clipAtWord(String(retryParsed.subject), 60), content: String(retryParsed.body).trim() };
     }
 
-    return { subject: String(parsed.subject).slice(0, 60), content: String(parsed.body).trim() };
+    return { subject: clipAtWord(String(parsed.subject), 60), content: String(parsed.body).trim() };
   } catch (err: any) {
     console.warn('[generateOutreachCopyWithLLM] falling back to template:', err?.message || err);
     return null;
@@ -290,8 +291,8 @@ function generateOutreachCopy(
   lead: any,
   brand: any,
 ): { subject: string; content: string } {
-  const contactName = String(lead?.contactName || '').trim().split(/\s+/)[0] || 'there';
-  const businessName = String(lead?.businessName || 'your business').trim();
+  const contactName = greetingNameFor(lead?.contactName) || 'there';
+  const businessName = shortBusinessName(lead?.businessName) || 'your business';
   const niche = String(lead?.niche || '').toLowerCase();
   const senderFirst = String(brand?.yourName || '').trim().split(/\s+/)[0] || 'Tony';
 
@@ -320,7 +321,7 @@ function generateOutreachCopy(
   })();
 
   if (channel === 'EMAIL') {
-    const subject = `Quick idea for ${businessName}`.slice(0, 50);
+    const subject = businessName.length <= 34 ? `Quick idea for ${businessName}` : 'Quick idea about your missed calls';
     const videoUrl = (process.env.DEMO_VIDEO_URL || '').trim();
     const demoLine = videoUrl
       ? `Here's a 90-second demo: ${videoUrl}`
@@ -336,7 +337,7 @@ function generateOutreachCopy(
       ``,
       `Plans start at $97/mo CAD (vs. $2,500+ for a human receptionist). 7-day free trial, 10-minute setup, no contract.`,
       ``,
-      demoLine,
+      demoLine || null,
       demoLine ? `` : null,
       `Take a look: https://revoai.ca/sign-up`,
       ``,

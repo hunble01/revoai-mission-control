@@ -1,7 +1,8 @@
 {
 	email admin@revoai.info
-	# Allow serving HTTP on specific sites without auto-redirect to HTTPS.
-	auto_https off
+	# Issue certs for named sites (app.revoai.info) but don't redirect the
+	# plain-HTTP :80 IP site to HTTPS.
+	auto_https disable_redirects
 }
 
 # Temporary: serve the app over plain HTTP on the VPS IP so phones on
