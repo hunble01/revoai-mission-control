@@ -60,25 +60,6 @@ export class ResearchService {
     return 'Low';
   }
 
-  private async discoverGeneric(params: SearchParams, source = 'WebScraper') {
-    const q = this.buildSearchQuery(params);
-    return {
-      rows: [
-        {
-          companyName: `${params.niche || 'Local'} Pro Services`,
-          contactName: 'Owner',
-          email: 'hello@example.com',
-          phone: '+1-416-555-0101',
-          linkedinUrl: 'https://www.linkedin.com/company/example',
-          sourceUrl: `https://www.google.com/search?q=${encodeURIComponent(q)}`,
-          sourceType: 'research_agent',
-          source,
-          region: params.geographyCity || null,
-        },
-      ],
-    };
-  }
-
   /**
    * Real Google Maps Places API (New) discovery.
    * Searches for local businesses matching the niche + city from SearchParams.
@@ -218,13 +199,6 @@ export class ResearchService {
           rows.push(...r.rows);
           used.push('Spreadsheet');
         }
-      } else if (key === 'apollo') {
-        if (!process.env.APOLLO_API_KEY) warnings.push('Apollo key missing');
-        else {
-          const r = await this.discoverGeneric(params, 'Apollo');
-          rows.push(...r.rows);
-          used.push('Apollo');
-        }
       } else if (key === 'gmaps') {
         const r = await this.discoverFromGoogleMaps(params);
         if (r.warning) warnings.push(r.warning);
@@ -232,23 +206,17 @@ export class ResearchService {
           rows.push(...r.rows);
           used.push('GoogleMaps');
         }
-      } else if (key === 'linkedin') {
-        const r = await this.discoverGeneric(params, 'LinkedIn');
-        rows.push(...r.rows);
-        used.push('LinkedIn');
-      } else if (key === 'web') {
-        const r = await this.discoverGeneric(params, 'WebScraper');
-        rows.push(...r.rows);
-        used.push('WebScraper');
+      } else if (key === 'apollo' || key === 'linkedin' || key === 'web') {
+        // No real integration exists for these sources. They used to return a
+        // placeholder business with hello@example.com, which then got drafted.
+        warnings.push(`${key}: discovery source not implemented — skipped`);
       }
     };
 
     for (const k of priority) await trySource(k);
-    if (!rows.length) {
-      const fallback = await this.discoverGeneric(params, 'WebScraper');
-      rows = fallback.rows;
-      used.push('WebScraper');
-    }
+    // No placeholder fallback: an empty result must surface as a warning,
+    // never as a fake lead that gets enriched and drafted.
+    if (!rows.length) warnings.push('No businesses found — check the warnings above (e.g. Google Maps key/permissions).');
 
     return { rows, used, warnings };
   }

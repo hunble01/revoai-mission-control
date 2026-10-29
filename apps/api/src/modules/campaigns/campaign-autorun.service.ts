@@ -88,6 +88,10 @@ export class CampaignAutorunService {
       const discoveredCount = Number(researchOut?.metadata?.counts?.leads || 0);
       summary.discovered = discoveredCount;
       await publish('stage1.research', { discovered: discoveredCount });
+      if (!discoveredCount) {
+        const warnings: string[] = researchOut?.metadata?.warnings || [];
+        throw new Error(`no businesses found${warnings.length ? `: ${warnings.join(' | ').slice(0, 300)}` : ''}`);
+      }
     } catch (err: any) {
       summary.errors.push(`research: ${err?.message || err}`);
       await publish('error', { stage: 'research', message: String(err?.message || err) });
