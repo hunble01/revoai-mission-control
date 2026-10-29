@@ -132,7 +132,7 @@ export class ContentService {
   private async generateIdeasWithLLM(): Promise<any[] | null> {
     const apiKey = (process.env.ANTHROPIC_API_KEY || '').trim();
     if (!apiKey) return null;
-    const model = (process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001').trim();
+    const model = (process.env.ANTHROPIC_MODEL || 'claude-haiku-5-5').trim();
     const ctx = await this.buildContext();
 
     const userMsg = [
@@ -150,7 +150,8 @@ export class ContentService {
       const client = new Anthropic({ apiKey });
       const resp = await client.messages.create({
         model,
-        max_tokens: 2200,
+        max_tokens: 4000,
+        output_config: { effort: 'low' },
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: userMsg }],
       });
@@ -227,7 +228,7 @@ export class ContentService {
 
     const apiKey = (process.env.ANTHROPIC_API_KEY || '').trim();
     if (!apiKey) return { ok: false, error: 'ANTHROPIC_API_KEY not configured' };
-    const model = (process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001').trim();
+    const model = (process.env.ANTHROPIC_MODEL || 'claude-haiku-5-5').trim();
     const ctx = await this.buildContext();
 
     const userMsg = [
@@ -245,7 +246,8 @@ export class ContentService {
       const client = new Anthropic({ apiKey });
       const resp = await client.messages.create({
         model,
-        max_tokens: 1500,
+        max_tokens: 3000,
+        output_config: { effort: 'low' },
         system: RENDER_ALL_PROMPT,
         messages: [{ role: 'user', content: userMsg }],
       });
@@ -314,7 +316,7 @@ export class ContentService {
   async suggestHashtags(body: string, niche?: string) {
     const apiKey = (process.env.ANTHROPIC_API_KEY || '').trim();
     if (!apiKey) return { ok: false, error: 'ANTHROPIC_API_KEY not configured', hashtags: [] };
-    const model = (process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001').trim();
+    const model = (process.env.ANTHROPIC_MODEL || 'claude-haiku-5-5').trim();
 
     const ctx = await this.buildContext();
     const effectiveNiche = String(niche || ctx.niche || 'local services').trim();
@@ -323,7 +325,8 @@ export class ContentService {
       const client = new Anthropic({ apiKey });
       const resp = await client.messages.create({
         model,
-        max_tokens: 400,
+        max_tokens: 2000,
+        output_config: { effort: 'low' },
         system: HASHTAG_PROMPT,
         messages: [{
           role: 'user',
@@ -372,7 +375,7 @@ export class ContentService {
       : (ANGLE_INSTRUCTIONS[opts.angle] || ANGLE_INSTRUCTIONS.feature);
 
     const ctx = await this.buildContext();
-    const model = (process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001').trim();
+    const model = (process.env.ANTHROPIC_MODEL || 'claude-haiku-5-5').trim();
 
     const systemPrompt = REVOAI_PRODUCT_PROMPT
       .replace('{ANGLE_INSTRUCTION}', angleInstruction)
@@ -394,7 +397,8 @@ export class ContentService {
       const client = new Anthropic({ apiKey });
       const resp = await client.messages.create({
         model,
-        max_tokens: 800,
+        max_tokens: 2000,
+        output_config: { effort: 'low' },
         system: systemPrompt,
         messages: [{ role: 'user', content: userMsg }],
       });

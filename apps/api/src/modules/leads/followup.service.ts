@@ -228,14 +228,15 @@ export class FollowUpService implements OnModuleInit, OnModuleDestroy {
     ].filter(Boolean).join('\n');
 
     const client = new Anthropic({ apiKey });
-    const model = (process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001').trim();
+    const model = (process.env.ANTHROPIC_DRAFT_MODEL || process.env.ANTHROPIC_MODEL || 'claude-haiku-5-5').trim();
 
     let content: string;
     let subject: string;
     try {
       const resp = await client.messages.create({
         model,
-        max_tokens: 500,
+        max_tokens: 2000,
+        output_config: { effort: 'low' },
         system: FOLLOWUP_SYSTEM_PROMPTS[stage],
         messages: [{ role: 'user', content: userPrompt }],
       });

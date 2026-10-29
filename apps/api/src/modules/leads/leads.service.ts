@@ -41,6 +41,8 @@ EMAIL REQUIREMENTS:
 - 4–8 sentences TOTAL (not counting greeting/signoff)
 - Subject line under 50 characters, no clickbait, no ALL CAPS
 - Structure: (1) personalized opener referencing their specific business, (2) niche-specific pain, (3) one paragraph on what RevoAI does for them, (4) pricing sentence, (5) single soft CTA with the sign-up URL, (6) one-line signoff
+- In part (3), mention only the 2–3 capabilities that matter most to this business, not the full product list
+- Separate each part with a blank line; never write the email as one block of text
 - Include a "Take a look: https://revoai.ca/sign-up" CTA on its own line
 - End with "— {senderFirstName}"
 
@@ -153,10 +155,11 @@ async function enrichLeadFromWebsite(lead: any): Promise<{
 
   try {
     const client = new Anthropic({ apiKey });
-    const model = (process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001').trim();
+    const model = (process.env.ANTHROPIC_MODEL || 'claude-haiku-5-5').trim();
     const resp = await client.messages.create({
       model,
-      max_tokens: 400,
+      max_tokens: 2000,
+      output_config: { effort: 'low' },
       system: ENRICH_SYSTEM_PROMPT,
       messages: [
         {
@@ -196,7 +199,7 @@ async function generateOutreachCopyWithLLM(
   if (!apiKey || channel !== 'EMAIL') return null; // only EMAIL for now; LinkedIn/FB keep templates
 
   const client = new Anthropic({ apiKey });
-  const model = (process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001').trim();
+  const model = (process.env.ANTHROPIC_DRAFT_MODEL || process.env.ANTHROPIC_MODEL || 'claude-haiku-5-5').trim();
 
   const senderFirst = String(brand?.yourName || '').trim().split(/\s+/)[0] || 'Tony';
   // Strip common honorifics so "Dr. Sarah Chen" → "Sarah", not "Dr."
@@ -238,7 +241,8 @@ Return only the JSON object.`;
   try {
     const resp = await client.messages.create({
       model,
-      max_tokens: 800,
+      max_tokens: 2000,
+      output_config: { effort: 'low' },
       system: REVOAI_SYSTEM_PROMPT,
       messages: [{ role: 'user', content: userPrompt }],
     });
@@ -259,7 +263,8 @@ Return only the JSON object.`;
       // One retry with stricter instruction
       const retry = await client.messages.create({
         model,
-        max_tokens: 800,
+        max_tokens: 2000,
+        output_config: { effort: 'low' },
         system: REVOAI_SYSTEM_PROMPT,
         messages: [
           { role: 'user', content: userPrompt },
@@ -552,7 +557,7 @@ export class LeadsService {
     const apiKey = (process.env.ANTHROPIC_API_KEY || '').trim();
     if (!apiKey) throw new BadRequestException('ANTHROPIC_API_KEY not configured');
 
-    const model = (process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001').trim();
+    const model = (process.env.ANTHROPIC_DRAFT_MODEL || process.env.ANTHROPIC_MODEL || 'claude-haiku-5-5').trim();
     const brand = await this.prisma.brandSettings.findUnique({ where: { id: 'default' } });
     const senderName = brand?.yourName || 'Michael';
     const senderCompany = brand?.companyName || 'RevoAI';
@@ -598,7 +603,8 @@ Voice rules for suggestedResponse:
       const client = new Anthropic({ apiKey });
       const resp = await client.messages.create({
         model,
-        max_tokens: 800,
+        max_tokens: 2000,
+        output_config: { effort: 'low' },
         system: systemPrompt,
         messages: [{ role: 'user', content: userMessage }],
       });
@@ -737,7 +743,7 @@ Voice rules for suggestedResponse:
 
     let body = '';
     if (apiKey) {
-      const model = (process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001').trim();
+      const model = (process.env.ANTHROPIC_DRAFT_MODEL || process.env.ANTHROPIC_MODEL || 'claude-haiku-5-5').trim();
       const stripTitle = (s: string) => {
         const parts = String(s || '').trim().split(/\s+/).filter(Boolean);
         if (!parts.length) return '';
@@ -774,7 +780,8 @@ Return STRICT JSON: {"messageBody": "<the DM, 2-3 sentences, signed>"}`;
         const client = new Anthropic({ apiKey });
         const resp = await client.messages.create({
           model,
-          max_tokens: 350,
+          max_tokens: 2000,
+          output_config: { effort: 'low' },
           system: systemPrompt,
           messages: [{ role: 'user', content: userMsg }],
         });

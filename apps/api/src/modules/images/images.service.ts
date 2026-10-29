@@ -37,7 +37,7 @@ export class ImagesService {
     if (!apiKey) return trimmed.slice(0, 300);
 
     const Anthropic = (await import('@anthropic-ai/sdk')).default;
-    const model = (process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001').trim();
+    const model = (process.env.ANTHROPIC_MODEL || 'claude-haiku-5-5').trim();
 
     const systemPrompt = `Turn a short social post into a vivid image-generation prompt for DALL-E 3. Output a single sentence describing the visual: subject, composition, lighting, mood, style. RevoAI brand cues: warm, professional, calm, botanical/organic — not aggressive SaaS bro. Avoid stock-photo cliches. No text in the image. No people's faces unless the post explicitly references one. Platform: ${platform || 'social'}. Return only the prompt sentence — no preamble, no quotes.`;
 
@@ -45,7 +45,8 @@ export class ImagesService {
       const client = new Anthropic({ apiKey });
       const resp = await client.messages.create({
         model,
-        max_tokens: 200,
+        max_tokens: 2000,
+        output_config: { effort: 'low' },
         system: systemPrompt,
         messages: [{ role: 'user', content: `Post body:\n${trimmed.slice(0, 1500)}\n\nReturn the image prompt now.` }],
       });

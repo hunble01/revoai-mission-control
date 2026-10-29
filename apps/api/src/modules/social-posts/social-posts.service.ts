@@ -233,7 +233,7 @@ export class SocialPostsService {
     if (!apiKey) return { ok: false, issues: [] };
 
     const Anthropic = (await import('@anthropic-ai/sdk')).default;
-    const model = (process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001').trim();
+    const model = (process.env.ANTHROPIC_MODEL || 'claude-haiku-5-5').trim();
 
     const systemPrompt = `You are a copy editor reviewing a social post draft for RevoAI (AI receptionist for local service businesses, $97/mo CAD, 10-min setup, 7-day trial). Focus only on what would hurt the post.
 
@@ -262,7 +262,8 @@ Empty array {"issues":[]} if the post is clean. Don't invent problems.`;
       const client = new Anthropic({ apiKey });
       const resp = await client.messages.create({
         model,
-        max_tokens: 800,
+        max_tokens: 2000,
+        output_config: { effort: 'low' },
         system: systemPrompt,
         messages: [{ role: 'user', content: `Platform: ${channel || 'unknown'}\n\nDraft:\n---\n${text.slice(0, 3000)}\n---\n\nReturn the JSON now.` }],
       });
@@ -342,7 +343,7 @@ Empty array {"issues":[]} if the post is clean. Don't invent problems.`;
     if (!apiKey) return { ok: false, variants: [] };
 
     const Anthropic = (await import('@anthropic-ai/sdk')).default;
-    const model = (process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001').trim();
+    const model = (process.env.ANTHROPIC_MODEL || 'claude-haiku-5-5').trim();
 
     const systemPrompt = `Rewrite the social post 3 different ways. Keep the same core message and constraints but vary the angle, opening line, and rhythm. Each variant should feel different.
 
@@ -358,7 +359,8 @@ Return STRICT JSON: {"variants":["<variant 1>","<variant 2>","<variant 3>"]}. No
       const client = new Anthropic({ apiKey });
       const resp = await client.messages.create({
         model,
-        max_tokens: 1500,
+        max_tokens: 3000,
+        output_config: { effort: 'low' },
         system: systemPrompt,
         messages: [{ role: 'user', content: `Original post:\n---\n${String(body || '').slice(0, 2000)}\n---\n\nReturn the JSON now.` }],
       });

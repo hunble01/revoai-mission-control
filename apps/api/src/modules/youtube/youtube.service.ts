@@ -175,13 +175,14 @@ export class YoutubeService {
   async generateVideoIdea(format: 'short' | 'long' = 'short') {
     const apiKey = (process.env.ANTHROPIC_API_KEY || '').trim();
     if (!apiKey) throw new BadRequestException('ANTHROPIC_API_KEY not configured');
-    const model = (process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001').trim();
+    const model = (process.env.ANTHROPIC_MODEL || 'claude-haiku-5-5').trim();
 
     try {
       const client = new Anthropic({ apiKey });
       const resp = await client.messages.create({
         model,
-        max_tokens: 1500,
+        max_tokens: 3000,
+        output_config: { effort: 'low' },
         system: VIDEO_IDEA_PROMPT,
         messages: [{ role: 'user', content: `Format: ${format}. Return the JSON now.` }],
       });

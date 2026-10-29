@@ -61,7 +61,7 @@ export class SocialReplyService {
     const apiKey = (process.env.ANTHROPIC_API_KEY || '').trim();
     if (!apiKey) throw new BadRequestException('ANTHROPIC_API_KEY not configured');
 
-    const model = (process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001').trim();
+    const model = (process.env.ANTHROPIC_MODEL || 'claude-haiku-5-5').trim();
     const brand = await this.prisma.brandSettings.findUnique({ where: { id: 'default' } });
     const senderName = brand?.yourName || 'Michael';
     const senderCompany = brand?.companyName || 'RevoAI';
@@ -97,7 +97,8 @@ Voice rules for suggestedResponse:
       const client = new Anthropic({ apiKey });
       const resp = await client.messages.create({
         model,
-        max_tokens: 700,
+        max_tokens: 2000,
+        output_config: { effort: 'low' },
         system: systemPrompt,
         messages: [{ role: 'user', content: userMsg }],
       });

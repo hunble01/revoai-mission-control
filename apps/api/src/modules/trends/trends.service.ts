@@ -162,7 +162,7 @@ export class TrendsService {
 
     const apiKey = (process.env.ANTHROPIC_API_KEY || '').trim();
     if (!apiKey) throw new BadRequestException('ANTHROPIC_API_KEY not configured');
-    const model = (process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001').trim();
+    const model = (process.env.ANTHROPIC_MODEL || 'claude-haiku-5-5').trim();
 
     const lengthHint = ch === 'LINKEDIN' ? '250-350 chars' : ch === 'FACEBOOK' ? '200-300 chars' : ch === 'INSTAGRAM' ? '150-250 chars' : '60-120 chars (YouTube short hook)';
 
@@ -182,7 +182,8 @@ export class TrendsService {
       const client = new Anthropic({ apiKey });
       const resp = await client.messages.create({
         model,
-        max_tokens: 700,
+        max_tokens: 2000,
+        output_config: { effort: 'low' },
         system: TREND_POST_PROMPT,
         messages: [{ role: 'user', content: userMsg }],
       });
